@@ -7,10 +7,10 @@ function Chicken({
   isDead = false, 
   currentMultiplier, 
   showMultiplier = true,
-  className = "w-16 h-16 object-contain drop-shadow-md"
+  className = "object-contain drop-shadow-md"
 }) {
   return (
-    <div className="relative w-24 h-24 flex items-center justify-center">
+    <div className="relative flex items-center justify-center">
       {/* Chicken image */}
       <img
         src={isDead ? deadChickenImage : chickenImage}

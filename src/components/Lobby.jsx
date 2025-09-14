@@ -1,22 +1,66 @@
 import React, { useState, useEffect } from 'react'
 import { useGetUserInfo } from '../utils/getUserinfo'
+import { gameApi, generateClientSeed } from '../utils/gameApi'
 import { FaCoins } from 'react-icons/fa'
 import logoImage from '../assets/logo.png'
 import deadChickenImage from '../assets/chickendead.png'
 import Lane from './Lane'
+import RoadDisplay from './RoadDisplay'
 
-const INITIAL_MULTIPLIERS = [1.01, 1.03, 1.06, 1.1, 1.15, 1.2, 1.25, 1.3, 1.4, 1.5, 1.6, 1.75, 1.9, 2.0, 2.2, 2.5, 3.0] 
+// Difficulty configurations from server - no API requests needed
+const DIFFICULTY_CONFIGS = {
+  easy: {
+    name: "Easy Mode",
+    lanes: 30,
+    startingMultiplier: 1.01,
+    maxMultiplier: 100,
+    houseEdge: 28.01,
+    multipliers: [1.01, 1.03, 1.06, 1.1, 1.15, 1.2, 1.25, 1.3, 1.4, 1.5, 1.6, 1.75, 1.9, 2.0, 2.2, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 100.0]
+  },
+  medium: {
+    name: "Medium Mode", 
+    lanes: 25,
+    startingMultiplier: 1.08,
+    maxMultiplier: 500,
+    houseEdge: 52.88,
+    multipliers: [1.08, 1.15, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.0, 3.2, 3.4, 3.6, 4.0, 500.0]
+  },
+  hard: {
+    name: "Hard Mode",
+    lanes: 22, 
+    startingMultiplier: 1.18,
+    maxMultiplier: 1000,
+    houseEdge: 69.24,
+    multipliers: [1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.0, 3.2, 3.4, 1000.0]
+  },
+  extreme: {
+    name: "Extreme Mode",
+    lanes: 18,
+    startingMultiplier: 1.44, 
+    maxMultiplier: 3608855,
+    houseEdge: 83.01,
+    multipliers: [1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15, 3.5, 3.9, 4.35, 4.85, 5.4, 6.0, 6.7, 3608855.0]
+  }
+}
+
+const INITIAL_MULTIPLIERS = DIFFICULTY_CONFIGS.easy.multipliers 
  
 function Chicken() {
   const [token, setToken] = useState(null)
   const [gameState, setGameState] = useState({
     balance: 0,
-    betAmount: 0.5,
-    difficulty: 0,
+    betAmount: 10,
+    difficulty: 'easy',
   })
 
+  // Game states
+  const [difficulties, setDifficulties] = useState(DIFFICULTY_CONFIGS)
+  const [currentGame, setCurrentGame] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [gameResult, setGameResult] = useState(null)
+
   // Lane movement state
-  const [currentLaneIndex, setCurrentLaneIndex] = useState(0)
+  const [currentLaneIndex, setCurrentLaneIndex] = useState(0) // Start at lane 0 (sidewalk)
   const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
   const [currentMultipliers, setCurrentMultipliers] = useState(INITIAL_MULTIPLIERS) // Dynamic multipliers array
   
@@ -26,7 +70,7 @@ function Chicken() {
   const [isDead, setIsDead] = useState(false) // Track if chicken is dead (crashed)
   
   // Range display state
-  const [windowSize, setWindowSize] = useState(5) // Number of lanes to show at once
+  const [windowSize, setWindowSize] = useState(7) // Number of lanes to show at once
  
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false)
@@ -34,7 +78,7 @@ function Chicken() {
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [musicEnabled, setMusicEnabled] = useState(false)
 
-  // Token handling and user info
+  // Handle token
   useEffect(() => {
     // Extract token from URL parameters
     const params = new URLSearchParams(window.location.search)
@@ -65,14 +109,86 @@ function Chicken() {
     }
   }, [userInfo])
 
+  // Update multipliers when difficulty changes
+  useEffect(() => {
+    const config = DIFFICULTY_CONFIGS[gameState.difficulty]
+    if (config) {
+      setCurrentMultipliers(config.multipliers)
+    }
+  }, [gameState.difficulty])
+
+
+  // Start a new game
+  const startNewGame = async () => {
+    try {
+      setIsPlaying(true)
+      setGameResult(null)
+      setCurrentLaneIndex(0)
+      setMovedLanes([0])
+      setGameEnded(false)
+      setIsDead(false)
+
+      const result = await gameApi.playGame(
+        gameState.difficulty,
+        gameState.betAmount,
+        userInfo?.id || 'guest'
+      )
+
+      setCurrentGame(result)
+      setGameResult(result)
+      
+      // Update multipliers based on difficulty (using local config)
+      const config = DIFFICULTY_CONFIGS[gameState.difficulty]
+      if (config) {
+        setCurrentMultipliers(config.multipliers)
+        setCrashIndex(result.fallStep + 1) // Set crash point from server
+      }
+
+      console.log('Game started:', result)
+    } catch (error) {
+      console.error('Failed to start game:', error)
+      setIsPlaying(false)
+    }
+  }
+
+  // Calculate dynamic range based on current chicken position
+  const calculateDynamicRange = () => {
+    const totalLanes = currentMultipliers.length
+    const halfWindow = Math.floor(windowSize / 2) // 3 lanes on each side
+    
+    // For the first few lanes, show from the beginning
+    if (currentLaneIndex <= halfWindow) {
+      return { start: 0, end: Math.min(windowSize - 1, totalLanes - 1) }
+    }
+    
+    // For lanes near the end, show the last 7 lanes
+    if (currentLaneIndex >= totalLanes - halfWindow - 1) {
+      return { start: Math.max(0, totalLanes - windowSize), end: totalLanes - 1 }
+    }
+    
+    // Center the window around the current chicken position
+    const start = currentLaneIndex - halfWindow
+    const end = start + windowSize - 1
+    
+    return { start, end }
+  }
+
+  // Get multipliers for display within the dynamic range
+  const getAllMultipliers = () => {
+    const range = calculateDynamicRange()
+    return currentMultipliers.slice(range.start, range.end + 1)
+  }
 
   // Function to move chicken to next lane
   const moveToNextLane = () => {
-    // Check if next move would trigger crash
+    if (!currentGame || gameEnded) return
+
+    // Check if next move would trigger crash (hidden from user)
     const nextIndex = currentLaneIndex + 1
     if (nextIndex >= crashIndex) {
       setGameEnded(true)
       setIsDead(true) // Set chicken as dead when it crashes
+      setIsPlaying(false)
       console.log(`Chicken crashed at index ${nextIndex}! Target was ${crashIndex}`)
       return
     }
@@ -107,28 +223,17 @@ function Chicken() {
     }
   }
 
-
-  // Calculate dynamic range based on current chicken position
-  const calculateDynamicRange = () => {
-    const totalLanes = currentMultipliers.length
-    const halfWindow = Math.floor(windowSize / 2)
+  // Cash out function
+  const cashOut = () => {
+    if (!currentGame || gameEnded || !isPlaying) return
     
-    // Center the window around the current chicken position
-    let start = Math.max(0, currentLaneIndex - halfWindow)
-    let end = Math.min(totalLanes - 1, start + windowSize - 1)
+    const currentMultiplier = currentMultipliers[currentLaneIndex]
+    const winAmount = gameState.betAmount * currentMultiplier
     
-    // Adjust start if we're near the end
-    if (end === totalLanes - 1) {
-      start = Math.max(0, end - windowSize + 1)
-    }
-    
-    return { start, end }
-  }
-
-  // Get multipliers for display within the dynamic range
-  const getAllMultipliers = () => {
-    const range = calculateDynamicRange()
-    return currentMultipliers.slice(range.start, range.end + 1)
+    console.log(`Cashed out at ${currentMultiplier}x for ${winAmount}`)
+    setIsPlaying(false)
+    setGameEnded(true)
+    // Update balance here
   }
 
   // Reset game function
@@ -143,137 +248,211 @@ function Chicken() {
 
 
   return (
-    <div className="min-h-screen bg-gray-800 text-white">
-      {/* Game Header */}
-      <header className="bg-gray-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img
-            src={logoImage}
-            alt="Chicken Road Logo"
-            className="h-8 w-auto"
-          />
-        </div>
-
+    <div className="h-screen bg-gray-800 text-white flex flex-col">
+      {/* Header - Matching Image Design */}
+      <header className="bg-black px-6 py-4 flex items-center justify-between">
+        {/* Left side - Logo and Game Title */}
         <div className="flex items-center gap-4">
-          {userInfo ? (
-            <div className="px-4 py-2 rounded flex items-center gap-2">
-              <FaCoins className="text-[#A78BFA] text-md" />
-              <span className="text-md font-bold">
-                {gameState.balance.toLocaleString("en-US", { minimumFractionDigits: 1 })}
-              </span>
-              <span className="text-sm">ETB</span>  
-            </div>
-          ) : (
-            <div className="bg-gray-700 px-4 py-2 rounded flex items-center gap-2">
-              <div className="animate-pulse">
-                <div className="h-5 w-20 bg-gray-600 rounded"></div>
-              </div>
-            </div>
-          )}
+          <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center">
+            <span className="text-white font-bold text-lg">H</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold">CHICKEN ROAD</span>
+            <span className="text-2xl font-bold text-red-500">🐔</span>
+            <span className="text-2xl font-bold">2</span>
+          </div>
+        </div>
+        
+        {/* Right side - Balance and Controls */}
+        <div className="flex items-center gap-4">
+          {/* Wallet Icon with Balance */}
+          <div className="flex items-center gap-2 bg-yellow-500 px-3 py-1 rounded">
+            <span className="text-black font-bold">💰</span>
+            <span className="text-black font-bold">{userInfo?.balance || 42}</span>
+          </div>
+          
+          {/* Deposit Button */}
+          <button className="bg-yellow-500 text-black px-4 py-2 rounded font-bold hover:bg-yellow-400 transition-colors">
+            Deposit
+          </button>
+          
+          {/* Gift Box Icon */}
+          <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+            <span className="text-white">🎁</span>
+          </div>
+          
+          {/* Balance Display */}
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{userInfo?.balance || 42}.00 ETB</span>
+          </div>
+          
+          {/* Menu and Chat Icons */}
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center hover:bg-gray-500"
           >
             <span className="text-sm">☰</span>
           </button>
+          <button className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center hover:bg-gray-500">
+            <span className="text-sm">💬</span>
+          </button>
         </div>
       </header>
 
-      {/* Main Game Container */}
-      <div className="max-w-6xl mx-auto ">
-        <div className="grid grid-cols-1 lg:grid-cols-3">
-          {/* Game Area */}
-          <div className="lg:col-span-2">
-            <div className="relative bg-gray-600 rounded-lg overflow-hidden">
-              {/* Lane component with dynamic range */}
-              <Lane
-                remainingMultipliers={getAllMultipliers()}
-                currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                globalCurrentIndex={currentLaneIndex}
-                globalDisplayStart={calculateDynamicRange().start}
-                isDead={isDead || currentLaneIndex >= crashIndex - 1}
-                crashIndex={crashIndex}
-                shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
-                gameEnded={gameEnded}
-              />
+      {/* Main Game Area - Full Width */}
+      <div className="flex-1 flex flex-col">
+        {/* Game Area - Lane Display */}
+        <div className="flex-1 relative bg-gray-900 min-h-0">
+          {/* Lane component with dynamic range */}
+          <Lane
+            remainingMultipliers={getAllMultipliers()}
+            currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+            displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+            globalCurrentIndex={currentLaneIndex}
+            globalDisplayStart={calculateDynamicRange().start}
+            isDead={gameEnded && currentLaneIndex >= crashIndex - 1}
+            crashIndex={crashIndex}
+            shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
+            gameEnded={gameEnded}
+          />
+        </div>
+      </div>
+
+      {/* Betting Controls - Bottom Panel - Matching Image Design */}
+      <div className="bg-gray-700 p-6">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-6">
+          {/* Bet Amount Input with +/- Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setGameState(prev => ({...prev, betAmount: Math.max(1, prev.betAmount - 1)}))}
+              disabled={isPlaying || gameState.betAmount <= 1}
+              className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="text-white font-bold">-</span>
+            </button>
+            
+            <div className="bg-gray-800 rounded-lg px-4 py-2 text-center min-w-[80px]">
+              <span className="text-white font-bold">{gameState.betAmount.toFixed(2)}</span>
+            </div>
+            
+            <button
+              onClick={() => setGameState(prev => ({...prev, betAmount: Math.min(1000, prev.betAmount + 1)}))}
+              disabled={isPlaying || gameState.betAmount >= 1000}
+              className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="text-white font-bold">+</span>
+            </button>
+            
+            {/* Settings Gear Icon */}
+            <button className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-500 ml-2">
+              <span className="text-white">⚙️</span>
+            </button>
+          </div>
+
+          {/* Difficulty Selection */}
+          <div className="flex-1 flex flex-col items-center">
+            <label className="text-white font-medium mb-3">
+              Difficulty
+            </label>
+            <div className="flex gap-2">
+              {difficulties && Object.entries(difficulties).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() => setGameState(prev => ({...prev, difficulty: key}))}
+                  disabled={isPlaying}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    gameState.difficulty === key 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-600 text-white hover:bg-gray-500'
+                  } ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-bold text-sm">{config.name}</div>
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-white mt-2">
+              Select your risk level
             </div>
           </div>
 
-
-       {/* Lane position indicator */}
-       <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-3 py-1 rounded text-sm">
-                Lane {currentLaneIndex + 1} of {currentMultipliers.length}
-              </div>
-
-          {/* Crash Index Control */}
-          <div className="bg-gray-700 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-300">
-                Crash Index: {crashIndex}
-              </label>
-              <span className="text-xs text-gray-400">
-                Multiplier: {INITIAL_MULTIPLIERS[crashIndex]?.toFixed(2)}x
-              </span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max={INITIAL_MULTIPLIERS.length - 1}
-              value={crashIndex}
-              onChange={(e) => setCrashIndex(parseInt(e.target.value))}
-              disabled={gameEnded}
-              className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-              style={{
-                background: `linear-gradient(to right, #10B981 0%, #10B981 ${(crashIndex / (INITIAL_MULTIPLIERS.length - 1)) * 100}%, #374151 ${(crashIndex / (INITIAL_MULTIPLIERS.length - 1)) * 100}%, #374151 100%)`
-              }}
-            />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>1.01x</span>
-              <span>{INITIAL_MULTIPLIERS[INITIAL_MULTIPLIERS.length - 1].toFixed(2)}x</span>
-            </div>
-          </div>
-
-          {/* Game Status */}
-          {gameEnded && (
-            <div className="bg-red-600 rounded-lg p-4 mb-4 text-center">
-              <div className="text-lg font-bold mb-2">💥 CRASH!</div>
-              <div className="text-sm">
-                Chicken crashed at lane {currentLaneIndex + 1} (Target: {crashIndex + 1})
-              </div>
-              <div className="text-sm">
-                Final Multiplier: {currentMultipliers[currentLaneIndex]?.toFixed(2)}x
-              </div>
-            </div>
-          )}
-
-          {/* Control Buttons */}
-          <div className="p-4 flex justify-center gap-4">
-            {!gameEnded ? (
+          {/* Play Button - Right Side */}
+          <div className="flex items-center">
+            {!isPlaying && !gameEnded ? (
               <button 
-                onClick={moveToNextLane}
-                disabled={currentLaneIndex >= currentMultipliers.length - 1 || currentLaneIndex >= crashIndex - 1}
-                className={`font-bold py-3 px-8 rounded-lg transition-colors ${
-                  currentLaneIndex >= currentMultipliers.length - 1 || currentLaneIndex >= crashIndex - 1
-                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
+                onClick={startNewGame}
+                disabled={!difficulties}
+                className="font-bold py-4 px-12 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed text-xl"
               >
-                {currentLaneIndex >= currentMultipliers.length - 1 ? 'Max Lane' : 
-                 currentLaneIndex >= crashIndex - 1 ? 'Will Crash!' : 'Next'}
+                Play
               </button>
+            ) : isPlaying && !gameEnded ? (
+              <div className="flex gap-3">
+                <button 
+                  onClick={cashOut}
+                  className="font-bold py-3 px-6 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
+                >
+                  Cash Out
+                </button>
+                <button 
+                  onClick={moveToNextLane}
+                  disabled={currentLaneIndex >= currentMultipliers.length - 1}
+                  className={`font-bold py-3 px-6 rounded-lg transition-colors ${
+                    currentLaneIndex >= currentMultipliers.length - 1
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {currentLaneIndex >= currentMultipliers.length - 1 ? 'Max Lane' : 'Next'}
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={resetGame}
-                className="font-bold py-3 px-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                className="font-bold py-4 px-12 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors text-xl"
               >
-                Reset Game
+                Play
               </button>
             )}
           </div>
-
         </div>
       </div>
+
+      {/* Game Status Overlay */}
+      {gameEnded && gameResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-red-600 rounded-lg p-6 text-center max-w-md mx-4">
+            <div className="text-2xl font-bold mb-3">💥 CRASH!</div>
+            <div className="text-lg mb-2">
+              Chicken crashed at lane {gameResult.fallStep + 1}
+            </div>
+            <div className="text-lg mb-2">
+              Final Multiplier: {gameResult.crashMultiplier?.toFixed(2)}x
+            </div>
+            <div className="text-sm mb-4 opacity-75">
+              House Edge: {gameResult.houseEdge?.toFixed(1)}% | RTP: {gameResult.rtp}%
+            </div>
+            <button 
+              onClick={resetGame}
+              className="bg-white text-red-600 px-6 py-2 rounded font-bold hover:bg-gray-100"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Game Result Info - Bottom Right */}
+      {gameResult && !gameEnded && (
+        <div className="fixed bottom-20 right-4 bg-gray-800 rounded-lg p-3 max-w-xs z-40">
+          <div className="text-sm font-medium text-gray-300 mb-2">🔐 Provably Fair</div>
+          <div className="text-xs text-gray-400 space-y-1">
+            <div>Client Seed: {gameResult.clientSeed?.substring(0, 12)}...</div>
+            <div>Nonce: {gameResult.nonce}</div>
+            <div>Hash: {gameResult.hash?.substring(0, 12)}...</div>
+            <div>Difficulty: {gameResult.difficulty}</div>
+          </div>
+        </div>
+      )}
 
       {/* Menu Overlay */}
       {showMenu && (

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Road 2 - Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; background: #333; border-radius: 8px; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        button { padding: 10px 20px; margin: 5px; background: #4ade80; color: black; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #22c55e; }
+        .result { margin: 10px 0; padding: 10px; background: #444; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐔 Chicken Road 2 - Integration Test</h1>
+        
+        <div class="test-section">
+            <h2>1. Test Server Connection</h2>
+            <button onclick="testConnection()">Test API Connection</button>
+            <div id="connection-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Test Difficulties API</h2>
+            <button onclick="testDifficulties()">Get Difficulties</button>
+            <div id="difficulties-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Test Play Game</h2>
+            <button onclick="testPlayGame()">Play Test Game</button>
+            <div id="play-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Test Multiple Games</h2>
+            <button onclick="testMultipleGames()">Play 5 Games</button>
+            <div id="multiple-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001';
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connection-result');
+            try {
+                const response = await fetch(`${API_URL}/difficulties`);
+                if (response.ok) {
+                    resultDiv.innerHTML = '<span class="success">✅ Server is running and responding!</span>';
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Server responded with status: ${response.status}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Connection failed: ${error.message}</span>`;
+            }
+        }
+
+        async function testDifficulties() {
+            const resultDiv = document.getElementById('difficulties-result');
+            try {
+                const response = await fetch(`${API_URL}/difficulties`);
+                const data = await response.json();
+                
+                let html = '<span class="success">✅ Difficulties loaded successfully:</span><br>';
+                Object.entries(data).forEach(([key, config]) => {
+                    html += `<div style="margin: 5px 0;">• ${config.name}: ${config.houseEdge?.toFixed(1)}% house edge, ${config.lanes} lanes</div>`;
+                });
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Failed to load difficulties: ${error.message}</span>`;
+            }
+        }
+
+        async function testPlayGame() {
+            const resultDiv = document.getElementById('play-result');
+            try {
+                const response = await fetch(`${API_URL}/play`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientSeed: `test_${Date.now()}`,
+                        difficulty: 'easy',
+                        playerId: 'test_player',
+                        betAmount: 10
+                    })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<span class="success">✅ Game played successfully:</span><br>';
+                html += `<div>• Difficulty: ${data.difficulty}</div>`;
+                html += `<div>• Crash Lane: ${data.fallStep + 1}</div>`;
+                html += `<div>• Multiplier: ${data.crashMultiplier?.toFixed(2)}x</div>`;
+                html += `<div>• House Edge: ${data.houseEdge?.toFixed(1)}%</div>`;
+                html += `<div>• Client Seed: ${data.clientSeed}</div>`;
+                html += `<div>• Hash: ${data.hash?.substring(0, 16)}...</div>`;
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Failed to play game: ${error.message}</span>`;
+            }
+        }
+
+        async function testMultipleGames() {
+            const resultDiv = document.getElementById('multiple-result');
+            resultDiv.innerHTML = '<span>🔄 Playing 5 test games...</span>';
+            
+            try {
+                const results = [];
+                for (let i = 0; i < 5; i++) {
+                    const response = await fetch(`${API_URL}/play`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            clientSeed: `test_${Date.now()}_${i}`,
+                            difficulty: 'easy',
+                            playerId: 'test_player',
+                            betAmount: 10
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    results.push(data);
+                }
+                
+                let html = '<span class="success">✅ Played 5 games successfully:</span><br>';
+                results.forEach((game, i) => {
+                    html += `<div style="margin: 5px 0;">Game ${i + 1}: Crashed at lane ${game.fallStep + 1}, ${game.crashMultiplier?.toFixed(2)}x</div>`;
+                });
+                
+                const avgCrash = results.reduce((sum, game) => sum + (game.fallStep + 1), 0) / results.length;
+                const avgMultiplier = results.reduce((sum, game) => sum + game.crashMultiplier, 0) / results.length;
+                
+                html += `<div style="margin-top: 10px; font-weight: bold;">Average: Lane ${avgCrash.toFixed(1)}, ${avgMultiplier.toFixed(2)}x multiplier</div>`;
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Failed to play multiple games: ${error.message}</span>`;
+            }
+        }
+
+        // Auto-test connection on page load
+        window.onload = () => {
+            testConnection();
+        };
+    </script>
+</body>
+</html>

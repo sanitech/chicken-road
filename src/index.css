@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Car animation styles */
+@keyframes car-move {
+  0% {
+    transform: translateY(-100px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(600px);
+    opacity: 1;
+  }
+}
+
+@keyframes car-disappear {
+  0% {
+    opacity: 1;
+    transform: translateY(600px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(600px) scale(0.5);
+  }
+}
+
+.animate-car-move {
+  animation: car-move 4s linear forwards;
+}
+
+.animate-car-disappear {
+  animation: car-disappear 0.5s ease-out forwards;
+}
+
+/* Continuous car movement for future lanes */
+@keyframes car-move-continuous {
+  0% {
+    transform: translateY(-25px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(256px);
+    opacity: 1;
+  }
+}
+
+.animate-car-move-continuous {
+  animation: car-move-continuous 4s linear infinite;
+}
+
 /* Add this to your existing styles */
 .animate-gradient-xy {
   background: linear-gradient(115deg, transparent, transparent, rgba(59,130,246,0.2), transparent, transparent);
@@ -80,11 +127,11 @@
 /* Car animation styles */
 @keyframes car-move {
   0% {
-    transform: translateY(-25px);
+    transform: translateY(-100px);
     opacity: 1;
   }
   100% {
-    transform: translateY(256px);
+    transform: translateY(600px);
     opacity: 1;
   }
 }
@@ -92,16 +139,16 @@
 @keyframes car-disappear {
   0% {
     opacity: 1;
-    transform: translateY(256px) scale(1);
+    transform: translateY(600px) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateY(256px) scale(0.5);
+    transform: translateY(600px) scale(0.5);
   }
 }
 
 .animate-car-move {
-  animation: car-move 3s ease-in-out forwards;
+  animation: car-move 4s linear forwards;
 }
 
 .animate-car-disappear {
@@ -121,5 +168,5 @@
 }
 
 .animate-car-move-continuous {
-  animation: car-move-continuous 3s ease-in-out infinite;
+  animation: car-move-continuous 4s linear infinite;
 }
