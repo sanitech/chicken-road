@@ -6,7 +6,7 @@ import Chicken from './Chicken'
 import Car from './Car'
 
 // DelayedCar component to handle car timing
-function DelayedCar({ delay, left, isAnimating = false, isContinuous = false }) {
+const DelayedCar = ({ delay, left, isAnimating = false, isContinuous = false, hasBlocker = false }) => {
     const [shouldAnimate, setShouldAnimate] = useState(false)
 
     useEffect(() => {
@@ -19,24 +19,40 @@ function DelayedCar({ delay, left, isAnimating = false, isContinuous = false }) 
     }, [isAnimating, delay])
 
     return (
-        <div
-            className="absolute top-0 transform -translate-x-1/2"
+        <div 
+            className="absolute top-0 transform -translate-x-1/2" 
             style={{ left }}
         >
             <Car 
                 isAnimating={shouldAnimate}
                 isContinuous={isContinuous}
+                hasBlocker={hasBlocker}
                 onAnimationComplete={() => {}}
             />
         </div>
     )
 }
 
-function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, isDead = false, crashIndex, shouldAnimateCar = false, gameEnded = false }) {
+const Lane = ({ 
+    remainingMultipliers, 
+    currentIndex, 
+    globalCurrentIndex, 
+    globalDisplayStart, 
+    isDead = false, 
+    crashIndex, 
+    shouldAnimateCar = false, 
+    gameEnded = false,
+    betAmount = 10
+}) => {
     const [carAnimationState, setCarAnimationState] = useState({
         isAnimating: false,
         hasCompleted: false
     })
+
+    // Calculate cash amount for each multiplier
+    const calculateCashAmount = (multiplier) => {
+        return (betAmount * multiplier).toFixed(2)
+    }
 
     // Trigger car animation when chicken reaches crash position
     useEffect(() => {
@@ -48,14 +64,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         }
     }, [shouldAnimateCar, carAnimationState.hasCompleted])
 
-    const handleCarAnimationComplete = () => {
-        setCarAnimationState({
-            isAnimating: false,
-            hasCompleted: true
-        })
-    }
-
-    // Generate moving cars for future lanes only (not completed or current lanes)
+    // Generate moving cars for future lanes
     const generateMovingCars = () => {
         const movingCars = []
         
@@ -65,18 +74,33 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             const isCompleted = globalIndex < globalCurrentIndex
             const isFutureLane = globalIndex > globalCurrentIndex
             
-            // Only add cars to future lanes (lanes the chicken hasn't reached yet)
+            // Only add cars to future lanes (not current or completed)
             if (isFutureLane && !isCurrentLane && globalIndex > 0) {
                 // Calculate delay based on distance from current lane
                 const distanceFromCurrent = Math.abs(globalIndex - globalCurrentIndex)
-                // Random delay between 2000ms and 5000ms for more realistic timing
-                const baseDelay = Math.random() * 3000 + 2000
-                const delay = baseDelay + (distanceFromCurrent * 1000) // 1000ms delay per lane distance
+                const baseDelay = Math.random() * 3000 + 2000 // 2-5 seconds
+                const delay = baseDelay + (distanceFromCurrent * 1000) // +1000ms per lane
                 
                 movingCars.push({
                     globalIndex,
                     localIndex: index,
-                    delay: delay
+                    delay: delay,
+                    hasBlocker: false // Cars in future lanes don't have blockers yet
+                })
+            }
+            
+            // Add cars to completed lanes that will stop at blockers
+            if (isCompleted && globalIndex > 0) {
+                // Calculate delay based on distance from current lane
+                const distanceFromCurrent = Math.abs(globalIndex - globalCurrentIndex)
+                const baseDelay = Math.random() * 2000 + 1000 // 1-3 seconds for completed lanes
+                const delay = baseDelay + (distanceFromCurrent * 500) // +500ms per lane
+                
+                movingCars.push({
+                    globalIndex,
+                    localIndex: index,
+                    delay: delay,
+                    hasBlocker: true // Cars in completed lanes will stop at blockers
                 })
             }
         })
@@ -85,9 +109,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     }
     
     return (
-        <div className="relative w-full h-full bg-gray-700 overflow-hidden">
-            {/* Lane background */}
+        <div className="relative w-full h-full road-surface overflow-hidden">
+            {/* Lane background with enhanced styling */}
             <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-800"></div>
+            
+            {/* Sidewalk area */}
+            <div className="absolute left-0 top-0 w-16 h-full sidewalk"></div>
 
             {/* Lane markers/segments */}
             <div className="absolute inset-0 flex">
@@ -100,7 +127,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     return (
                         <div
                             key={globalIndex}
-                            className={`flex-1 border-r-2 border-dashed border-gray-500 relative bg-gray-600 ${
+                            className={`flex-1 road-lane relative ${
                                 (isCompleted || isCurrent || isFuture) && globalIndex > 0 ? 'shadow-inner' : ''
                             }`}
                             style={{
@@ -108,12 +135,23 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 backgroundSize: '60%',
                                 backgroundRepeat: 'no-repeat',
                                 backgroundPosition: 'center bottom',
-                                opacity: (globalIndex === 4 && (isCurrent || isFuture)) ? 0.8 : 1
                             }}
                         >
-                            {/* Show blockers only on completed lanes */}
+                            {/* Chicken in current lane */}
+                            {isCurrent && (
+                                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2">
+                                    <Chicken
+                                        isDead={isDead}
+                                        currentMultiplier={multiplier}
+                                        showMultiplier={true}
+                                        className="object-contain drop-shadow-md"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Blocker for completed lanes */}
                             {isCompleted && globalIndex > 0 && (
-                                <div className="absolute top-0 left-0 right-0 h-8 flex items-center justify-center">
+                                <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
                                     <img
                                         src={blockerImage}
                                         alt="Blocker"
@@ -125,8 +163,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             {/* Multiplier text overlay */}
                             {(isCompleted || isFuture) && globalIndex > 0 && (
                                 <div className="absolute inset-0 flex items-end justify-center pb-8">
-                                    <div className="bg-black bg-opacity-60 rounded-lg px-2 py-1 border border-gray-400">
-                                        <span className="text-white font-bold text-sm drop-shadow-lg">
+                                    <div className="multiplier-display rounded-lg px-3 py-2">
+                                        <span className="text-white font-bold text-sm text-glow">
                                             {multiplier.toFixed(2)}x
                                         </span>
                                     </div>
@@ -137,31 +175,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 })}
             </div>
 
-            {/* Chicken position indicator - only show if chicken is in visible range */}
-            {currentIndex >= 0 && currentIndex < remainingMultipliers.length && (
-                <div
-                    className="absolute bottom-16 transform -translate-x-1/2 transition-all duration-300 ease-in-out"
-                    style={{
-                        left: `${((currentIndex + 0.5) / remainingMultipliers.length) * 100}%`
-                    }}
-                >
-                    <Chicken 
-                        isDead={isDead}
-                        currentMultiplier={currentIndex > 0 ? remainingMultipliers[currentIndex] : null}
-                        showMultiplier={currentIndex > 0}
-                    />
-                </div>
-            )}
-
-
-            {/* Moving cars for future lanes without blockers */}
+            {/* Moving cars for all lanes */}
             {generateMovingCars().map((car, carIndex) => (
                 <DelayedCar
                     key={`moving-car-${car.globalIndex}`}
                     delay={car.delay}
                     left={`${((car.localIndex + 0.5) / remainingMultipliers.length) * 100}%`}
                     isAnimating={true}
-                    isContinuous={true}
+                    isContinuous={!car.hasBlocker}
+                    hasBlocker={car.hasBlocker}
                 />
             ))}
 

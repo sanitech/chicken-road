@@ -223,17 +223,27 @@ function Chicken() {
     }
   }
 
+  // Calculate potential winnings for each multiplier
+  const calculateWinnings = (multiplier) => {
+    return gameState.betAmount * multiplier
+  }
+
   // Cash out function
   const cashOut = () => {
     if (!currentGame || gameEnded || !isPlaying) return
     
     const currentMultiplier = currentMultipliers[currentLaneIndex]
-    const winAmount = gameState.betAmount * currentMultiplier
+    const winAmount = calculateWinnings(currentMultiplier)
     
     console.log(`Cashed out at ${currentMultiplier}x for ${winAmount}`)
     setIsPlaying(false)
     setGameEnded(true)
-    // Update balance here
+    
+    // Update balance with winnings
+    setGameState(prev => ({
+      ...prev,
+      balance: prev.balance + winAmount
+    }))
   }
 
   // Reset game function
@@ -248,43 +258,25 @@ function Chicken() {
 
 
   return (
-    <div className="h-screen bg-gray-800 text-white flex flex-col">
+    <div className="h-screen game-container text-white flex flex-col">
       {/* Header - Matching Image Design */}
-      <header className="bg-black px-6 py-4 flex items-center justify-between">
+      <header className="game-header px-6 py-4 flex items-center justify-between">
         {/* Left side - Logo and Game Title */}
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center">
-            <span className="text-white font-bold text-lg">H</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold">CHICKEN ROAD</span>
-            <span className="text-2xl font-bold text-red-500">🐔</span>
-            <span className="text-2xl font-bold">2</span>
-          </div>
+          <div className="w-40">
+            <img 
+              src={logoImage} 
+              alt="Chicken Road 2 Logo" 
+              className="object-contain"
+            />
         </div>
         
         {/* Right side - Balance and Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {/* Wallet Icon with Balance */}
-          <div className="flex items-center gap-2 bg-yellow-500 px-3 py-1 rounded">
-            <span className="text-black font-bold">💰</span>
-            <span className="text-black font-bold">{userInfo?.balance || 42}</span>
+          <div className="flex items-center gap-2 px-3">
+            <span className="text-white font-bold text-lg">{userInfo?.balance || 42} <span className='text-green-500'>ETB</span> </span>
           </div>
-          
-          {/* Deposit Button */}
-          <button className="bg-yellow-500 text-black px-4 py-2 rounded font-bold hover:bg-yellow-400 transition-colors">
-            Deposit
-          </button>
-          
-          {/* Gift Box Icon */}
-          <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
-            <span className="text-white">🎁</span>
-          </div>
-          
-          {/* Balance Display */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{userInfo?.balance || 42}.00 ETB</span>
-          </div>
+     
           
           {/* Menu and Chat Icons */}
           <button
@@ -293,9 +285,7 @@ function Chicken() {
           >
             <span className="text-sm">☰</span>
           </button>
-          <button className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center hover:bg-gray-500">
-            <span className="text-sm">💬</span>
-          </button>
+        
         </div>
       </header>
 
@@ -314,12 +304,13 @@ function Chicken() {
             crashIndex={crashIndex}
             shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
             gameEnded={gameEnded}
+            betAmount={gameState.betAmount}
           />
         </div>
       </div>
 
       {/* Betting Controls - Bottom Panel - Matching Image Design */}
-      <div className="bg-gray-700 p-6">
+      <div className="control-panel p-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-6">
           {/* Bet Amount Input with +/- Buttons */}
           <div className="flex items-center gap-2">
@@ -360,10 +351,8 @@ function Chicken() {
                   key={key}
                   onClick={() => setGameState(prev => ({...prev, difficulty: key}))}
                   disabled={isPlaying}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    gameState.difficulty === key 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-600 text-white hover:bg-gray-500'
+                  className={`px-4 py-2 rounded-lg font-medium difficulty-button ${
+                    gameState.difficulty === key ? 'active' : ''
                   } ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="font-bold text-sm">{config.name}</div>
@@ -381,7 +370,7 @@ function Chicken() {
               <button 
                 onClick={startNewGame}
                 disabled={!difficulties}
-                className="font-bold py-4 px-12 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed text-xl"
+                className="font-bold py-4 px-12 rounded-lg game-button text-white disabled:bg-gray-500 disabled:cursor-not-allowed text-xl"
               >
                 Play
               </button>
@@ -389,9 +378,12 @@ function Chicken() {
               <div className="flex gap-3">
                 <button 
                   onClick={cashOut}
-                  className="font-bold py-3 px-6 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
+                  className="font-bold py-3 px-6 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-colors flex flex-col items-center"
                 >
-                  Cash Out
+                  <span className="text-sm">CASH OUT</span>
+                  <span className="text-xs font-medium">
+                    ${calculateWinnings(currentMultipliers[currentLaneIndex] || 1).toFixed(2)}
+                  </span>
                 </button>
                 <button 
                   onClick={moveToNextLane}
@@ -408,7 +400,7 @@ function Chicken() {
             ) : (
               <button 
                 onClick={resetGame}
-                className="font-bold py-4 px-12 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors text-xl"
+                className="font-bold py-4 px-12 rounded-lg game-button text-white text-xl"
               >
                 Play
               </button>

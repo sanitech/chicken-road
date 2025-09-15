@@ -1,20 +1,28 @@
-import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom"; 
+import React, { useState, useEffect } from "react";
 import Loading from "./components/Loading";
-import Chicken from "./components/Lobby"; 
-import Lane from "./components/Lane";
-import Car from "./components/Car"; 
+import Lobby from "./components/Lobby"; 
+
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleLoadingComplete = () => {
+    setIsLoading(false);
+  };
+
+  // Auto-loading simulation
+  useEffect(() => {
+    // Optional: You can add actual loading logic here
+    // For now, the Loading component handles its own timing
+  }, []);
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Chicken />} /> 
-        <Route path="/loading" element={<Loading />} />  
-        <Route path="/chicken" element={<Chicken />} /> 
-        <Route path="/lane" element={<Lane />} />
-        <Route path="/car" element={<Car />} /> 
-      </Routes>
-    </Router>
+    <div className="App">
+      {isLoading ? (
+        <Loading onLoadingComplete={handleLoadingComplete} />
+      ) : (
+        <Lobby />
+      )}
+    </div>
   );
 }
 
