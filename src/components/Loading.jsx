@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from "react"; 
 import heroImage from '../assets/hero-img.png';
+import { useGetUserInfo } from "../utils/getUserinfo";
 
 const Loading = ({ onLoadingComplete }) => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token") || localStorage.getItem("chicknroad");
+  
+  // Store token if found in URL
+  useEffect(() => {
+    const urlToken = params.get("token");
+    if (urlToken) {
+      localStorage.setItem("chicknroad", urlToken);
+    }
+  }, []);
+  
+  const { userInfo, isLoading } = useGetUserInfo(token);
 
   const completeLoading = () => {
     setIsVisible(false);
@@ -13,23 +26,23 @@ const Loading = ({ onLoadingComplete }) => {
   };
 
   useEffect(() => {
-    // Simulate loading progress
+    // Simulate loading progress while fetching user info
     const progressInterval = setInterval(() => {
-      setLoadingProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          // Fade out after loading completes
-          setTimeout(() => {
-            completeLoading();
-          }, 500);
-          return 100;
-        }
-        return prev + Math.random() * 15; // Random progress increments
-      });
+      setLoadingProgress(prev => Math.min(99, prev + Math.random() * 15));
     }, 100);
 
     return () => clearInterval(progressInterval);
   }, [onLoadingComplete]);
+
+  // When user info finishes loading, complete overlay
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingProgress(100);
+      setTimeout(() => {
+        completeLoading();
+      }, 300);
+    }
+  }, [isLoading]);
 
   if (!isVisible) return null;
 

@@ -18,20 +18,63 @@ body {
 
 /* Road styling enhancements */
 .road-surface {
-  background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
+  background: #706B69;
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
 .road-lane {
-  background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
-  border-right: 2px dashed rgba(255, 255, 255, 0.2);
+  background: #706B69;
+  border-right: 2px dashed rgba(255, 255, 255, 0.4);
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.road-lane::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 3px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.8) 0px,
+    rgba(255, 255, 255, 0.8) 15px,
+    transparent 15px,
+    transparent 30px
+  );
+}
+
+.road-lane:last-child::after {
+  display: none;
 }
 
 /* Sidewalk styling */
 .sidewalk {
   background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
   box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.sidewalk::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 2px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.sidewalk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.3;
 }
 
 /* Manhole cover styling */
@@ -49,7 +92,24 @@ body {
   box-shadow: 
     0 4px 15px rgba(16, 185, 129, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.game-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.game-button:hover::before {
+  left: 100%;
 }
 
 .game-button:hover {
@@ -57,7 +117,7 @@ body {
   box-shadow: 
     0 6px 20px rgba(16, 185, 129, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .game-button:active {
@@ -73,12 +133,32 @@ body {
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.difficulty-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.3s;
+}
+
+.difficulty-button:hover::before {
+  left: 100%;
 }
 
 .difficulty-button:hover {
   background: linear-gradient(145deg, #4b5563 0%, #6b7280 100%);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .difficulty-button.active {
@@ -86,6 +166,20 @@ body {
   box-shadow: 
     0 4px 15px rgba(16, 185, 129, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 15px rgba(16, 185, 129, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(16, 185, 129, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
 }
 
 /* Header styling */
@@ -208,6 +302,110 @@ body {
 
 .animate-car-move-continuous {
   animation: car-move-continuous 4s linear infinite;
+}
+
+/* Enhanced multiplier display styling */
+.multiplier-display {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 15px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: multiplier-glow 3s infinite;
+}
+
+@keyframes multiplier-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 15px rgba(16, 185, 129, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(16, 185, 129, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 20px rgba(16, 185, 129, 0.3);
+  }
+}
+
+/* Enhanced lane indicator styling */
+.lane-indicator {
+  background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: lane-indicator-glow 2s infinite;
+}
+
+@keyframes lane-indicator-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 15px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 15px rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Enhanced crash animation */
+.crash-effect {
+  animation: crash-shake 0.5s ease-in-out;
+}
+
+@keyframes crash-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Enhanced success animation */
+.success-effect {
+  animation: success-bounce 0.6s ease-in-out;
+}
+
+@keyframes success-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Enhanced multiplier button styling to match design */
+.multiplier-button {
+  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
+  border: 2px solid #047857;
+  border-radius: 8px;
+  box-shadow: 
+    0 2px 8px rgba(16, 185, 129, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.multiplier-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.multiplier-button .multiplier-text {
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
 /* Car animation to stop at blocker */
@@ -350,4 +548,108 @@ body {
 
 .animate-car-move-continuous {
   animation: car-move-continuous 4s linear infinite;
+}
+
+/* Enhanced multiplier display styling */
+.multiplier-display {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 15px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: multiplier-glow 3s infinite;
+}
+
+@keyframes multiplier-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 15px rgba(16, 185, 129, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(16, 185, 129, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 20px rgba(16, 185, 129, 0.3);
+  }
+}
+
+/* Enhanced lane indicator styling */
+.lane-indicator {
+  background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: lane-indicator-glow 2s infinite;
+}
+
+@keyframes lane-indicator-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 15px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 15px rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Enhanced crash animation */
+.crash-effect {
+  animation: crash-shake 0.5s ease-in-out;
+}
+
+@keyframes crash-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Enhanced success animation */
+.success-effect {
+  animation: success-bounce 0.6s ease-in-out;
+}
+
+@keyframes success-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Enhanced multiplier button styling to match design */
+.multiplier-button {
+  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
+  border: 2px solid #047857;
+  border-radius: 8px;
+  box-shadow: 
+    0 2px 8px rgba(16, 185, 129, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.multiplier-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.multiplier-button .multiplier-text {
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
