@@ -379,9 +379,13 @@ function Chicken() {
       setIsDead(false) // ✅ Ensure no dead chicken on successful cash out
       setGameResult(result)
 
-      // Play win sound
-      audioManager.playWinSound()
+      // Play cash out sound first (more prominent)
       audioManager.playCashOutSound()
+      
+      // Then play win sound (delayed slightly to avoid overlap)
+      setTimeout(() => {
+        audioManager.playWinSound()
+      }, 300)
 
       // Show win notification
       setShowWinNotification(true)
@@ -497,16 +501,16 @@ function Chicken() {
           {/* Win Notification Display */}
           {showWinNotification && (
             <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-30">
-              <div className="relative text-center">
+              <div className="relative">
                 <img 
                   src={winNotificationImage} 
                   alt="Win Notification" 
-                  className="mx-auto w-64 h-64 animate-bounce" 
+                  className="w-64 h-64 animate-bounce" 
                 />
                 {gameResult && (
-                  <div className="absolute inset-0 flex items-center justify-center z-10 animate-bounce">
-                    <div className="text-white text-xl font-bold animate-pulse text-center px-4">
-                      🎉 You won {gameResult.winAmount} ETB! 🎉
+                  <div className="absolute top-10 left-0 w-64 h-64 flex items-center justify-center animate-bounce">
+                    <div className="text-white text-4xl font-bold animate-pulse text-center px-6 leading-tight">
+                       {gameResult.winAmount} ETB
                     </div>
                   </div>
                 )}
