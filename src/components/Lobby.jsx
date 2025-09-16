@@ -85,7 +85,11 @@ function Chicken() {
   const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
   const [currentMultipliers, setCurrentMultipliers] = useState(INITIAL_MULTIPLIERS) // Dynamic multipliers array
   
-  // Jump physics state - removed animations for instant movement
+  // Jump physics state - restored from chicken-front2
+  const [isJumping, setIsJumping] = useState(false)
+  const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
+  const [jumpStartLane, setJumpStartLane] = useState(0)
+  const [jumpTargetLane, setJumpTargetLane] = useState(0)
 
   // Win notification state
   const [showWinNotification, setShowWinNotification] = useState(false)
@@ -189,15 +193,13 @@ function Chicken() {
       const config = DIFFICULTY_CONFIGS[gameState.difficulty]
       if (config) {
         setCurrentMultipliers(config.multipliers)
-        setCrashIndex((result.crashLane ?? result.fallStep) + 1)
+        // Don't set crash index - it's secret until revealed by canMove API
       }
 
-      // Sync with backend initial state - don't force automatic jump
-      setCurrentLaneIndex(result.currentLane || 0)
-      setMovedLanes([0, result.currentLane || 0])
-      
-      // Play chicken sound to indicate game started
-      audioManager.playChickenSound()
+      // Always move chicken to first lane from client side
+      setTimeout(() => {
+        startJump(1) // Jump from sidewalk (0) to first lane (1)
+      }, 500) // Small delay to show the game started
 
     } catch (error) {
       setIsPlaying(false)
@@ -228,58 +230,111 @@ function Chicken() {
 
     const nextIndex = currentLaneIndex + 1
 
+    // Always start jump animation first (client-side)
+    startJump(nextIndex)
+    
     try {
+      // Check with server after animation starts
       const moveCheck = await gameApi.canMove(currentGame.gameId, nextIndex)
 
       if (!moveCheck.canMove) {
-      setGameEnded(true)
-        setIsDead(true)
-        setIsPlaying(false)
-        setCrashIndex((moveCheck.crashLane ?? nextIndex) + 1)
+        // Server says this move crashes - handle it after animation completes
+        setTimeout(() => {
+          setGameEnded(true)
+          setIsDead(true)
+          setIsPlaying(false)
+          setCrashIndex((moveCheck.crashLane ?? nextIndex) + 1)
+          
+          // Play crash sound
+          audioManager.playCrashSound()
+          audioManager.playLoseSound()
+          
+          // Start crash delay countdown
+          setCrashDelay(3) // Start with 3 seconds
+          
+          // Countdown timer
+          const countdownInterval = setInterval(() => {
+            setCrashDelay(prev => {
+              if (prev <= 1) {
+                clearInterval(countdownInterval)
+                // Reset game after countdown
+                setIsDead(false)
+                setGameEnded(false)
+                setCurrentLaneIndex(0)
+                setMovedLanes([0])
+                setCurrentMultipliers(INITIAL_MULTIPLIERS)
+                setCrashIndex(0)
+                setCurrentGame(null)
+                setGameResult(null)
+                setCrashDelay(0)
+                return 0
+              }
+              return prev - 1
+            })
+          }, 1000)
+        }, 800) // Wait for jump animation to complete
         
-        // Play crash sound
-        audioManager.playCrashSound()
-        audioManager.playLoseSound()
-        
-        // Start crash delay countdown
-        setCrashDelay(3) // Start with 3 seconds
-        
-        // Countdown timer
-        const countdownInterval = setInterval(() => {
-          setCrashDelay(prev => {
-            if (prev <= 1) {
-              clearInterval(countdownInterval)
-              // Reset game after countdown
-              setIsDead(false)
-              setGameEnded(false)
-              setCurrentLaneIndex(0)
-              setMovedLanes([0])
-              setCurrentMultipliers(INITIAL_MULTIPLIERS)
-              setCrashIndex(0)
-              setCurrentGame(null)
-              setGameResult(null)
-              setCrashDelay(0)
-              return 0
-            }
-            return prev - 1
-          })
-        }, 1000)
-        
-      return
-    }
+        return
+      }
 
-      // Move chicken to next lane instantly (no animation)
-      setCurrentLaneIndex(nextIndex)
-      setMovedLanes(prevLanes => [...prevLanes, nextIndex])
-      
-      // Play chicken sound for successful move
-      audioManager.playChickenSound()
+      // Update game state with successful move
+      setCurrentGame(prev => ({
+        ...prev,
+        currentLane: moveCheck.currentLane || nextIndex,
+        multiplier: moveCheck.multiplier || prev.multiplier,
+        nextMultiplier: moveCheck.nextMultiplier
+      }))
     } catch (e) {
       console.error('Move failed:', e)
     }
   }
 
-  // Animation functions removed - using instant movement instead
+  // Physics-based jump function - restored from chicken-front2
+  const startJump = (targetLane) => {
+    if (isJumping) return // Prevent multiple jumps
+
+    setIsJumping(true)
+    setJumpStartLane(currentLaneIndex)
+    setJumpTargetLane(targetLane)
+    setJumpProgress(0)
+
+    // Animate the jump with physics-based easing
+    const jumpDuration = 800 // 800ms jump duration
+    const startTime = Date.now()
+
+    const animateJump = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / jumpDuration, 1)
+
+      // Apply physics-based easing
+      const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+      const easedProgress = easeInOutCubic(progress)
+
+      setJumpProgress(easedProgress)
+
+      if (progress < 1) {
+        requestAnimationFrame(animateJump)
+      } else {
+        // Jump completed
+        completeJump(targetLane)
+      }
+    }
+
+    requestAnimationFrame(animateJump)
+  }
+
+  // Complete the jump and update state
+  const completeJump = (targetLane) => {
+    setIsJumping(false)
+    setJumpProgress(0)
+    setCurrentLaneIndex(targetLane)
+
+    // Play chicken sound for successful jump
+    audioManager.playChickenSound()
+
+    // Update moved lanes
+    setMovedLanes(prevLanes => [...prevLanes, targetLane])
+  }
 
   // Calculate potential winnings for each multiplier
   const calculateWinnings = (multiplier) => {
@@ -390,10 +445,10 @@ function Chicken() {
                 shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
                 gameEnded={gameEnded}
                 betAmount={gameState.betAmount}
-                isJumping={false}
-                jumpProgress={0}
-                jumpStartLane={0}
-                jumpTargetLane={0}
+                isJumping={isJumping}
+                jumpProgress={jumpProgress}
+                jumpStartLane={jumpStartLane}
+                jumpTargetLane={jumpTargetLane}
               />
             </div>
           </div>
