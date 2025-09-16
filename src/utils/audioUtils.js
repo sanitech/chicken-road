@@ -45,6 +45,12 @@ class AudioManager {
     this.play(randomSound, 0.3) // Lower volume for car sounds
   }
 
+  // Play braking sound effect
+  playBrakeSound() {
+    // Use car2 sound with lower volume for braking effect
+    this.play('car2', 0.2) // Very low volume for subtle braking sound
+  }
+
   // Play cash out sound
   playCashOutSound() {
     this.play('cashout', 0.7)

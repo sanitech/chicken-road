@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import carImage from '../assets/car1.png'
+import audioManager from '../utils/audioUtils'
 
 function Truck({ isAnimating = false, onAnimationComplete, isContinuous = false, hasBlocker = false }) {
   const [animationClass, setAnimationClass] = useState('')
@@ -10,8 +11,15 @@ function Truck({ isAnimating = false, onAnimationComplete, isContinuous = false,
         // Continuous animation for moving trucks without blockers
         setAnimationClass('animate-car-move-continuous')
       } else if (isContinuous && hasBlocker) {
-        // Truck moves but stops at blocker position
+        // Truck moves but stops at blocker position with braking sound
         setAnimationClass('animate-car-move-to-blocker')
+        
+        // Play braking sound after 2.5 seconds (when truck starts braking)
+        const brakeTimer = setTimeout(() => {
+          audioManager.playBrakeSound()
+        }, 2500)
+        
+        return () => clearTimeout(brakeTimer)
       } else {
         // One-time animation for crash truck
         setAnimationClass('animate-car-move')

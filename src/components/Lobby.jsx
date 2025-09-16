@@ -9,16 +9,20 @@ import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
 import RoadDisplay from './RoadDisplay'
 
-// Difficulty configurations from server - no API requests needed
+// Difficulty configurations from server - synchronized with backend
 const DIFFICULTY_CONFIGS = {
   easy: {
     name: "Easy Mode",
-    lanes: 20,
-    startingMultiplier: 1.03,
-    maxMultiplier: 50,
+    lanes: 30,
+    startingMultiplier: 1.01,
+    maxMultiplier: 100,
     houseEdge: 4.5, // 95.5% RTP
     rtp: 95.5,
-    multipliers: [1.03, 1.06, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90, 50.0]
+    multipliers: [
+      1.01, 1.03, 1.06, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40,
+      1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90,
+      1.95, 2.00, 2.10, 2.20, 2.30, 2.40, 2.50, 2.60, 2.70, 2.80
+    ]
   },
   medium: {
     name: "Medium Mode",
@@ -27,7 +31,11 @@ const DIFFICULTY_CONFIGS = {
     maxMultiplier: 500,
     houseEdge: 4.5, // 95.5% RTP
     rtp: 95.5,
-    multipliers: [1.08, 1.15, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.0, 3.2, 3.4, 3.6, 4.0, 500.0]
+    multipliers: [
+      1.08, 1.12, 1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85,
+      1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85,
+      3.00, 3.20, 3.40, 3.60, 3.80
+    ]
   },
   hard: {
     name: "Hard Mode",
@@ -36,7 +44,11 @@ const DIFFICULTY_CONFIGS = {
     maxMultiplier: 1000,
     houseEdge: 4.5, // 95.5% RTP
     rtp: 95.5,
-    multipliers: [1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.0, 3.2, 3.4, 1000.0]
+    multipliers: [
+      1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05,
+      2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.00, 3.20,
+      3.40, 3.60
+    ]
   },
   extreme: {
     name: "Extreme Mode",
@@ -45,7 +57,10 @@ const DIFFICULTY_CONFIGS = {
     maxMultiplier: 3608855,
     houseEdge: 4.5, // 95.5% RTP
     rtp: 95.5,
-    multipliers: [1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15, 3.5, 3.9, 4.35, 4.85, 5.4, 6.0, 6.7, 3608855.0]
+    multipliers: [
+      1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15,
+      3.50, 3.90, 4.35, 4.85, 5.40, 6.00, 6.70, 7.50
+    ]
   }
 }
 
@@ -181,10 +196,13 @@ function Chicken() {
         setCrashIndex((result.crashLane ?? result.fallStep) + 1)
       }
 
-      // Automatically jump to first multiplier lane after game starts
-      setTimeout(() => {
-        startJump(1) // Jump from sidewalk (0) to first multiplier lane (1)
-      }, 500) // Small delay to show the game started
+      // Sync with backend initial state - don't force automatic jump
+      setCurrentLaneIndex(result.currentLane || 0)
+      setMovedLanes([0, result.currentLane || 0])
+      startJump(result.currentLane || 0)
+      
+      // Play chicken sound to indicate game started
+      audioManager.playChickenSound()
 
     } catch (error) {
       setIsPlaying(false)
@@ -312,10 +330,9 @@ function Chicken() {
         return newLanes
     })
 
-    // Remove first multiplier when reaching lane 2 (index 2)
-    if (targetLane === 2) {
-      setCurrentMultipliers(prev => prev.slice(1))
-    }
+    // Note: We don't modify the multiplier array anymore
+    // The Lane component will handle displaying the correct multipliers
+    // based on the current lane index and global display range
   }
 
   // Calculate potential winnings for each multiplier
@@ -435,12 +452,6 @@ function Chicken() {
             </div>
           </div>
 
-          {/* Lane Position Indicator */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 lane-indicator px-4 py-2 rounded-lg text-sm">
-            <span className="text-white font-medium">
-                Lane {currentLaneIndex + 1} of {currentMultipliers.length}
-            </span>
-              </div>
 
           {/* Win Notification Display */}
           {showWinNotification && (
@@ -572,7 +583,7 @@ function Chicken() {
                 >
                   <span className="text-lg font-bold">CASH OUT</span>
                   <span className="text-sm font-medium">
-                    {calculateWinnings(currentMultipliers[currentLaneIndex] || 1).toFixed(2)} ETB
+                    {calculateWinnings(currentMultipliers[Math.max(0, currentLaneIndex - 1)] || 1).toFixed(2)} ETB
                   </span>
                 </button>
               <button 

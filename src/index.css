@@ -288,20 +288,28 @@ body {
   animation: car-disappear 0.5s ease-out forwards;
 }
 
-/* Continuous car movement for future lanes */
+/* Continuous car movement for future lanes - more realistic */
 @keyframes car-move-continuous {
   0% {
-    transform: translateY(-25px);
+    transform: translateY(-25px) scale(0.9);
+    opacity: 0.8;
+  }
+  10% {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+  }
+  90% {
+    transform: translateY(calc(100% - 25px)) scale(1);
     opacity: 1;
   }
   100% {
-    transform: translateY(256px);
-    opacity: 1;
+    transform: translateY(100%) scale(0.9);
+    opacity: 0.8;
   }
 }
 
 .animate-car-move-continuous {
-  animation: car-move-continuous 4s linear infinite;
+  animation: car-move-continuous 5s linear infinite;
 }
 
 /* Enhanced multiplier display styling */
@@ -408,24 +416,36 @@ body {
   z-index: 1;
 }
 
-/* Car animation to stop at blocker */
+/* Realistic car braking animation like official game */
 @keyframes car-move-to-blocker {
   0% {
-    transform: translateY(-100px);
+    transform: translateY(-100px) scale(1);
     opacity: 1;
   }
-  70% {
-    transform: translateY(calc(100% - 80px));
+  60% {
+    transform: translateY(calc(100% - 120px)) scale(1);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(calc(100% - 100px)) scale(0.95);
+    opacity: 1;
+  }
+  85% {
+    transform: translateY(calc(100% - 90px)) scale(0.98);
+    opacity: 1;
+  }
+  95% {
+    transform: translateY(calc(100% - 85px)) scale(1);
     opacity: 1;
   }
   100% {
-    transform: translateY(calc(100% - 80px));
+    transform: translateY(calc(100% - 80px)) scale(1);
     opacity: 1;
   }
 }
 
 .animate-car-move-to-blocker {
-  animation: car-move-to-blocker 3s ease-out forwards;
+  animation: car-move-to-blocker 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 /* Add this to your existing styles */
@@ -534,20 +554,28 @@ body {
   animation: car-disappear 0.5s ease-out forwards;
 }
 
-/* Continuous car movement for future lanes */
+/* Continuous car movement for future lanes - more realistic */
 @keyframes car-move-continuous {
   0% {
-    transform: translateY(-25px);
+    transform: translateY(-25px) scale(0.9);
+    opacity: 0.8;
+  }
+  10% {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+  }
+  90% {
+    transform: translateY(calc(100% - 25px)) scale(1);
     opacity: 1;
   }
   100% {
-    transform: translateY(256px);
-    opacity: 1;
+    transform: translateY(100%) scale(0.9);
+    opacity: 0.8;
   }
 }
 
 .animate-car-move-continuous {
-  animation: car-move-continuous 4s linear infinite;
+  animation: car-move-continuous 5s linear infinite;
 }
 
 /* Enhanced multiplier display styling */

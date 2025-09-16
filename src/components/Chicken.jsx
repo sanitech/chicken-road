@@ -15,7 +15,7 @@ function Chicken({
       <img
         src={isDead ? deadChickenImage : chickenImage}
         alt={isDead ? "Dead Chicken" : "Chicken"}
-        className={`${className} w-44 z-50 filter brightness-110 contrast-110`}
+        className={`${className} w-16 h-16 z-50 filter brightness-110 contrast-110`}
       />
       
       {/* Current multiplier value below chicken - only show if showMultiplier is true and currentMultiplier is provided */}

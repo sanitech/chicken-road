@@ -94,22 +94,24 @@ const Lane = ({
                     globalIndex,
                     localIndex: index,
                     delay: delay,
-                    hasBlocker: false // Cars in future lanes don't have blockers yet
+                    hasBlocker: false, // Cars in future lanes don't have blockers yet
+                    carType: 'continuous' // Mark as continuous moving car
                 })
             }
             
-            // Add cars to completed lanes that will stop at blockers
+            // Add cars to completed lanes that will brake and stop at blockers
             if (isCompleted && globalIndex > 0) {
-                // Calculate delay based on distance from current lane
+                // Calculate delay based on distance from current lane - faster for braking
                 const distanceFromCurrent = Math.abs(globalIndex - globalCurrentIndex)
-                const baseDelay = Math.random() * 2000 + 1000 // 1-3 seconds for completed lanes
-                const delay = baseDelay + (distanceFromCurrent * 500) // +500ms per lane
+                const baseDelay = Math.random() * 1500 + 500 // 0.5-2 seconds for braking
+                const delay = baseDelay + (distanceFromCurrent * 300) // +300ms per lane
                 
                 movingCars.push({
                     globalIndex,
                     localIndex: index,
                     delay: delay,
-                    hasBlocker: true // Cars in completed lanes will stop at blockers
+                    hasBlocker: true, // Cars in completed lanes will brake and stop
+                    carType: 'braking' // Mark as braking car
                 })
             }
         })
@@ -117,93 +119,38 @@ const Lane = ({
         return movingCars
     }
 
-    // Calculate chicken position during jump with parallax effects
+    // Calculate chicken position - simple positioning without jump animations
     const getChickenPosition = () => {
-        if (!isJumping) {
-            // Chicken starts completely on sidewalk (when globalCurrentIndex is 0)
-            if (globalCurrentIndex === 0) {
-                return {
-                    left: '5%', // Position centered in sidewalk area
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
-                }
-            }
-            // Normal position for road lanes
+        // Chicken starts completely on sidewalk (when globalCurrentIndex is 0)
+        if (globalCurrentIndex === 0) {
             return {
-                left: `${((globalCurrentIndex + 0.5) / remainingMultipliers.length) * 100}%`,
+                left: '2.5rem', // Center of sidewalk (w-20 = 5rem, so center at 2.5rem)
                 top: '50%',
-                transform: 'translate(-50%, -50%)'
+                transform: 'translate(-50%, -50%)',
+                zIndex: 20 // Above sidewalk z-10
             }
         }
-
-        // Check if this is a fourth lane jump or beyond for special parallax effect
-        const isParallaxLane = jumpTargetLane >= 3
-
-        // Calculate jump physics with smooth easing
-        const jumpHeight = Math.sin(jumpProgress * Math.PI) * 80 // 80px peak height
-        const verticalOffset = -jumpHeight
-        const rotation = Math.sin(jumpProgress * Math.PI) * 15 // 15 degrees max rotation
-        const scale = isParallaxLane ? 1 + (Math.sin(jumpProgress * Math.PI) * 0.1) : 1
-
-        if (isParallaxLane) {
-            // For fourth lane jump and beyond, keep chicken centered for parallax effect
-            return {
-                left: '50%', // Keep chicken centered during parallax jumps
-                top: '50%',
-                transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(${scale})`,
-                transition: 'none',
-                zIndex: 100
-            }
-        } else {
-            // For other jumps, use normal horizontal movement
-            let startPos
-            if (jumpStartLane === 0) {
-                startPos = 5 // Starting from sidewalk
-            } else {
-                startPos = ((jumpStartLane - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100
-            }
-            
-            const endPos = ((jumpTargetLane - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100
-            const horizontalPos = startPos + (endPos - startPos) * jumpProgress
-
-            return {
-                left: `${horizontalPos}%`,
-                top: '50%',
-                transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg)`,
-                transition: 'none',
-                zIndex: 100
-            }
+        
+        // For road lanes, calculate position within the lane container
+        // Lane container starts at marginLeft: '5rem' and has flex-1 children
+        // Each lane takes equal width of remaining space
+        const availableWidth = 'calc(100% - 5rem)' // Total width minus sidewalk
+        const laneWidth = `calc(${availableWidth} / ${remainingMultipliers.length})` // Width per lane
+        const laneIndex = globalCurrentIndex - globalDisplayStart // Index within visible lanes
+        const laneStartPosition = `calc(5rem + ${laneIndex} * (${availableWidth} / ${remainingMultipliers.length}))` // Start of lane
+        const laneCenterPosition = `calc(${laneStartPosition} + (${availableWidth} / ${remainingMultipliers.length}) / 2)` // Center of lane
+        
+        return {
+            left: laneCenterPosition,
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 20 // Above sidewalk and other elements
         }
     }
 
-    // Calculate background parallax offset during jump
+    // No background offset needed - removed jump animations
     const getBackgroundOffset = () => {
-        if (!isJumping) {
-            return { transform: 'translateX(0)' }
-        }
-
-        // Only apply parallax effect for fourth lane and beyond
-        const isParallaxLane = jumpTargetLane >= 3
-        if (!isParallaxLane) {
-            return { transform: 'translateX(0)' }
-        }
-
-        // Calculate subtle parallax movement - much smaller effect
-        let startPos
-        if (jumpStartLane === 0) {
-            startPos = 5
-        } else {
-            startPos = ((jumpStartLane - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100
-        }
-        
-        const endPos = ((jumpTargetLane - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100
-        const backgroundOffset = startPos + (endPos - startPos) * jumpProgress
-        const parallaxOffset = (backgroundOffset - 50) * -0.2 // Much smaller parallax effect (20% instead of 100%)
-
-        return {
-            transform: `translateX(${parallaxOffset}%)`,
-            transition: 'none'
-        }
+        return { transform: 'translateX(0)' }
     }
     
     return (
@@ -218,7 +165,7 @@ const Lane = ({
             
             {/* Sidewalk area with realistic texture - FIXED during jumps */}
             <div 
-                className="absolute left-0 top-0 w-24 h-full bg-cover bg-center bg-no-repeat z-10"
+                className="absolute left-0 top-0 w-20 h-full bg-cover bg-center bg-no-repeat z-10"
                 style={{
                     backgroundImage: `url(${sideroadImage})`,
                     backgroundSize: '100% 100%'
@@ -229,7 +176,8 @@ const Lane = ({
             <div 
                 className="absolute inset-0 flex"
                 style={{
-                    ...getBackgroundOffset()
+                    ...getBackgroundOffset(),
+                    marginLeft: '5rem' // Start lanes after sidewalk (w-20 = 5rem)
                 }}
             >
                 {remainingMultipliers.map((multiplier, index) => {
@@ -264,11 +212,11 @@ const Lane = ({
                             )}
 
                             {/* Multiplier text overlay - show for road lanes only (after sidewalk) */}
-                            {(isCompleted || isFuture) && globalIndex >= 0 && globalIndex <= 5 && (
+                            {(isCompleted || isCurrent || isFuture) && globalIndex > 0 && globalIndex <= 5 && (
                                 <div className="absolute inset-0 flex items-end justify-center pb-2">
                                     <div className="multiplier-button rounded-lg px-3 py-2">
                                         <span className="multiplier-text text-sm">
-                                            {multiplier.toFixed(2)}x
+                                            {remainingMultipliers[globalIndex - globalDisplayStart]?.toFixed(2) || ''}x
                                         </span>
                                     </div>
                                 </div>
@@ -284,7 +232,7 @@ const Lane = ({
                     key={`moving-car-${car.globalIndex}`}
                     className="absolute top-0 transform -translate-x-1/2"
                     style={{
-                        left: `${((car.localIndex + 0.5) / remainingMultipliers.length) * 100}%`,
+                        left: `calc(${((car.localIndex + 0.5) / remainingMultipliers.length) * 100}% + 5rem)`, // Account for sidewalk offset
                         animationDelay: `${car.delay}ms`,
                         ...getBackgroundOffset()
                     }}
