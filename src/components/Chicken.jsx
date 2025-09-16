@@ -10,17 +10,18 @@ function Chicken({
   className = "object-contain drop-shadow-md"
 }) {
   return (
-    <div className="relative flex items-center justify-center drop-shadow-lg">
+    <div className="relative flex h-full flex-col justify-end pb-10 drop-shadow-lg">
       {/* Chicken image */}
       <img
         src={isDead ? deadChickenImage : chickenImage}
         alt={isDead ? "Dead Chicken" : "Chicken"}
-        className={`${className} w-16 h-16 z-50 filter brightness-110 contrast-110`}
+        className={`${className} z-50 filter brightness-110 contrast-110`}
+        style={{ width: '96px', height: '96px' }}
       />
       
       {/* Current multiplier value below chicken - only show if showMultiplier is true and currentMultiplier is provided */}
       {showMultiplier && currentMultiplier && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2">
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2">
           <div 
             className="flex items-center justify-center w-16 h-8"
             style={{

@@ -85,11 +85,7 @@ function Chicken() {
   const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
   const [currentMultipliers, setCurrentMultipliers] = useState(INITIAL_MULTIPLIERS) // Dynamic multipliers array
   
-  // Jump physics state
-  const [isJumping, setIsJumping] = useState(false)
-  const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
-  const [jumpStartLane, setJumpStartLane] = useState(0)
-  const [jumpTargetLane, setJumpTargetLane] = useState(0)
+  // Jump physics state - removed animations for instant movement
 
   // Win notification state
   const [showWinNotification, setShowWinNotification] = useState(false)
@@ -178,7 +174,7 @@ function Chicken() {
       setGameEnded(false)
       setIsDead(false)
 
-      const creatorChatId = userInfo?.chatId || userInfo?.id || 'guest';
+      const creatorChatId = userInfo?.chatId;
 
       const result = await gameApi.createGame({
         difficulty: gameState.difficulty,
@@ -199,7 +195,6 @@ function Chicken() {
       // Sync with backend initial state - don't force automatic jump
       setCurrentLaneIndex(result.currentLane || 0)
       setMovedLanes([0, result.currentLane || 0])
-      startJump(result.currentLane || 0)
       
       // Play chicken sound to indicate game started
       audioManager.playChickenSound()
@@ -273,67 +268,18 @@ function Chicken() {
       return
     }
 
-      // Start jump animation to next lane
-      startJump(nextIndex)
+      // Move chicken to next lane instantly (no animation)
+      setCurrentLaneIndex(nextIndex)
+      setMovedLanes(prevLanes => [...prevLanes, nextIndex])
+      
+      // Play chicken sound for successful move
+      audioManager.playChickenSound()
     } catch (e) {
       console.error('Move failed:', e)
     }
   }
 
-  // Physics-based jump function with smooth easing
-  const startJump = (targetLane) => {
-    if (isJumping) return // Prevent multiple jumps
-
-    setIsJumping(true)
-    setJumpStartLane(currentLaneIndex)
-    setJumpTargetLane(targetLane)
-    setJumpProgress(0)
-
-    // Animate the jump with physics-based easing
-    const jumpDuration = 800 // 800ms jump duration
-    const startTime = Date.now()
-
-    const animateJump = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / jumpDuration, 1)
-
-      // Apply physics-based easing with more realistic acceleration/deceleration
-      // Use easeInOutCubic for more natural movement
-      const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-      const easedProgress = easeInOutCubic(progress)
-
-      setJumpProgress(easedProgress)
-
-      if (progress < 1) {
-        requestAnimationFrame(animateJump)
-      } else {
-        // Jump completed
-        completeJump(targetLane)
-      }
-    }
-
-    requestAnimationFrame(animateJump)
-  }
-
-  // Complete the jump and update state
-  const completeJump = (targetLane) => {
-    setIsJumping(false)
-    setJumpProgress(0)
-    setCurrentLaneIndex(targetLane)
-
-    // Play chicken sound for successful jump
-    audioManager.playChickenSound()
-
-    // Update moved lanes
-    setMovedLanes(prevLanes => {
-      const newLanes = [...prevLanes, targetLane]
-        return newLanes
-    })
-
-    // Note: We don't modify the multiplier array anymore
-    // The Lane component will handle displaying the correct multipliers
-    // based on the current lane index and global display range
-  }
+  // Animation functions removed - using instant movement instead
 
   // Calculate potential winnings for each multiplier
   const calculateWinnings = (multiplier) => {
@@ -395,7 +341,7 @@ function Chicken() {
     <>
     <div className="h-screen game-container text-white flex flex-col">
       {/* Header - Matching Image Design */}
-      <header className="game-header px-2 py-4 flex items-center justify-between bg-gray-800">
+      <header className="game-header px-2 py-4 flex items-center justify-between" style={{ backgroundColor: '#1A1A1A' }}>
         {/* Left side - Logo and Game Title */}
         <div className="w-44">
           <img
@@ -444,10 +390,10 @@ function Chicken() {
                 shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
                 gameEnded={gameEnded}
                 betAmount={gameState.betAmount}
-                isJumping={isJumping}
-                jumpProgress={jumpProgress}
-                jumpStartLane={jumpStartLane}
-                jumpTargetLane={jumpTargetLane}
+                isJumping={false}
+                jumpProgress={0}
+                jumpStartLane={0}
+                jumpTargetLane={0}
               />
             </div>
           </div>
@@ -496,11 +442,14 @@ function Chicken() {
             <div className="bg-gray-700 rounded-lg p-4 space-y-4">
               {/* Betting Controls Row */}
               <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-1 items-center justify-between gap-2 bg-gray-800 rounded-lg p-2">
+                <div className="flex flex-1 items-center justify-between gap-2 rounded-lg p-2" style={{ backgroundColor: '#2A2A2A' }}>
                   <button
                     onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.max(1, prev.betAmount - 1) }))}
                     disabled={gameState.betAmount <= 1}
-                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#333333' }}
+                    onMouseEnter={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#444444')}
+                    onMouseLeave={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#333333')}
                   >
                     <span className="text-white font-bold">-</span>
                   </button>
@@ -513,6 +462,9 @@ function Chicken() {
                     onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.min(1000, prev.betAmount + 1) }))}
                     disabled={gameState.betAmount >= 1000}
                     className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#333333' }}
+                    onMouseEnter={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#444444')}
+                    onMouseLeave={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#333333')}
                   >
                     <span className="text-white font-bold">+</span>
                   </button>
@@ -579,7 +531,10 @@ function Chicken() {
               <div className="flex gap-2 w-full">
                 <button
                   onClick={cashOut}
-                  className="flex-1 font-bold py-4 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-black transition-colors flex flex-col items-center"
+                  className="flex-1 font-bold py-4 rounded-lg text-white transition-colors flex flex-col items-center"
+                  style={{ backgroundColor: '#4CAF50' }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#45A049'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#4CAF50'}
                 >
                   <span className="text-lg font-bold">CASH OUT</span>
                   <span className="text-sm font-medium">
@@ -589,10 +544,23 @@ function Chicken() {
               <button 
                 onClick={moveToNextLane}
                   disabled={currentLaneIndex >= currentMultipliers.length - 1}
-                  className={`flex-1 font-bold py-4 rounded-lg transition-colors transform hover:scale-105 active:scale-95 ${currentLaneIndex >= currentMultipliers.length - 1
-                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                  className={`flex-1 font-bold py-4 rounded-lg transition-colors transform hover:scale-105 active:scale-95 text-white ${currentLaneIndex >= currentMultipliers.length - 1
+                    ? 'cursor-not-allowed opacity-50'
+                    : ''
                 }`}
+                  style={{ 
+                    backgroundColor: currentLaneIndex >= currentMultipliers.length - 1 ? '#666666' : '#333333'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentLaneIndex < currentMultipliers.length - 1) {
+                      e.target.style.backgroundColor = '#444444'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentLaneIndex < currentMultipliers.length - 1) {
+                      e.target.style.backgroundColor = '#333333'
+                    }
+                  }}
               >
                   <span className="text-lg font-bold">GO</span>
                 </button>

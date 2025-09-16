@@ -189,15 +189,9 @@ const Lane = ({
                     return (
                         <div
                             key={globalIndex}
-                            className={`flex-1 road-lane relative ${
+                            className={`flex-1 road-lane relative flex flex-col justify-end pb-10 ${
                                 (isCompleted || isCurrent || isFuture) && globalIndex > 0 ? 'shadow-inner' : ''
                             }`}
-                            style={{
-                                backgroundImage: (isCompleted && globalIndex > 0) ? `url(${cap2Image})` : ((isCurrent || isFuture) && globalIndex > 0) ? `url(${cap1Image})` : 'none',
-                                backgroundSize: '60%',
-                                backgroundRepeat: 'no-repeat',
-                                backgroundPosition: 'center bottom',
-                            }}
                         >
 
                             {/* Blocker for completed lanes */}
@@ -211,14 +205,17 @@ const Lane = ({
                                 </div>
                             )}
 
-                            {/* Multiplier text overlay - show for road lanes only (after sidewalk) */}
+                            {/* Cap image and multiplier text for road lanes only (after sidewalk) */}
                             {(isCompleted || isCurrent || isFuture) && globalIndex > 0 && globalIndex <= 5 && (
-                                <div className="absolute inset-0 flex items-end justify-center pb-2">
-                                    <div className="multiplier-button rounded-lg px-3 py-2">
-                                        <span className="multiplier-text text-sm">
-                                            {remainingMultipliers[globalIndex - globalDisplayStart]?.toFixed(2) || ''}x
-                                        </span>
-                                    </div>
+                                <div className="relative flex flex-col items-center">
+                                    <img
+                                        src={isCompleted ? cap2Image : cap1Image}
+                                        alt="Lane Cap"
+                                        className="object-contain size-20"
+                                    />
+                                    <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white font-bold text-sm drop-shadow-lg">
+                                        {remainingMultipliers[globalIndex - globalDisplayStart]?.toFixed(2) || ''}x
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -248,7 +245,7 @@ const Lane = ({
 
             {/* Main Chicken with Jump Physics */}
             <div 
-                className="absolute transition-none"
+                className="absolute h-full"
                 style={getChickenPosition()}
             >
                 <Chicken
