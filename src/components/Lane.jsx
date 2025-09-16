@@ -30,23 +30,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         })
     }
 
-    // Calculate chicken position during jump - adapted from chicken-front2
+    // Calculate chicken position during jump - aligned with server 0-based system
     const getChickenPosition = () => {
         if (!isJumping) {
-            // Normal position - adjusted for sidewalk
-            if (globalCurrentIndex === 0) {
-                return {
-                    left: '2.5rem', // Center of sidewalk
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 20
-                }
-            }
-            
-            // Position in lane area
+            // Normal position - all lanes same width
             const laneIndex = globalCurrentIndex - globalDisplayStart
-            const availableWidth = 'calc(100% - 5rem)'
-            const laneCenterPosition = `calc(5rem + ${(laneIndex + 0.5) / remainingMultipliers.length} * ${availableWidth})`
+            const laneCenterPosition = `${((laneIndex + 0.5) / remainingMultipliers.length) * 100}%`
             
             return {
                 left: laneCenterPosition,
@@ -75,30 +64,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 zIndex: 20
             }
         } else {
-            // For other jumps, use normal horizontal movement
-            let startPosition, endPosition
+            // For other jumps, use normal horizontal movement - all lanes same width
+            const startLaneIndex = jumpStartLane - globalDisplayStart
+            const endLaneIndex = jumpTargetLane - globalDisplayStart
             
-            if (jumpStartLane === 0) {
-                // Starting from sidewalk
-                startPosition = 2.5 // rem
-            } else {
-                // Starting from lane
-                const startLaneIndex = jumpStartLane - globalDisplayStart
-                startPosition = `calc(5rem + ${(startLaneIndex + 0.5) / remainingMultipliers.length} * (100% - 5rem))`
-            }
-            
-            if (jumpTargetLane === 0) {
-                // Going to sidewalk
-                endPosition = 2.5 // rem
-            } else {
-                // Going to lane
-                const endLaneIndex = jumpTargetLane - globalDisplayStart
-                endPosition = `calc(5rem + ${(endLaneIndex + 0.5) / remainingMultipliers.length} * (100% - 5rem))`
-            }
+            const startPosition = ((startLaneIndex + 0.5) / remainingMultipliers.length) * 100
+            const endPosition = ((endLaneIndex + 0.5) / remainingMultipliers.length) * 100
+            const horizontalPosition = startPosition + (endPosition - startPosition) * jumpProgress
 
-            // Simple interpolation for now - could be improved
             return {
-                left: jumpProgress < 0.5 ? startPosition : endPosition,
+                left: `${horizontalPosition}%`,
                 top: '50%',
                 transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg)`,
                 transition: 'none',
@@ -148,7 +123,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
             // Add moving car if conditions are met
             const isCurrentLaneAtCrashMinus1 = isCurrentLane && globalCurrentIndex === crashIndex - 1
-            if ((!isCurrentLane || isCurrentLaneAtCrashMinus1) && !isNextLane && !isCap2Lane && globalIndex > 0) {
+            if ((!isCurrentLane || isCurrentLaneAtCrashMinus1) && !isNextLane && !isCap2Lane && globalIndex >= 0) {
                 const distanceFromCurrent = Math.abs(globalIndex - globalCurrentIndex)
                 const delay = distanceFromCurrent * 500 // 500ms delay per lane distance
 
@@ -170,7 +145,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 className="absolute inset-0"
                 style={{
                     backgroundColor: '#706B69',
-                    filter: isJumping && jumpTargetLane >= 3 ? `blur(${jumpProgress * 2}px)` : 'none',
+                    filter: isJumping && jumpTargetLane >= 2 ? `blur(${jumpProgress * 2}px)` : 'none',
                     transition: 'none'
                 }}
             ></div>
@@ -182,8 +157,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 className="absolute inset-0 flex"
                 style={{
                     ...getBackgroundOffset(),
- // Start lanes after sidewalk
-                    filter: isJumping && jumpTargetLane >= 3 ? `blur(${jumpProgress * 1}px)` : 'none'
+                    filter: isJumping && jumpTargetLane >= 2 ? `blur(${jumpProgress * 1}px)` : 'none'
                 }}
             >
                 {remainingMultipliers.map((multiplier, index) => {
@@ -198,11 +172,11 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             className={`flex justify-center grow border-r-2 border-dashed border-gray-500 relative bg-gray-600`}
                             style={{
                                 backgroundImage: globalIndex === 0 ? `url(${sideroadImage})` : 
-                                               (isCompleted && globalIndex > 0) ? `url(${cap2Image})` : 
-                                               ((isCurrent || isFuture) && globalIndex > 0) ? `url(${cap1Image})` : 'none',
+                                               isCompleted ? `url(${cap2Image})` : 
+                                               (isCurrent || isFuture) ? `url(${cap1Image})` : 'none',
                                 backgroundSize: globalIndex === 0 ? '100% 100%' : '60%',
                                 backgroundRepeat: 'no-repeat',
-                                backgroundPosition: globalIndex === 0 ? 'center' : 'center',
+                                backgroundPosition: 'center',
                                 opacity: 1
                             }}
                         >
@@ -218,10 +192,10 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             )}
 
                             {/* Multiplier text overlay */}
-                            {(isCompleted || isFuture) && globalIndex > 0 && (
+                            {(isCompleted || isFuture) && globalIndex >= 0 && (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <span className="text-white font-bold text-xs">
-                                        {remainingMultipliers[globalIndex - 1]?.toFixed(2) || ''}x
+                                        {remainingMultipliers[globalIndex]?.toFixed(2) || ''}x
                                     </span>
                                 </div>
                             )}
@@ -252,7 +226,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 <div
                     className="absolute top-0 transform -translate-x-1/2"
                     style={{
-                        left: `calc(5rem + ${((crashIndex - 1 - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100}% * (100% - 5rem) / 100%)`,
+                        left: `${((crashIndex - 1 - globalDisplayStart + 0.5) / remainingMultipliers.length) * 100}%`,
                         ...getBackgroundOffset()
                     }}
                 >
@@ -270,7 +244,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     key={`moving-car-${car.globalIndex}`}
                     className="absolute top-0 transform -translate-x-1/2"
                     style={{
-                        left: `calc(5rem + ${((car.localIndex + 0.5) / remainingMultipliers.length) * 100}% * (100% - 5rem) / 100%)`,
+                        left: `${((car.localIndex + 0.5) / remainingMultipliers.length) * 100}%`,
                         animationDelay: `${car.delay}ms`,
                         ...getBackgroundOffset()
                     }}
