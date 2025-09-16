@@ -81,8 +81,8 @@ function Chicken() {
   const [gameResult, setGameResult] = useState(null)
 
   // Lane movement state
-  const [currentLaneIndex, setCurrentLaneIndex] = useState(0) // Start at lane 0 (sidewalk)
-  const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
+  const [currentLaneIndex, setCurrentLaneIndex] = useState(-1) // Start on sideroad before lanes
+  const [movedLanes, setMovedLanes] = useState([-1]) // Track all lanes the chicken has moved through
   const [currentMultipliers, setCurrentMultipliers] = useState(INITIAL_MULTIPLIERS) // Dynamic multipliers array
   
   // Jump physics state - restored from chicken-front2
@@ -173,8 +173,8 @@ function Chicken() {
     try {
       setIsPlaying(true)
       setGameResult(null)
-      setCurrentLaneIndex(0)
-      setMovedLanes([0])
+      setCurrentLaneIndex(-1)
+      setMovedLanes([-1])
       setGameEnded(false)
       setIsDead(false)
 
@@ -198,7 +198,7 @@ function Chicken() {
 
       // Always move chicken to first lane from client side
       setTimeout(() => {
-        startJump(1) // Jump from sidewalk (0) to first lane (1)
+        startJump(0) // Jump from sideroad (-1) to first lane (0) with 1.01x
       }, 500) // Small delay to show the game started
 
     } catch (error) {
@@ -260,8 +260,8 @@ function Chicken() {
                 // Reset game after countdown
                 setIsDead(false)
                 setGameEnded(false)
-                setCurrentLaneIndex(0)
-                setMovedLanes([0])
+                setCurrentLaneIndex(-1)
+                setMovedLanes([-1])
                 setCurrentMultipliers(INITIAL_MULTIPLIERS)
                 setCrashIndex(0)
                 setCurrentGame(null)
@@ -383,8 +383,8 @@ function Chicken() {
 
   // Reset game function
   const resetGame = () => {
-    setCurrentLaneIndex(0)
-    setMovedLanes([0])
+    setCurrentLaneIndex(-1) // Return to sideroad
+    setMovedLanes([-1])
     setCurrentMultipliers(INITIAL_MULTIPLIERS)
     setGameEnded(false)
     setIsDead(false) // Reset dead state when game is reset
