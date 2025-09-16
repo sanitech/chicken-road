@@ -4,7 +4,6 @@ import { gameApi, generateClientSeed } from '../utils/gameApi'
 import { FaCoins } from 'react-icons/fa'
 import audioManager from '../utils/audioUtils'
 import logoImage from '../assets/logo.png'
-import deadChickenImage from '../assets/chickendead.png'
 import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
 import RoadDisplay from './RoadDisplay'
@@ -90,6 +89,7 @@ function Chicken() {
   const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
   const [jumpStartLane, setJumpStartLane] = useState(0)
   const [jumpTargetLane, setJumpTargetLane] = useState(0)
+  const [jumpStartTime, setJumpStartTime] = useState(0) // For optimistic update timing
 
   // Win notification state
   const [showWinNotification, setShowWinNotification] = useState(false)
@@ -108,6 +108,8 @@ function Chicken() {
   const [showMenu, setShowMenu] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [musicEnabled, setMusicEnabled] = useState(false)
+
+  // Removed caching system for security - server validates every move
 
   // Handle token
   useEffect(() => {
@@ -167,6 +169,8 @@ function Chicken() {
     }
   }, [gameState.difficulty])
 
+  // Removed caching functions for security - server validates every move to keep crash point secret
+
 
   // Start a new game
   const startNewGame = async () => {
@@ -193,12 +197,11 @@ function Chicken() {
       const config = DIFFICULTY_CONFIGS[gameState.difficulty]
       if (config) {
         setCurrentMultipliers(config.multipliers)
-        // Don't set crash index - it's secret until revealed by canMove API
       }
 
-      // Always move chicken to first lane from client side
-      setTimeout(() => {
-        startJump(0) // Jump from sideroad (-1) to first lane (0) with 1.01x
+      // Move to first lane with secure server validation
+      setTimeout(async () => {
+        await moveToNextLane() // Secure: validate with server every move
       }, 500) // Small delay to show the game started
 
     } catch (error) {
@@ -224,68 +227,88 @@ function Chicken() {
     return currentMultipliers.slice(range.start, range.end + 1)
   }
 
-  // Function to move chicken to next lane
+  // Removed cached move function for security - using server validation every move
+
+  // Handle crash with countdown
+  const handleCrash = (crashLane) => {
+    setGameEnded(true)
+    setIsDead(true)
+    setIsPlaying(false)
+    setCrashIndex((crashLane ?? currentLaneIndex + 1) + 1)
+    
+    // Play crash sound
+    audioManager.playCrashSound()
+    audioManager.playLoseSound()
+    
+    // Start crash delay countdown
+    setCrashDelay(3) // Start with 3 seconds
+    
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setCrashDelay(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval)
+          // Reset game after countdown
+          setIsDead(false)
+          setGameEnded(false)
+          setCurrentLaneIndex(-1)
+          setMovedLanes([-1])
+          setCurrentMultipliers(INITIAL_MULTIPLIERS)
+          setCrashIndex(0)
+          setCurrentGame(null)
+          setGameResult(null)
+          setCrashDelay(0)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  // Function to move chicken to next lane (OPTIMISTIC: like original Chicken Road 2)
   const moveToNextLane = async () => {
     if (!currentGame || gameEnded) return
 
     const nextIndex = currentLaneIndex + 1
 
-    // Always start jump animation first (client-side)
-    startJump(nextIndex)
-    
     try {
-      // Check with server after animation starts
+      // 🚀 OPTIMISTIC: Start animation immediately (like original game)
+      console.log(`⚡ Starting optimistic move to lane ${nextIndex}`)
+      startJump(nextIndex) // Instant visual feedback!
+      
+      // 🔒 SECURE: Validate with server in parallel (crash point stays secret)
       const moveCheck = await gameApi.canMove(currentGame.gameId, nextIndex)
 
       if (!moveCheck.canMove) {
-        // Server says this move crashes - handle it after animation completes
+        // 💥 Server says crash - handle during or after animation
+        console.log(`💥 Server validation failed for lane ${nextIndex}`)
+        
+        // If animation is still running, let it finish then show crash
+        const animationDuration = 800 // Match your jump animation duration
+        const timeElapsed = Date.now() - jumpStartTime
+        const remainingTime = Math.max(0, animationDuration - timeElapsed)
+        
         setTimeout(() => {
-          setGameEnded(true)
-          setIsDead(true)
-          setIsPlaying(false)
-          setCrashIndex((moveCheck.crashLane ?? nextIndex) + 1)
-          
-          // Play crash sound
-          audioManager.playCrashSound()
-          audioManager.playLoseSound()
-          
-          // Start crash delay countdown
-          setCrashDelay(3) // Start with 3 seconds
-          
-          // Countdown timer
-          const countdownInterval = setInterval(() => {
-            setCrashDelay(prev => {
-              if (prev <= 1) {
-                clearInterval(countdownInterval)
-                // Reset game after countdown
-                setIsDead(false)
-                setGameEnded(false)
-                setCurrentLaneIndex(-1)
-                setMovedLanes([-1])
-                setCurrentMultipliers(INITIAL_MULTIPLIERS)
-                setCrashIndex(0)
-                setCurrentGame(null)
-                setGameResult(null)
-                setCrashDelay(0)
-                return 0
-              }
-              return prev - 1
-            })
-          }, 1000)
-        }, 800) // Wait for jump animation to complete
+          handleCrash(moveCheck.crashLane)
+        }, remainingTime)
         
         return
       }
 
-      // Update game state with successful move
+      // ✅ Server approved move - animation already running, just update state
+      console.log(`✅ Server approved move to lane ${nextIndex}`)
+      
       setCurrentGame(prev => ({
         ...prev,
         currentLane: moveCheck.currentLane || nextIndex,
         multiplier: moveCheck.multiplier || prev.multiplier,
         nextMultiplier: moveCheck.nextMultiplier
       }))
+      
     } catch (e) {
       console.error('Move failed:', e)
+      // On network error, assume crash for safety
+      setTimeout(() => handleCrash(nextIndex), 400)
     }
   }
 
@@ -301,6 +324,9 @@ function Chicken() {
     // Animate the jump with physics-based easing
     const jumpDuration = 800 // 800ms jump duration
     const startTime = Date.now()
+    setJumpStartTime(startTime) // Track for optimistic updates
+
+    console.log(`🎬 Starting jump animation to lane ${targetLane}`)
 
     const animateJump = () => {
       const elapsed = Date.now() - startTime
@@ -350,6 +376,7 @@ function Chicken() {
 
       setIsPlaying(false)
       setGameEnded(true)
+      setIsDead(false) // ✅ Ensure no dead chicken on successful cash out
       setGameResult(result)
 
       // Play win sound
@@ -358,9 +385,24 @@ function Chicken() {
 
       // Show win notification
       setShowWinNotification(true)
+      
+      // ✅ Auto-restart game after win notification
       setTimeout(() => {
         setShowWinNotification(false)
-      }, 3000) // Show for 3 seconds
+        
+        // Reset game state for new game (no "New Game" button needed)
+        setIsPlaying(false)
+        setGameEnded(false)
+        setIsDead(false)
+        setCurrentLaneIndex(-1)
+        setMovedLanes([-1])
+        setCurrentMultipliers(INITIAL_MULTIPLIERS)
+        setCrashIndex(0)
+        setCurrentGame(null)
+        setGameResult(null)
+        
+        console.log('🔄 Game auto-restarted after cash out')
+      }, 3000) // Show win notification for 3 seconds then auto-restart
 
       // Add success effect
       const gameArea = document.querySelector('.game-area')
@@ -438,7 +480,7 @@ function Chicken() {
           displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
           globalCurrentIndex={currentLaneIndex}
           globalDisplayStart={calculateDynamicRange().start}
-          isDead={gameEnded && currentLaneIndex >= crashIndex - 1}
+          isDead={isDead}
           crashIndex={crashIndex}
           shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
           gameEnded={gameEnded}
@@ -455,36 +497,24 @@ function Chicken() {
           {/* Win Notification Display */}
           {showWinNotification && (
             <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-30">
-              <div className="text-center">
+              <div className="relative text-center">
                 <img 
                   src={winNotificationImage} 
                   alt="Win Notification" 
                   className="mx-auto w-64 h-64 animate-bounce" 
                 />
                 {gameResult && (
-                  <div className="text-white text-xl font-bold mt-4 animate-pulse">
-                    🎉 You won {gameResult.winAmount} ETB! 🎉
-            </div>
+                  <div className="absolute inset-0 flex items-center justify-center z-10 animate-bounce">
+                    <div className="text-white text-xl font-bold animate-pulse text-center px-4">
+                      🎉 You won {gameResult.winAmount} ETB! 🎉
+                    </div>
+                  </div>
                 )}
+              </div>
             </div>
-          </div>
           )}
 
-          {/* Dead Chicken Display */}
-          {crashDelay > 0 && (
-            <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-20 crash-effect">
-              <div className="text-center">
-                <img 
-                  src={deadChickenImage} 
-                  alt="Dead Chicken" 
-                  className="mx-auto mb-4 w-32 h-32 animate-pulse" 
-                />
-                <div className="text-white text-2xl font-bold animate-bounce">
-                  💥 CRASH! 💥
-              </div>
-              </div>
-            </div>
-          )}
+          {/* Crash notification popup removed per user request */}
 
       {/* Betting Controls - Bottom Panel - Mobile Responsive */}
       <div className="control-panel p-4 md:p-6">

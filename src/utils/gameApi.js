@@ -82,6 +82,36 @@ export const gameApi = {
       console.error('Error cashing out:', error);
       throw error;
     }
+  },
+
+  // Batch validate multiple moves - for caching/performance
+  async canMoveMultiple(gameId, lanes) {
+    try {
+      const lanesString = lanes.join(',') // [0,1,2,3] -> "0,1,2,3"
+      
+      const url = new URL(`${apiUrl}/api/games/canMoveMultiple`);
+      url.searchParams.set('gameId', gameId);
+      url.searchParams.set('lanes', lanesString);
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('chicknroad')}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`🚀 Batch validation result:`, data);
+      return data;
+    } catch (error) {
+      console.error('Error in canMoveMultiple:', error);
+      throw error;
+    }
   }
 };
 
