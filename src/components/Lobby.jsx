@@ -429,29 +429,27 @@ function Chicken() {
         </div>
       </header>
 
-      {/* Main Game Area - Full Width */}
-      <div className="flex-1 flex flex-col">
-        {/* Game Area - Lane Display */}
-        <div className="flex-1 relative bg-gray-900 min-h-0 game-area">
-              {/* Lane component with dynamic range */}
-              <Lane
-                remainingMultipliers={getAllMultipliers()}
-                currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                globalCurrentIndex={currentLaneIndex}
-                globalDisplayStart={calculateDynamicRange().start}
-                isDead={gameEnded && currentLaneIndex >= crashIndex - 1}
-                crashIndex={crashIndex}
-                shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
-                gameEnded={gameEnded}
-                betAmount={gameState.betAmount}
-                isJumping={isJumping}
-                jumpProgress={jumpProgress}
-                jumpStartLane={jumpStartLane}
-                jumpTargetLane={jumpTargetLane}
-              />
-            </div>
-          </div>
+      {/* Main Game Area - Simplified Single Row */}
+      <div className="flex-1 relative bg-gray-900 min-h-0 game-area">
+        {/* Lane component with dynamic range */}
+        <Lane
+          remainingMultipliers={getAllMultipliers()}
+          currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+          displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+          globalCurrentIndex={currentLaneIndex}
+          globalDisplayStart={calculateDynamicRange().start}
+          isDead={gameEnded && currentLaneIndex >= crashIndex - 1}
+          crashIndex={crashIndex}
+          shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
+          gameEnded={gameEnded}
+          isPlaying={isPlaying}
+          betAmount={gameState.betAmount}
+          isJumping={isJumping}
+          jumpProgress={jumpProgress}
+          jumpStartLane={jumpStartLane}
+          jumpTargetLane={jumpTargetLane}
+        />
+      </div>
 
 
           {/* Win Notification Display */}

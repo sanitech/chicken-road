@@ -7,7 +7,7 @@ import audioManager from '../utils/audioUtils'
 import Chicken from './Chicken'
 import Car from './Car'
 
-function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, isDead = false, crashIndex, shouldAnimateCar = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0 }) {
+function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, isDead = false, crashIndex, shouldAnimateCar = false, gameEnded = false, isPlaying = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0 }) {
     const [carAnimationState, setCarAnimationState] = useState({
         isAnimating: false,
         hasCompleted: false
@@ -175,21 +175,14 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 }}
             ></div>
             
-            {/* Sidewalk area with realistic texture */}
-            <div 
-                className="absolute left-0 top-0 w-20 h-full bg-cover bg-center bg-no-repeat z-10"
-                style={{
-                    backgroundImage: `url(${sideroadImage})`,
-                    backgroundSize: '100% 100%'
-                }}
-            ></div>
+
 
             {/* Lane markers/segments with parallax effect */}
             <div 
                 className="absolute inset-0 flex"
                 style={{
                     ...getBackgroundOffset(),
-                    marginLeft: '5rem', // Start lanes after sidewalk
+ // Start lanes after sidewalk
                     filter: isJumping && jumpTargetLane >= 3 ? `blur(${jumpProgress * 1}px)` : 'none'
                 }}
             >
@@ -202,13 +195,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     return (
                         <div
                             key={globalIndex}
-                            className={`flex-1 border-r-2 border-dashed border-gray-500 relative bg-gray-600`}
+                            className={`flex justify-center grow border-r-2 border-dashed border-gray-500 relative bg-gray-600`}
                             style={{
-                                backgroundImage: (isCompleted && globalIndex > 0) ? `url(${cap2Image})` : ((isCurrent || isFuture) && globalIndex > 0) ? `url(${cap1Image})` : 'none',
-                                backgroundSize: '60%',
+                                backgroundImage: globalIndex === 0 ? `url(${sideroadImage})` : 
+                                               (isCompleted && globalIndex > 0) ? `url(${cap2Image})` : 
+                                               ((isCurrent || isFuture) && globalIndex > 0) ? `url(${cap1Image})` : 'none',
+                                backgroundSize: globalIndex === 0 ? '100% 100%' : '60%',
                                 backgroundRepeat: 'no-repeat',
-                                backgroundPosition: 'center',
-                                opacity: (globalIndex === 4 && (isCurrent || isFuture)) ? 0.8 : 1
+                                backgroundPosition: globalIndex === 0 ? 'center' : 'center',
+                                opacity: 1
                             }}
                         >
                             {/* Blocker for completed lanes */}
@@ -226,7 +221,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             {(isCompleted || isFuture) && globalIndex > 0 && (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <span className="text-white font-bold text-xs">
-                                        {multiplier.toFixed(2)}x
+                                        {remainingMultipliers[globalIndex - 1]?.toFixed(2) || ''}x
                                     </span>
                                 </div>
                             )}
@@ -235,7 +230,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 })}
             </div>
 
-            {/* Chicken position indicator - adapted for our backend system */}
+            {/* Chicken position indicator - always visible */}
             {((currentIndex >= 0 && currentIndex < remainingMultipliers.length) || isJumping || globalCurrentIndex === 0) && (
                 <div
                     className="absolute"
