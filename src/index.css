@@ -2,450 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global game styling */
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #ffffff;
-  overflow-x: hidden;
+/* Mobile-First Optimizations */
+@media (max-width: 640px) {
+  /* Prevent zoom on input focus */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  
+  /* Better touch targets */
+  button {
+    min-height: 44px;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
 }
 
-/* Game container styling */
-.game-container {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
-}
-
-/* Road styling enhancements */
-.road-surface {
-  background: #706B69;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
-}
-
-.road-lane {
-  background: #706B69;
-  border-right: 2px dashed rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
-  position: relative;
-}
-
-.road-lane::after {
-  content: '';
+/* Realistic Lane Divider Dashes - Each Lane Gets One */
+.lane-divider-dashes {
   position: absolute;
+  right: 0;
   top: 0;
-  right: -1px;
+  bottom: 0;
   width: 3px;
-  height: 100%;
   background: repeating-linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.8) 0px,
-    rgba(255, 255, 255, 0.8) 15px,
-    transparent 15px,
-    transparent 30px
+    rgba(255, 255, 255, 0.9) 0px,
+    rgba(255, 255, 255, 0.9) 20px,   /* Longer dash: 20px */
+    transparent 20px,
+    transparent 35px                 /* Longer gap: 15px */
   );
-}
-
-.road-lane:last-child::after {
-  display: none;
-}
-
-/* Sidewalk styling */
-.sidewalk {
-  background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
-  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3);
-  position: relative;
-}
-
-.sidewalk::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: -2px;
-  width: 2px;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.sidewalk::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
-  opacity: 0.3;
-}
-
-/* Manhole cover styling */
-.manhole-cover {
-  background: radial-gradient(circle, #2d3748 0%, #1a202c 100%);
-  box-shadow: 
-    inset 0 0 10px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 2px solid #4a5568;
-}
-
-/* Enhanced button styling */
-.game-button {
-  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
-  box-shadow: 
-    0 4px 15px rgba(16, 185, 129, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.game-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.game-button:hover::before {
-  left: 100%;
-}
-
-.game-button:hover {
-  background: linear-gradient(145deg, #059669 0%, #047857 100%);
-  box-shadow: 
-    0 6px 20px rgba(16, 185, 129, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px) scale(1.02);
-}
-
-.game-button:active {
-  transform: translateY(0);
-  box-shadow: 
-    0 2px 10px rgba(16, 185, 129, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Difficulty button styling */
-.difficulty-button {
-  background: linear-gradient(145deg, #374151 0%, #4b5563 100%);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.difficulty-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.3s;
-}
-
-.difficulty-button:hover::before {
-  left: 100%;
-}
-
-.difficulty-button:hover {
-  background: linear-gradient(145deg, #4b5563 0%, #6b7280 100%);
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.difficulty-button.active {
-  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
-  box-shadow: 
-    0 4px 15px rgba(16, 185, 129, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  animation: pulse-glow 2s infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 
-      0 4px 15px rgba(16, 185, 129, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow: 
-      0 4px 20px rgba(16, 185, 129, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-}
-
-/* Header styling */
-.game-header {
-  background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Control panel styling */
-.control-panel {
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  box-shadow: 
-    0 -2px 20px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Multiplier display styling */
-.multiplier-display {
-  background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-/* Glow effects */
-.glow-effect {
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-}
-
-.text-glow {
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-}
-
-/* Loading screen animations */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-}
-
-@keyframes heroFloat {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(1deg);
-  }
-}
-
-.animate-hero-float {
-  animation: heroFloat 3s ease-in-out infinite;
-}
-
-@keyframes loadingGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6), 0 0 60px rgba(16, 185, 129, 0.4);
-  }
-}
-
-.animate-loading-glow {
-  animation: loadingGlow 2s ease-in-out infinite;
-}
-
-/* Car animation styles */
-@keyframes car-move {
-  0% {
-    transform: translateY(-100px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(600px);
-    opacity: 1;
-  }
-}
-
-@keyframes car-disappear {
-  0% {
-    opacity: 1;
-    transform: translateY(600px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(600px) scale(0.5);
-  }
-}
-
-.animate-car-move {
-  animation: car-move 4s linear forwards;
-}
-
-.animate-car-disappear {
-  animation: car-disappear 0.5s ease-out forwards;
-}
-
-/* Continuous car movement for future lanes - more realistic */
-@keyframes car-move-continuous {
-  0% {
-    transform: translateY(-25px) scale(0.9);
-    opacity: 0.8;
-  }
-  10% {
-    transform: translateY(0px) scale(1);
-    opacity: 1;
-  }
-  90% {
-    transform: translateY(calc(100% - 25px)) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100%) scale(0.9);
-    opacity: 0.8;
-  }
-}
-
-.animate-car-move-continuous {
-  animation: car-move-continuous 5s linear infinite;
-}
-
-/* Enhanced multiplier display styling */
-.multiplier-display {
-  background: linear-gradient(145deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 4px 15px rgba(16, 185, 129, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: multiplier-glow 3s infinite;
-}
-
-@keyframes multiplier-glow {
-  0%, 100% {
-    box-shadow: 
-      0 4px 15px rgba(16, 185, 129, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow: 
-      0 4px 20px rgba(16, 185, 129, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 20px rgba(16, 185, 129, 0.3);
-  }
-}
-
-/* Enhanced lane indicator styling */
-.lane-indicator {
-  background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
-    0 4px 15px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: lane-indicator-glow 2s infinite;
-}
-
-@keyframes lane-indicator-glow {
-  0%, 100% {
-    box-shadow: 
-      0 4px 15px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-  50% {
-    box-shadow: 
-      0 4px 20px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 15px rgba(255, 255, 255, 0.1);
-  }
-}
-
-/* Enhanced crash animation */
-.crash-effect {
-  animation: crash-shake 0.5s ease-in-out;
-}
-
-@keyframes crash-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-/* Enhanced success animation */
-.success-effect {
-  animation: success-bounce 0.6s ease-in-out;
-}
-
-@keyframes success-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
-/* Enhanced multiplier button styling to match design */
-.multiplier-button {
-  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
-  border: 2px solid #047857;
-  border-radius: 8px;
-  box-shadow: 
-    0 2px 8px rgba(16, 185, 129, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.multiplier-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
-  pointer-events: none;
-}
-
-.multiplier-button .multiplier-text {
-  color: white;
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  position: relative;
-  z-index: 1;
-}
-
-/* Realistic car braking animation like official game */
-@keyframes car-move-to-blocker {
-  0% {
-    transform: translateY(-100px) scale(1);
-    opacity: 1;
-  }
-  60% {
-    transform: translateY(calc(100% - 120px)) scale(1);
-    opacity: 1;
-  }
-  75% {
-    transform: translateY(calc(100% - 100px)) scale(0.95);
-    opacity: 1;
-  }
-  85% {
-    transform: translateY(calc(100% - 90px)) scale(0.98);
-    opacity: 1;
-  }
-  95% {
-    transform: translateY(calc(100% - 85px)) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(calc(100% - 80px)) scale(1);
-    opacity: 1;
-  }
-}
-
-.animate-car-move-to-blocker {
-  animation: car-move-to-blocker 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  border-radius: 1px;
 }
 
 /* Add this to your existing styles */
@@ -523,14 +117,14 @@ body {
   cursor: not-allowed;
 }
 
-/* Car animation styles */
+/* Car animation styles with dynamic speed */
 @keyframes car-move {
   0% {
-    transform: translateY(-100px);
+    transform: translateY(-25px);
     opacity: 1;
   }
   100% {
-    transform: translateY(600px);
+    transform: translateY(600px); /* Scaled to match chicken proportions */
     opacity: 1;
   }
 }
@@ -538,146 +132,86 @@ body {
 @keyframes car-disappear {
   0% {
     opacity: 1;
-    transform: translateY(600px) scale(1);
+    transform: translateY(300px) scale(1); /* Match new end position */
   }
   100% {
     opacity: 0;
-    transform: translateY(600px) scale(0.5);
+    transform: translateY(300px) scale(0.5);
   }
 }
 
 .animate-car-move {
-  animation: car-move 4s linear forwards;
+  animation: car-move var(--custom-car-duration, 3s) ease-in-out forwards;
 }
 
 .animate-car-disappear {
   animation: car-disappear 0.5s ease-out forwards;
 }
 
-/* Continuous car movement for future lanes - more realistic */
+/* Continuous car movement for future lanes with dynamic speed */
 @keyframes car-move-continuous {
   0% {
-    transform: translateY(-25px) scale(0.9);
-    opacity: 0.8;
-  }
-  10% {
-    transform: translateY(0px) scale(1);
-    opacity: 1;
-  }
-  90% {
-    transform: translateY(calc(100% - 25px)) scale(1);
+    transform: translateY(-100px);
     opacity: 1;
   }
   100% {
-    transform: translateY(100%) scale(0.9);
-    opacity: 0.8;
+    transform: translateY(600px); /* Scaled to match chicken proportions */
+    opacity: 1;
   }
 }
 
 .animate-car-move-continuous {
-  animation: car-move-continuous 5s linear infinite;
+  animation: car-move-continuous var(--custom-car-duration, 3s) ease-in-out infinite;
 }
 
-/* Enhanced multiplier display styling */
-.multiplier-display {
-  background: linear-gradient(145deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 4px 15px rgba(16, 185, 129, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: multiplier-glow 3s infinite;
-}
-
-@keyframes multiplier-glow {
-  0%, 100% {
-    box-shadow: 
-      0 4px 15px rgba(16, 185, 129, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+/* Stopped car animation - car stops before blocker */
+@keyframes car-stopped {
+  0% {
+    transform: translateY(-100px);
+    opacity: 1;
   }
-  50% {
-    box-shadow: 
-      0 4px 20px rgba(16, 185, 129, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 20px rgba(16, 185, 129, 0.3);
+  70% {
+    transform: translateY(210px); /* Stop before reaching blocker - scaled */
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(210px); /* Stay stopped - scaled */
+    opacity: 1;
   }
 }
 
-/* Enhanced lane indicator styling */
-.lane-indicator {
-  background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
-    0 4px 15px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: lane-indicator-glow 2s infinite;
+.animate-car-stopped {
+  animation: car-stopped var(--custom-car-duration, 3s) ease-in-out forwards;
 }
 
-@keyframes lane-indicator-glow {
-  0%, 100% {
-    box-shadow: 
-      0 4px 15px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+/* Car moves normally then stops at blocker position */
+@keyframes car-pause-before-blocker {
+  0% {
+    transform: translateY(-25px); /* Start from top like normal cars */
+    opacity: 1;
   }
-  50% {
-    box-shadow: 
-      0 4px 20px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 15px rgba(255, 255, 255, 0.1);
+  100% {
+    transform: translateY(100px); /* Stop at 60px when blocker detected */
+    opacity: 1;
   }
 }
 
-/* Enhanced crash animation */
-.crash-effect {
-  animation: crash-shake 0.5s ease-in-out;
+.animate-car-paused {
+  animation: car-pause-before-blocker .3s ease-in-out forwards; /* Fast 1s animation for stopped cars */
 }
 
-@keyframes crash-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
+/* Fast stopped car animation - quicker for better gameplay */
+@keyframes car-stopped-fast {
+  0% {
+    transform: translateY(-25px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(60px); /* Quick stop at blocker position */
+    opacity: 1;
+  }
 }
 
-/* Enhanced success animation */
-.success-effect {
-  animation: success-bounce 0.6s ease-in-out;
-}
-
-@keyframes success-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
-/* Enhanced multiplier button styling to match design */
-.multiplier-button {
-  background: linear-gradient(145deg, #10b981 0%, #059669 100%);
-  border: 2px solid #047857;
-  border-radius: 8px;
-  box-shadow: 
-    0 2px 8px rgba(16, 185, 129, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.multiplier-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
-  pointer-events: none;
-}
-
-.multiplier-button .multiplier-text {
-  color: white;
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  position: relative;
-  z-index: 1;
+.animate-car-stopped-fast {
+  animation: car-stopped-fast 0.8s ease-in-out forwards; /* Very fast 0.8s for immediate stop */
 }

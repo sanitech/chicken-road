@@ -1,40 +1,51 @@
 import React, { useState, useEffect } from 'react'
 import carImage from '../assets/car1.png'
 
-function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, hasBlocker = false }) {
+function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, customSpeed = 3000, isBlocked = false, isPaused = false }) {
   const [animationClass, setAnimationClass] = useState('')
 
   useEffect(() => {
-    if (isAnimating) {
-      if (isContinuous && !hasBlocker) {
-        // Continuous animation for moving cars without blockers
+    if (isPaused) {
+      // Car is paused by chicken jump - fast pause animation
+      setAnimationClass('animate-car-paused')
+    } else if (isBlocked) {
+      // Car is stopped by blocker - very fast stop animation
+      setAnimationClass('animate-car-stopped-fast')
+    } else if (isAnimating) {
+      if (isContinuous) {
+        // Continuous animation for moving cars
         setAnimationClass('animate-car-move-continuous')
-      } else if (isContinuous && hasBlocker) {
-        // Car moves but stops at blocker position
-        setAnimationClass('animate-car-move-to-blocker')
       } else {
         // One-time animation for crash car
         setAnimationClass('animate-car-move')
         
-        // Set timeout for animation completion (3 seconds)
+        // Use custom speed for animation completion
         const timer = setTimeout(() => {
           setAnimationClass('animate-car-disappear')
           if (onAnimationComplete) {
             onAnimationComplete()
           }
-        }, 3000)
+        }, customSpeed)
 
         return () => clearTimeout(timer)
       }
+    } else {
+      setAnimationClass('')
     }
-  }, [isAnimating, onAnimationComplete, isContinuous, hasBlocker])
+  }, [isAnimating, onAnimationComplete, isContinuous, customSpeed, isBlocked, isPaused])
 
   return (
-    <div className={`w-[50px] h-full relative ${animationClass} drop-shadow-lg`}>
+    <div 
+      className={`w-[50px] h-full relative ${animationClass}`}
+      style={{
+        // Apply custom animation duration
+        '--custom-car-duration': `${customSpeed}ms`
+      }}
+    >
       <img 
         src={carImage} 
         alt="Car" 
-        className="w-full h-full object-contain filter brightness-110 contrast-110" 
+        className="w-full h-full object-contain" 
       />  
     </div>
   )

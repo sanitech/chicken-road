@@ -1,22 +1,110 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useGetUserInfo } from '../utils/getUserinfo'
-import { gameApi, generateClientSeed } from '../utils/gameApi'
-import { FaCoins } from 'react-icons/fa'
-import audioManager from '../utils/audioUtils'
+import { FaCoins, FaCog } from 'react-icons/fa'
+import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
+import deadChickenImage from '../assets/chickendead.png'
+import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
+import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
+import crashAudio from '../assets/audio/crash.6d250f25.mp3'
 import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
-import RoadDisplay from './RoadDisplay'
 
-// Difficulty configurations from server - synchronized with backend
+// Generate lanes based on difficulty configuration
+const generateLanesForDifficulty = (difficultyConfigs, difficulty = 'easy') => {
+  const config = difficultyConfigs[difficulty]
+  return [...config.multipliers] // Return a copy of the multipliers array
+}
+
+// Game Audio Manager using Howler.js
+class GameAudioManager {
+  constructor() {
+    this.backgroundMusic = new Howl({
+      src: [backgroundMusic],
+      loop: true,
+      volume: 0.3,
+      autoplay: false, // We'll control this manually
+      onload: () => console.log('Background music loaded'),
+      onplay: () => console.log('Background music started'),
+      onpause: () => console.log('Background music paused'),
+      onerror: (id, error) => console.log('Background music error:', error)
+    })
+
+    this.cashoutSound = new Howl({
+      src: [cashoutAudio],
+      volume: 0.7,
+      onload: () => console.log('Cashout sound loaded'),
+      onplay: () => console.log('Cashout sound played'),
+      onerror: (id, error) => console.log('Cashout sound error:', error)
+    })
+
+    this.crashSound = new Howl({
+      src: [crashAudio],
+      volume: 0.6,
+      onload: () => console.log('Crash sound loaded'),
+      onplay: () => console.log('Crash sound played'),
+      onerror: (id, error) => console.log('Crash sound error:', error)
+    })
+  }
+
+  // Background music controls
+  playBackgroundMusic() {
+    if (!this.backgroundMusic.playing()) {
+      this.backgroundMusic.play()
+    }
+  }
+
+  pauseBackgroundMusic() {
+    this.backgroundMusic.pause()
+  }
+
+  // Sound effects
+  playCashout() {
+    this.cashoutSound.play()
+  }
+
+  playCrash() {
+    this.crashSound.play()
+  }
+
+  // Master controls
+  setMasterVolume(volume) {
+    Howler.volume(volume)
+  }
+
+  setSoundEffectsEnabled(enabled) {
+    this.soundEffectsEnabled = enabled
+  }
+
+  setMusicEnabled(enabled) {
+    if (enabled) {
+      this.playBackgroundMusic()
+    } else {
+      this.pauseBackgroundMusic()
+    }
+  }
+
+  // Play sound effect only if enabled
+  playSound(soundMethod) {
+    if (this.soundEffectsEnabled) {
+      soundMethod.call(this)
+    }
+  }
+}
+
+// Difficulty configurations - moved outside component to fix initialization error
 const DIFFICULTY_CONFIGS = {
   easy: {
     name: "Easy Mode",
     lanes: 30,
     startingMultiplier: 1.01,
     maxMultiplier: 100,
-    houseEdge: 4.5, // 95.5% RTP
-    rtp: 95.5,
+    crashProbabilities: [
+      0.15, 0.12, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.03,
+      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
+      0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01
+    ],
     multipliers: [
       1.01, 1.03, 1.06, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40,
       1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90,
@@ -28,8 +116,11 @@ const DIFFICULTY_CONFIGS = {
     lanes: 25,
     startingMultiplier: 1.08,
     maxMultiplier: 500,
-    houseEdge: 4.5, // 95.5% RTP
-    rtp: 95.5,
+    crashProbabilities: [
+      0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04,
+      0.03, 0.03, 0.03, 0.03, 0.03, 0.02, 0.02, 0.02, 0.02, 0.02,
+      0.01, 0.01, 0.01, 0.01, 0.01
+    ],
     multipliers: [
       1.08, 1.12, 1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85,
       1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85,
@@ -41,8 +132,11 @@ const DIFFICULTY_CONFIGS = {
     lanes: 22,
     startingMultiplier: 1.18,
     maxMultiplier: 1000,
-    houseEdge: 4.5, // 95.5% RTP
-    rtp: 95.5,
+    crashProbabilities: [
+      0.25, 0.22, 0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06,
+      0.05, 0.05, 0.05, 0.04, 0.04, 0.04, 0.03, 0.03, 0.03, 0.03,
+      0.02, 0.02
+    ],
     multipliers: [
       1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05,
       2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.00, 3.20,
@@ -54,8 +148,10 @@ const DIFFICULTY_CONFIGS = {
     lanes: 18,
     startingMultiplier: 1.44,
     maxMultiplier: 3608855,
-    houseEdge: 4.5, // 95.5% RTP
-    rtp: 95.5,
+    crashProbabilities: [
+      0.30, 0.28, 0.25, 0.22, 0.20, 0.18, 0.15, 0.12, 0.10, 0.08,
+      0.07, 0.06, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+    ],
     multipliers: [
       1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15,
       3.50, 3.90, 4.35, 4.85, 5.40, 6.00, 6.70, 7.50
@@ -63,55 +159,50 @@ const DIFFICULTY_CONFIGS = {
   }
 }
 
-const INITIAL_MULTIPLIERS = DIFFICULTY_CONFIGS.easy.multipliers
- 
 function Chicken() {
   const [token, setToken] = useState(null)
   const [gameState, setGameState] = useState({
     balance: 0,
-    betAmount: 10,
-    difficulty: 'easy',
+    betAmount: 0.5,
+    difficulty: 0,
   })
 
-  // Game states
-  const [difficulties, setDifficulties] = useState(DIFFICULTY_CONFIGS)
-  const [currentGame, setCurrentGame] = useState(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [gameResult, setGameResult] = useState(null)
-
   // Lane movement state
-  const [currentLaneIndex, setCurrentLaneIndex] = useState(-1) // Start on sideroad before lanes
-  const [movedLanes, setMovedLanes] = useState([-1]) // Track all lanes the chicken has moved through
-  const [currentMultipliers, setCurrentMultipliers] = useState(INITIAL_MULTIPLIERS) // Dynamic multipliers array
-  
-  // Jump physics state - restored from chicken-front2
+  const [currentLaneIndex, setCurrentLaneIndex] = useState(0)
+  const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
+  const [allLanes, setAllLanes] = useState(() => generateLanesForDifficulty(DIFFICULTY_CONFIGS, 'easy')) // Generate lanes based on difficulty
+
+  // Jump physics state
   const [isJumping, setIsJumping] = useState(false)
   const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
   const [jumpStartLane, setJumpStartLane] = useState(0)
   const [jumpTargetLane, setJumpTargetLane] = useState(0)
-  const [jumpStartTime, setJumpStartTime] = useState(0) // For optimistic update timing
 
-  // Win notification state
-  const [showWinNotification, setShowWinNotification] = useState(false)
-  
   // Crash control state
-  const [crashIndex, setCrashIndex] = useState(5) // Default crash at index 5
+  const [crashIndex, setCrashIndex] = useState(5) // Default crash at Lane 5
   const [gameEnded, setGameEnded] = useState(false) // Track if game has ended due to crash
-  const [isDead, setIsDead] = useState(false) // Track if chicken is dead
-  const [crashDelay, setCrashDelay] = useState(0) // Track crash delay countdown (crashed)
-  
-  // Range display state - responsive window size
-  const [windowSize, setWindowSize] = useState(3) // Start with mobile size, will be updated on mount
- 
+  const [isDead, setIsDead] = useState(false) // Track if chicken is dead (crashed)
+
+  // Range display state
+  const [windowSize, setWindowSize] = useState(5) // Number of lanes to show at once
+  const [stableRange, setStableRange] = useState({ start: 0, end: 4 }) // Stable range during jumps
+
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(false)
-  const [musicEnabled, setMusicEnabled] = useState(false)
+  const [currentDifficulty, setCurrentDifficulty] = useState('easy') // Default to easy mode
+  const [showSettings, setShowSettings] = useState(false) // Settings popup state
+  const [soundEnabled, setSoundEnabled] = useState(true) // Enable sound effects by default
+  const [musicEnabled, setMusicEnabled] = useState(true) // Default play audio enabled
+  const [isRestarting, setIsRestarting] = useState(false) // Track if restart animation is playing
+  const [betAmount, setBetAmount] = useState(4.00) // Bet amount state
+  const [isInputFocused, setIsInputFocused] = useState(false) // Track if input is focused
+  const [demoBalance, setDemoBalance] = useState(1000.00) // Demo balance for cash out simulation
+  const [showCashOutAnimation, setShowCashOutAnimation] = useState(false) // Cash out animation state
+  const [lastCashOutAmount, setLastCashOutAmount] = useState(0) // Track last cash out for animation
+  const audioManager = useRef(null) // Reference for Howler.js audio manager
 
-  // Removed caching system for security - server validates every move
-
-  // Handle token
+  // Token handling and user info
   useEffect(() => {
     // Extract token from URL parameters
     const params = new URLSearchParams(window.location.search)
@@ -132,25 +223,6 @@ function Chicken() {
 
   const { userInfo } = useGetUserInfo(token)
 
-  // Set responsive window size based on screen width
-  useEffect(() => {
-    const updateWindowSize = () => {
-      if (window.innerWidth < 768) {
-        setWindowSize(3) // Mobile: 3 lanes
-      } else {
-        setWindowSize(7) // Desktop: 7 lanes
-      }
-    }
-
-    // Set initial size
-    updateWindowSize()
-
-    // Listen for resize events
-    window.addEventListener('resize', updateWindowSize)
-    
-    return () => window.removeEventListener('resize', updateWindowSize)
-  }, [])
-
   // Update balance when user info changes
   useEffect(() => {
     if (userInfo?.balance !== undefined) {
@@ -161,158 +233,8 @@ function Chicken() {
     }
   }, [userInfo])
 
-  // Update multipliers when difficulty changes
-  useEffect(() => {
-    const config = DIFFICULTY_CONFIGS[gameState.difficulty]
-    if (config) {
-      setCurrentMultipliers(config.multipliers)
-    }
-  }, [gameState.difficulty])
 
-  // Removed caching functions for security - server validates every move to keep crash point secret
-
-
-  // Start a new game
-  const startNewGame = async () => {
-    try {
-      setIsPlaying(true)
-      setGameResult(null)
-      setCurrentLaneIndex(-1)
-      setMovedLanes([-1])
-      setGameEnded(false)
-      setIsDead(false)
-
-      const creatorChatId = userInfo?.chatId;
-
-      const result = await gameApi.createGame({
-        difficulty: gameState.difficulty,
-        betAmount: gameState.betAmount,
-        creatorChatId
-      })
-
-      setCurrentGame(result)
-      setGameResult(result)
-
-      // Update multipliers based on difficulty (using local config)
-      const config = DIFFICULTY_CONFIGS[gameState.difficulty]
-      if (config) {
-        setCurrentMultipliers(config.multipliers)
-      }
-
-      // Move to first lane with secure server validation
-      setTimeout(async () => {
-        await moveToNextLane() // Secure: validate with server every move
-      }, 500) // Small delay to show the game started
-
-    } catch (error) {
-      setIsPlaying(false)
-      alert(`Failed to start game: ${error.message}`)
-    }
-  }
-
-  // Calculate dynamic range - 6 lanes on desktop, 2-3 on mobile
-  const calculateDynamicRange = () => {
-    const totalLanes = currentMultipliers.length
-    const isMobile = window.innerWidth < 768
-    const maxLanes = isMobile ? 3 : 6 // 3 lanes on mobile, 6 on desktop
-    
-    // Always show from lane 0 for fixed lane display
-    return { start: 0, end: Math.min(maxLanes - 1, totalLanes - 1) }
-  }
-
-  // Get multipliers for display within the dynamic range
-  const getAllMultipliers = () => {
-    const range = calculateDynamicRange()
-    // Show all multipliers starting from index 0 (1.01x)
-    return currentMultipliers.slice(range.start, range.end + 1)
-  }
-
-  // Removed cached move function for security - using server validation every move
-
-  // Handle crash with countdown
-  const handleCrash = (crashLane) => {
-    setGameEnded(true)
-    setIsDead(true)
-    setIsPlaying(false)
-    setCrashIndex((crashLane ?? currentLaneIndex + 1) + 1)
-    
-    // Play crash sound
-    audioManager.playCrashSound()
-    audioManager.playLoseSound()
-    
-    // Start crash delay countdown
-    setCrashDelay(3) // Start with 3 seconds
-    
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setCrashDelay(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval)
-          // Reset game after countdown
-          setIsDead(false)
-          setGameEnded(false)
-          setCurrentLaneIndex(-1)
-          setMovedLanes([-1])
-          setCurrentMultipliers(INITIAL_MULTIPLIERS)
-          setCrashIndex(0)
-          setCurrentGame(null)
-          setGameResult(null)
-          setCrashDelay(0)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
-  // Function to move chicken to next lane (OPTIMISTIC: like original Chicken Road 2)
-  const moveToNextLane = async () => {
-    if (!currentGame || gameEnded) return
-
-    const nextIndex = currentLaneIndex + 1
-
-    try {
-      // 🚀 OPTIMISTIC: Start animation immediately (like original game)
-      console.log(`⚡ Starting optimistic move to lane ${nextIndex}`)
-      startJump(nextIndex) // Instant visual feedback!
-      
-      // 🔒 SECURE: Validate with server in parallel (crash point stays secret)
-      const moveCheck = await gameApi.canMove(currentGame.gameId, nextIndex)
-
-      if (!moveCheck.canMove) {
-        // 💥 Server says crash - handle during or after animation
-        console.log(`💥 Server validation failed for lane ${nextIndex}`)
-        
-        // If animation is still running, let it finish then show crash
-        const animationDuration = 800 // Match your jump animation duration
-        const timeElapsed = Date.now() - jumpStartTime
-        const remainingTime = Math.max(0, animationDuration - timeElapsed)
-        
-        setTimeout(() => {
-          handleCrash(moveCheck.crashLane)
-        }, remainingTime)
-        
-        return
-      }
-
-      // ✅ Server approved move - animation already running, just update state
-      console.log(`✅ Server approved move to lane ${nextIndex}`)
-      
-      setCurrentGame(prev => ({
-        ...prev,
-        currentLane: moveCheck.currentLane || nextIndex,
-        multiplier: moveCheck.multiplier || prev.multiplier,
-        nextMultiplier: moveCheck.nextMultiplier
-      }))
-      
-    } catch (e) {
-      console.error('Move failed:', e)
-      // On network error, assume crash for safety
-      setTimeout(() => handleCrash(nextIndex), 400)
-    }
-  }
-
-  // Physics-based jump function - restored from chicken-front2
+  // Physics-based jump function
   const startJump = (targetLane) => {
     if (isJumping) return // Prevent multiple jumps
 
@@ -321,18 +243,16 @@ function Chicken() {
     setJumpTargetLane(targetLane)
     setJumpProgress(0)
 
-    // Animate the jump with physics-based easing
+    // Animate the jump
     const jumpDuration = 800 // 800ms jump duration
     const startTime = Date.now()
-    setJumpStartTime(startTime) // Track for optimistic updates
-
-    console.log(`🎬 Starting jump animation to lane ${targetLane}`)
 
     const animateJump = () => {
       const elapsed = Date.now() - startTime
       const progress = Math.min(elapsed / jumpDuration, 1)
 
-      // Apply physics-based easing
+      // Apply physics-based easing with more realistic acceleration/deceleration
+      // Use easeInOutCubic for more natural movement
       const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
       const easedProgress = easeInOutCubic(progress)
 
@@ -355,424 +275,707 @@ function Chicken() {
     setJumpProgress(0)
     setCurrentLaneIndex(targetLane)
 
-    // Play chicken sound for successful jump
-    audioManager.playChickenSound()
-
     // Update moved lanes
-    setMovedLanes(prevLanes => [...prevLanes, targetLane])
+    setMovedLanes(prevLanes => {
+      const newLanes = [...prevLanes, targetLane]
+      console.log('Chicken jumped through lanes:', newLanes)
+      return newLanes
+    })
+
+    // No dynamic multiplier removal - using pre-generated lanes
   }
 
-  // Calculate potential winnings for each multiplier
-  const calculateWinnings = (multiplier) => {
-    return gameState.betAmount * multiplier
-  }
+  // Function to move chicken to next lane
+  const moveToNextLane = () => {
+    // Check if next move would trigger crash
+    const nextPosition = currentLaneIndex + 1
+    const nextLaneNumber = nextPosition // Position 1 = Lane 1, Position 2 = Lane 2, etc.
 
-  // Cash out function
-  const cashOut = async () => {
-    if (!currentGame || gameEnded || !isPlaying) return
+    console.log(`Moving to position ${nextPosition} (Lane ${nextLaneNumber}), crash set for Lane ${crashIndex}`)
 
-    try {
-      const result = await gameApi.cashOut(currentGame.gameId, currentLaneIndex)
+    // Crash check: if moving to the crash lane
+    if (nextLaneNumber === crashIndex) {
+      console.log(`CRASH DETECTED! Moving to Lane ${nextLaneNumber} which is the crash lane ${crashIndex}`)
 
-      setIsPlaying(false)
+      // Play crash audio
+      playCrashAudio()
+
       setGameEnded(true)
-      setIsDead(false) // ✅ Ensure no dead chicken on successful cash out
-      setGameResult(result)
-
-      // Play cash out sound first (more prominent)
-      audioManager.playCashOutSound()
-      
-      // Then play win sound (delayed slightly to avoid overlap)
-      setTimeout(() => {
-        audioManager.playWinSound()
-      }, 300)
-
-      // Show win notification
-      setShowWinNotification(true)
-      
-      // ✅ Auto-restart game after win notification
-      setTimeout(() => {
-        setShowWinNotification(false)
-        
-        // Reset game state for new game (no "New Game" button needed)
-        setIsPlaying(false)
-        setGameEnded(false)
-        setIsDead(false)
-        setCurrentLaneIndex(-1)
-        setMovedLanes([-1])
-        setCurrentMultipliers(INITIAL_MULTIPLIERS)
-        setCrashIndex(0)
-        setCurrentGame(null)
-        setGameResult(null)
-        
-        console.log('🔄 Game auto-restarted after cash out')
-      }, 3000) // Show win notification for 3 seconds then auto-restart
-
-      // Add success effect
-      const gameArea = document.querySelector('.game-area')
-      if (gameArea) {
-        gameArea.classList.add('success-effect')
-        setTimeout(() => {
-          gameArea.classList.remove('success-effect')
-        }, 600)
-      }
-
-      // Update user balance if available
-      if (result.winAmount && userInfo) {
-        // The balance will be updated by the wallet system
-      }
-
-    } catch (error) {
-      // Don't end the game if cash out fails
+      setIsDead(true) // Set chicken as dead when it crashes
+      console.log(`Chicken crashed at Lane ${nextLaneNumber}! Crash was set for Lane ${crashIndex}`)
+      console.log(`Dead state: ${true}, Game ended: ${true}`)
+      return
     }
+
+    // Prevent going beyond the last lane
+    if (nextPosition > allLanes.length) {
+      console.log(`Cannot go beyond last lane: position ${nextPosition} > ${allLanes.length} lanes`)
+      return
+    }
+
+    // Start physics-based jump to next lane
+    console.log(`Starting jump to position ${nextPosition} (Lane ${nextLaneNumber})`)
+    startJump(nextPosition)
+  }
+
+
+  // Calculate dynamic range based on current chicken position
+  const calculateDynamicRange = () => {
+    const totalLanes = allLanes.length
+    const halfWindow = Math.floor(windowSize / 2)
+
+    // During jumps, return stable range to prevent flickering
+    if (isJumping) {
+      return stableRange
+    }
+
+    // Center the window around the current chicken position
+    let start = Math.max(0, currentLaneIndex - halfWindow)
+    let end = Math.min(totalLanes - 1, start + windowSize - 1)
+
+    // Adjust start if we're near the end
+    if (end === totalLanes - 1) {
+      start = Math.max(0, end - windowSize + 1)
+    }
+
+    return { start, end }
+  }
+
+
+  // Update stable range when not jumping - prevents infinite render loop
+  useEffect(() => {
+    if (!isJumping) {
+      const totalLanes = allLanes.length
+      const halfWindow = Math.floor(windowSize / 2)
+      let start = Math.max(0, currentLaneIndex - halfWindow)
+      let end = Math.min(totalLanes - 1, start + windowSize - 1)
+
+      if (end === totalLanes - 1) {
+        start = Math.max(0, end - windowSize + 1)
+      }
+
+      setStableRange({ start, end })
+    }
+  }, [currentLaneIndex, windowSize, isJumping, allLanes.length])
+
+  // Get multipliers for display within the dynamic range
+  const getVisibleLanes = () => {
+    const range = calculateDynamicRange()
+    return allLanes.slice(range.start, range.end + 1)
+  }
+
+  // Bet amount functions
+  const incrementBet = () => {
+    setBetAmount(prev => parseFloat((prev + 0.50).toFixed(2)))
+  }
+
+  const decrementBet = () => {
+    setBetAmount(prev => Math.max(0.50, parseFloat((prev - 0.50).toFixed(2))))
+  }
+
+  const handleBetInputChange = (e) => {
+    const value = parseFloat(e.target.value)
+    if (!isNaN(value) && value >= 0.50) {
+      setBetAmount(parseFloat(value.toFixed(2)))
+    }
+  }
+
+  // Initialize Howler.js audio manager
+  useEffect(() => {
+    console.log('Initializing Howler.js audio manager...')
+    audioManager.current = new GameAudioManager()
+    audioManager.current.setSoundEffectsEnabled(soundEnabled)
+
+    // Start background music if enabled
+    if (musicEnabled) {
+      audioManager.current.setMusicEnabled(true)
+    }
+
+    return () => {
+      // Cleanup audio on unmount
+      if (audioManager.current) {
+        audioManager.current.pauseBackgroundMusic()
+      }
+    }
+  }, [])
+
+  // Update audio settings when states change
+  useEffect(() => {
+    if (audioManager.current) {
+      audioManager.current.setSoundEffectsEnabled(soundEnabled)
+    }
+  }, [soundEnabled])
+
+  useEffect(() => {
+    if (audioManager.current) {
+      audioManager.current.setMusicEnabled(musicEnabled)
+    }
+  }, [musicEnabled])
+
+  // Play cashout audio using Howler.js
+  const playCashoutAudio = () => {
+    console.log('Playing cashout audio with Howler.js...', { soundEnabled })
+    if (audioManager.current && soundEnabled) {
+      audioManager.current.playCashout()
+    }
+  }
+
+  // Play crash audio using Howler.js  
+  const playCrashAudio = () => {
+    console.log('Playing crash audio with Howler.js...', { soundEnabled })
+    if (audioManager.current && soundEnabled) {
+      audioManager.current.playCrash()
+    }
+  }
+
+  // Cash out functionality - only for successful cash outs, not deaths
+  const handleCashOut = () => {
+    if (currentLaneIndex > 0 && !isDead && !gameEnded) {
+      const currentMultiplier = allLanes[currentLaneIndex - 1] || 1
+      const winnings = betAmount * currentMultiplier
+      const profit = winnings - betAmount
+
+      // Play cashout audio
+      playCashoutAudio()
+
+      // Update demo balance with winnings
+      setDemoBalance(prev => parseFloat((prev + winnings).toFixed(2)))
+
+      // Store cash out amount for animation
+      setLastCashOutAmount(winnings)
+
+      // Show cash out animation
+      setShowCashOutAnimation(true)
+
+      // Hide animation after 3 seconds
+      setTimeout(() => {
+        setShowCashOutAnimation(false)
+      }, 3000)
+
+      // Reset game after cash out
+      setTimeout(() => {
+        resetGame()
+      }, 1500)
+
+      console.log(`Cashed out: ${winnings.toFixed(2)} ETB (Profit: +${profit.toFixed(2)} ETB)`)
+    }
+  }
+
+  // Change difficulty and regenerate lanes
+  const changeDifficulty = (newDifficulty) => {
+    setCurrentDifficulty(newDifficulty)
+    const newLanes = generateLanesForDifficulty(DIFFICULTY_CONFIGS, newDifficulty)
+    setAllLanes(newLanes)
+    // Reset game when difficulty changes
+    resetGame()
+    console.log(`Difficulty changed to ${newDifficulty}, ${newLanes.length} lanes generated`)
   }
 
   // Reset game function
   const resetGame = () => {
-    setCurrentLaneIndex(-1) // Return to sideroad
-    setMovedLanes([-1])
-    setCurrentMultipliers(INITIAL_MULTIPLIERS)
+    console.log('Resetting game - chicken back to side road')
+    setCurrentLaneIndex(0) // Back to side road (index 0)
+    setMovedLanes([0])
     setGameEnded(false)
     setIsDead(false) // Reset dead state when game is reset
+    setIsJumping(false) // Reset jump state
+    setJumpProgress(0)
+    setIsRestarting(false) // Reset restart animation
+    setStableRange({ start: 0, end: 4 }) // Reset stable range
+    // Generate new crash index based on current difficulty
+    const config = DIFFICULTY_CONFIGS[currentDifficulty]
+    // Crash should be at lane 2 or higher (position 2+)
+    const minCrashLane = 2 // Minimum Lane 2
+    const maxCrashLane = Math.min(config.lanes, allLanes.length) // Don't exceed available lanes
+    const newCrashIndex = Math.floor(Math.random() * (maxCrashLane - minCrashLane + 1)) + minCrashLane
+    setCrashIndex(newCrashIndex)
+    console.log(`Game reset complete - New crash at Lane ${newCrashIndex} (available lanes: ${allLanes.length})`)
   }
+
+  // Start new game (deduct bet amount)
+  const startNewGame = () => {
+    // Check if player has enough balance
+    if (demoBalance >= betAmount) {
+      // Close any open dropdowns
+      setShowDifficultyDropdown(false)
+
+      // Deduct bet amount from balance
+      setDemoBalance(prev => parseFloat((prev - betAmount).toFixed(2)))
+      console.log(`New game started - Bet: ${betAmount.toFixed(2)} ETB deducted`)
+      moveToNextLane() // Start the game
+    } else {
+      console.log('Insufficient balance for bet')
+      // Could show error message here
+    }
+  }
+
+  // Auto-restart when chicken dies with smooth parallax animation
+  useEffect(() => {
+    console.log('Restart effect triggered:', { isDead, gameEnded, isRestarting })
+
+    if (isDead && gameEnded && !isRestarting) {
+      console.log('Chicken died! Starting smooth reset animation...')
+      setIsRestarting(true)
+
+      // Start smooth parallax animation back to side road after brief pause
+      const restartTimer = setTimeout(() => {
+        console.log('Resetting game with parallax animation...')
+        resetGame()
+      }, 1000) // 1 second delay for smooth transition
+
+      return () => clearTimeout(restartTimer)
+    }
+  }, [isDead, gameEnded, isRestarting])
+
+  // Close difficulty dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDifficultyDropdown && !event.target.closest('.difficulty-selector')) {
+        setShowDifficultyDropdown(false)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showDifficultyDropdown])
 
 
 
   return (
-    <>
-    <div className="h-screen game-container text-white flex flex-col">
-      {/* Header - Matching Image Design */}
-      <header className="game-header px-2 py-4 flex items-center justify-between" style={{ backgroundColor: '#1A1A1A' }}>
-        {/* Left side - Logo and Game Title */}
-        <div className="w-44">
+    <div className="flex min-h-screen flex-col bg-gray-900 text-white overflow-hidden">
+      {/* CSS to hide number input arrows */}
+      <style jsx>{`
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
+      {/* Mobile-First Game Header */}
+      <header className="bg-black px-1 py-2 flex items-center justify-between border-b border-gray-900">
+        <div className="flex items-center gap-2">
           <img
             src={logoImage}
-            alt="Chicken Road 2 Logo"
-            className="object-contain"
+            alt="Chicken Road Logo"
+            className="w-40 sm:h-8"
           />
         </div>
 
-        {/* Center-Right - Balance */}
-        <div className='flex items-center gap-2'>
-          <div className="flex items-center">
-            <span className="text-white font-bold text-base">{(userInfo?.balance || 0).toFixed(2)}</span>
-            <span className="text-green-500 font-bold text-base ml-2">ETB</span>
-            </div>
-
-          {/* Right side - Menu Icon */}
-          <div className="flex items-center">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-              className="w-10 h-8 bg-gray-600 rounded flex items-center justify-center hover:bg-gray-500"
-            >
-              <div className="flex flex-col space-y-1">
-                <div className="w-4 h-0.5 bg-white"></div>
-                <div className="w-4 h-0.5 bg-white"></div>
-                <div className="w-4 h-0.5 bg-white"></div>
-              </div>
-          </button>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2" style={{ backgroundColor: '#2A2A2A' }}>
+            <FaCoins className="text-yellow-400 text-sm" />
+            <span className="text-sm sm:text-md font-bold">
+              {demoBalance.toFixed(2)}
+            </span>
+            <span className="text-xs text-gray-300">ETB</span>
+            <span className="text-xs text-gray-400">(Demo)</span>
           </div>
         </div>
       </header>
 
-      {/* Main Game Area - Simplified Single Row */}
-      <div className="flex-1 relative bg-gray-900 min-h-0 game-area">
+      {/* Full-Screen Game Container */}
+      <div className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden"             style={{
+                // Prevent sub-pixel rendering issues that cause black lines
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)', // Force hardware acceleration
+                willChange: 'transform' // Optimize for animations
+            }}
+>
         {/* Lane component with dynamic range */}
         <Lane
-          remainingMultipliers={getAllMultipliers()}
+          remainingMultipliers={getVisibleLanes()}
           currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
           displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
           globalCurrentIndex={currentLaneIndex}
           globalDisplayStart={calculateDynamicRange().start}
-          isDead={isDead}
+          allLanes={allLanes} // Pass the full lanes array for correct indexing
+          isDead={isDead || currentLaneIndex >= crashIndex - 1}
           crashIndex={crashIndex}
           shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
           gameEnded={gameEnded}
-          isPlaying={isPlaying}
-          betAmount={gameState.betAmount}
           isJumping={isJumping}
           jumpProgress={jumpProgress}
           jumpStartLane={jumpStartLane}
           jumpTargetLane={jumpTargetLane}
+          isRestarting={isRestarting}
         />
+
+        {/* Floating Game Status Overlay */}
+        {gameEnded && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+            <div className="bg-red-600 rounded-xl p-6 text-center shadow-2xl">
+              <div className="text-2xl font-bold mb-2">💥 CRASH!</div>
+              <div className="text-sm opacity-90 mb-4">
+                {currentLaneIndex === 0 ? 'Side Road' : `Lane ${currentLaneIndex}`} • Final: {currentLaneIndex > 0 ? allLanes[currentLaneIndex - 1]?.toFixed(2) + 'x' : 'No multiplier'}
+              </div>
+              {/* Manual restart button for debugging */}
+              <button
+                onClick={resetGame}
+                className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm"
+              >
+                🔄 Manual Restart
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Cash Out Success Animation with Win Notification Image */}
+        {showCashOutAnimation && (
+          <div className="absolute z-30" style={{ top: '20%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+            <div className="relative">
+              {/* Win Notification Background Image */}
+              <img
+                src={winNotificationImage}
+                alt="Win Notification"
+                className="w-96 h-40"
+              />
+
+              {/* Overlay Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                {/* WIN! Text */}
+                <div className=" text-black font-black text-lg px-6  ">
+                  WIN!
+                </div>
+
+                {/* Amount */}
+                <div className="text-white  font-bold text-2xl drop-shadow-lg mt-7">
+                  {lastCashOutAmount.toFixed(2)} ETB
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
 
-          {/* Win Notification Display */}
-          {showWinNotification && (
-            <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-30">
-              <div className="relative">
-                <img 
-                  src={winNotificationImage} 
-                  alt="Win Notification" 
-                  className="w-64 h-64 animate-bounce" 
-                />
-                {gameResult && (
-                  <div className="absolute top-10 left-0 w-64 h-64 flex items-center justify-center animate-bounce">
-                    <div className="text-white text-4xl font-bold animate-pulse text-center px-6 leading-tight">
-                       {gameResult.winAmount} ETB
+        {/* Bottom Controller UI - Exact Match Design */}
+        <div className=" z-20 p-4" style={{ backgroundColor: '#545454' }}>
+          <div className="space-y-3">
+            {/* Bet Amount Control */}
+            <div className="flex items-center justify-between ">
+              <div className="flex  flex-1 items-center justify-between rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
+                <button
+                  onClick={decrementBet}
+                  disabled={currentLaneIndex > 0} // Disable when game is active
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:opacity-80 active:scale-95'
+                    }`}
+                  style={{ backgroundColor: '#2A2A2A' }}
+                >
+                  −
+                </button>
+                <div className="flex-1 text-center relative">
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="0.50"
+                    value={betAmount.toFixed(2)}
+                    onChange={handleBetInputChange}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
+                    disabled={currentLaneIndex > 0} // Disable when game is active
+                    className={`text-white font-bold text-lg text-center w-full bg-transparent border-none outline-none ${currentLaneIndex > 0
+                        ? 'opacity-50 cursor-not-allowed'
+                        : isInputFocused ? 'bg-gray-700 rounded px-2 py-1' : ''
+                      }`}
+                    style={{
+                      appearance: 'none',
+                      MozAppearance: 'textfield',
+                      WebkitAppearance: 'none'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={incrementBet}
+                  disabled={currentLaneIndex > 0} // Disable when game is active
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:opacity-80 active:scale-95'
+                    }`}
+                  style={{ backgroundColor: '#2A2A2A' }}
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="ml-3 w-10 h-10 rounded-lg flex items-center justify-center text-white hover:opacity-80"
+                style={{ backgroundColor: '#2A2A2A' }}
+              >
+                <FaCog />
+              </button>
+            </div>
+
+            {/* Difficulty Selector */}
+            <div className={`rounded-lg p-3 relative difficulty-selector transition-opacity ${currentLaneIndex > 0 ? 'opacity-0' : 'opacity-100'}`} style={{ backgroundColor: '#2A2A2A' }}>
+              <button
+                onClick={() => currentLaneIndex === 0 && setShowDifficultyDropdown(!showDifficultyDropdown)}
+                disabled={currentLaneIndex > 0} // Disable when game is active
+                className={`w-full flex items-center justify-between text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed' : ''
+                  }`}
+              >
+                <span className="text-white font-medium">{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`}>
+                  <path d="M7 10l5 5 5-5z" />
+                </svg>
+              </button>
+
+              {/* Difficulty Dropdown */}
+              {showDifficultyDropdown && currentLaneIndex === 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg overflow-hidden z-50" style={{ backgroundColor: '#2A2A2A' }}>
+                  {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        changeDifficulty(key)
+                        setShowDifficultyDropdown(false)
+                      }}
+                      className={`w-full p-3 text-left hover:bg-gray-600 transition-colors ${currentDifficulty === key ? 'bg-gray-600' : ''
+                        }`}
+                    >
+                      <div className="text-white font-medium">{config.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Game Control Buttons */}
+            {currentLaneIndex === 0 && !isJumping ? (
+              /* Initial Play Button - Before Game Starts */
+              <button
+                onClick={startNewGame}
+                disabled={demoBalance < betAmount}
+                className={`w-full font-bold py-4 px-6 rounded-lg text-lg transition-all duration-200 ${demoBalance < betAmount
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:opacity-90 active:scale-95'
+                  }`}
+                style={{
+                  backgroundColor: demoBalance < betAmount ? '#2A2A2A' : '#3DC55B',
+                  color: 'white'
+                }}
+              >
+                {demoBalance < betAmount ? 'Insufficient Balance' : 'Play'}
+              </button>
+            ) : (
+              /* Dual Button Layout - During Game */
+              <div className="flex gap-3">
+                {/* Cash Out Button */}
+                <button
+                  onClick={handleCashOut}
+                  className="flex-1 font-bold py-4 px-4 rounded-lg text-2xl transition-all duration-200 hover:opacity-90 active:scale-95"
+                  style={{ backgroundColor: '#FECF4B', color: 'black' }}
+                >
+                  <div className="text-center">
+                    <div className="text-2xl opacity-90">CASH OUT</div>
+                    <div className="text-2xl font-bold">
+                      {(betAmount * (allLanes[currentLaneIndex - 1] || 1)).toFixed(2)} ETB
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Crash notification popup removed per user request */}
-
-      {/* Betting Controls - Bottom Panel - Mobile Responsive */}
-      <div className="control-panel p-4 md:p-6">
-        {/* Mobile Layout - Horizontal Panel */}
-        <div className="block md:hidden">
-          {!isPlaying && !gameEnded ? (
-            /* Pre-game Layout */
-            <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-              {/* Betting Controls Row */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-1 items-center justify-between gap-2 rounded-lg p-2" style={{ backgroundColor: '#2A2A2A' }}>
-                  <button
-                    onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.max(1, prev.betAmount - 1) }))}
-                    disabled={gameState.betAmount <= 1}
-                    className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#333333' }}
-                    onMouseEnter={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#444444')}
-                    onMouseLeave={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#333333')}
-                  >
-                    <span className="text-white font-bold">-</span>
-                  </button>
-
-                  <div className="flex-1 rounded-lg px-4 py-2 text-center min-w-[80px]">
-                    <span className="text-white font-bold">{gameState.betAmount.toFixed(2)}</span>
-              </div>
-
-                  <button
-                    onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.min(1000, prev.betAmount + 1) }))}
-                    disabled={gameState.betAmount >= 1000}
-                    className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#333333' }}
-                    onMouseEnter={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#444444')}
-                    onMouseLeave={(e) => !e.target.disabled && (e.target.style.backgroundColor = '#333333')}
-                  >
-                    <span className="text-white font-bold">+</span>
-                  </button>
-            </div>
-                <button className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-500">
-                  <span className="text-white">⚙️</span>
                 </button>
-            </div>
 
-              {/* Difficulty Selection Row */}
-              <div className="flex items-center justify-between">
-                <select
-                  value={gameState.difficulty}
-                  onChange={(e) => setGameState(prev => ({ ...prev, difficulty: e.target.value }))}
-                  className="bg-gray-800 w-full text-white rounded px-3 py-2"
-                >
-                  {difficulties && Object.entries(difficulties).map(([key, config]) => (
-                    <option key={key} value={key}>{config.name}</option>
-                  ))}
-                </select>
-          </div>
-
-              {/* Play Button */}
-              <button
-                onClick={startNewGame}
-                disabled={!difficulties}
-                className="w-full font-bold py-4 rounded-lg game-button text-white disabled:bg-gray-500 disabled:cursor-not-allowed text-xl"
-              >
-                Play
-              </button>
-            </div>
-          ) : isPlaying && !gameEnded ? (
-            /* Playing Layout - Like the Image */
-            <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-              {/* Top Row - Betting Controls */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-1 items-center justify-between gap-2 bg-gray-800 rounded-lg p-2">
-                  <button
-                    onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.max(1, prev.betAmount - 1) }))}
-                    disabled={gameState.betAmount <= 1}
-                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="text-white font-bold">-</span>
-                  </button>
-
-                  <div className="flex-1 rounded-lg px-4 py-2 text-center min-w-[80px]">
-                    <span className="text-white font-bold">{gameState.betAmount.toFixed(2)}</span>
-              </div>
-
-                  <button
-                    onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.min(1000, prev.betAmount + 1) }))}
-                    disabled={gameState.betAmount >= 1000}
-                    className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="text-white font-bold">+</span>
-                  </button>
-              </div>
-                <button className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-500">
-                  <span className="text-white">⚙️</span>
-                </button>
-            </div>
-
-              {/* Bottom Row - Action Buttons */}
-              <div className="flex gap-2 w-full">
-                <button
-                  onClick={cashOut}
-                  className="flex-1 font-bold py-4 rounded-lg text-white transition-colors flex flex-col items-center"
-                  style={{ backgroundColor: '#4CAF50' }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#45A049'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#4CAF50'}
-                >
-                  <span className="text-lg font-bold">CASH OUT</span>
-                  <span className="text-sm font-medium">
-                    {calculateWinnings(currentMultipliers[Math.max(0, currentLaneIndex - 1)] || 1).toFixed(2)} ETB
-                  </span>
-                </button>
-              <button 
-                onClick={moveToNextLane}
-                  disabled={currentLaneIndex >= currentMultipliers.length - 1}
-                  className={`flex-1 font-bold py-4 rounded-lg transition-colors transform hover:scale-105 active:scale-95 text-white ${currentLaneIndex >= currentMultipliers.length - 1
-                    ? 'cursor-not-allowed opacity-50'
-                    : ''
-                }`}
-                  style={{ 
-                    backgroundColor: currentLaneIndex >= currentMultipliers.length - 1 ? '#666666' : '#333333'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (currentLaneIndex < currentMultipliers.length - 1) {
-                      e.target.style.backgroundColor = '#444444'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (currentLaneIndex < currentMultipliers.length - 1) {
-                      e.target.style.backgroundColor = '#333333'
-                    }
-                  }}
-              >
-                  <span className="text-lg font-bold">GO</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Game Ended Layout */
-            <div className="bg-gray-700 rounded-lg p-4">
-              <button
-                onClick={resetGame}
-                className="w-full font-bold py-4 rounded-lg game-button text-white text-xl"
-              >
-                New Game
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Desktop Layout - Original Design */}
-      <div className="hidden md:block">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-6">
-          {/* Bet Amount Input with +/- Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.max(1, prev.betAmount - 1) }))}
-              disabled={isPlaying || gameState.betAmount <= 1}
-              className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="text-white font-bold">-</span>
-            </button>
-
-            <div className="bg-gray-800 rounded-lg px-4 py-2 text-center min-w-[80px]">
-              <span className="text-white font-bold">{gameState.betAmount.toFixed(2)}</span>
-            </div>
-
-            <button
-              onClick={() => setGameState(prev => ({ ...prev, betAmount: Math.min(1000, prev.betAmount + 1) }))}
-              disabled={isPlaying || gameState.betAmount >= 1000}
-              className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="text-white font-bold">+</span>
-            </button>
-
-            {/* Settings Gear Icon */}
-            <button className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-500 ml-2">
-              <span className="text-white">⚙️</span>
-            </button>
-          </div>
-
-          {/* Difficulty Selection */}
-          <div className="flex-1 flex flex-col items-center">
-            <label className="text-white font-medium mb-3">
-              Difficulty
-            </label>
-            <div className="flex gap-2">
-              {difficulties && Object.entries(difficulties).map(([key, config]) => (
-                <button
-                  key={key}
-                  onClick={() => setGameState(prev => ({ ...prev, difficulty: key }))}
-                  disabled={isPlaying}
-                  className={`px-4 py-2 rounded-lg font-medium difficulty-button ${gameState.difficulty === key ? 'active' : ''
-                    } ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="font-bold text-sm">{config.name}</div>
-                </button>
-              ))}
-            </div>
-            <div className="text-xs text-white mt-2">
-              Select your risk level
-            </div>
-          </div>
-
-          {/* Play Button - Right Side */}
-          <div className="flex items-center">
-            {!isPlaying && !gameEnded ? (
-              <button
-                onClick={startNewGame}
-                disabled={!difficulties}
-                className="font-bold py-4 px-12 rounded-lg game-button text-white disabled:bg-gray-500 disabled:cursor-not-allowed text-xl transform transition-transform hover:scale-105 active:scale-95"
-              >
-                Play
-              </button>
-            ) : isPlaying && !gameEnded ? (
-              <div className="flex gap-3">
-                 <button
-                   onClick={cashOut}
-                   className="font-bold py-3 px-6 rounded-lg cash-out-button text-white transition-colors flex flex-col items-center"
-                 >
-                  <span className="text-sm">CASH OUT</span>
-                  <span className="text-xs font-medium">
-                    ${calculateWinnings(currentMultipliers[currentLaneIndex] || 1).toFixed(2)}
-                  </span>
-                </button>
+                {/* GO Button */}
                 <button
                   onClick={moveToNextLane}
-                  disabled={currentLaneIndex >= currentMultipliers.length - 1}
-                  className={`font-bold py-3 px-6 rounded-lg transition-colors transform hover:scale-105 active:scale-95 ${currentLaneIndex >= currentMultipliers.length - 1
-                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  disabled={currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping}
+                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:opacity-90 active:scale-95'
                     }`}
+                  style={{
+                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping
+                      ? '#2A2A2A' : '#3DC55B',
+                    color: 'white'
+                  }}
                 >
-                  {currentLaneIndex >= currentMultipliers.length - 1 ? 'Max Lane' : 'Next'}
-              </button>
+                  {isJumping ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm">...</span>
+                    </div>
+                  ) : currentLaneIndex >= allLanes.length - 1 ? 'MAX' :
+                    currentLaneIndex >= crashIndex - 1 ? '⚠️' : 'GO'}
+                </button>
               </div>
-            ) : (
-              <button 
-                onClick={resetGame}
-                className="font-bold py-4 px-12 rounded-lg game-button text-white text-xl transform transition-transform hover:scale-105 active:scale-95"
-              >
-                New Game
-              </button>
             )}
           </div>
         </div>
-        </div>
-      </div>
 
 
 
-  {/* Menu Overlay */ }
-  {
-    showMenu && (
+
+
+
+      {/* Settings Popup Modal */}
+      {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 bg-opacity-95 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-sm mx-4" style={{ backgroundColor: '#2A2A2A' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white">Settings</h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Settings Options */}
+            <div className="space-y-4">
+              {/* Enhanced Music Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}>
+                    {musicEnabled ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-white font-medium block">Background Music</span>
+                    <span className="text-gray-400 text-sm">{musicEnabled ? 'Playing' : 'Paused'}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setMusicEnabled(!musicEnabled)
+                    // Toggle music immediately
+                    if (!musicEnabled && audioRef.current) {
+                      audioRef.current.play().catch(e => console.log('Music play failed:', e))
+                    } else if (musicEnabled && audioRef.current) {
+                      audioRef.current.pause()
+                    }
+                  }}
+                  className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${musicEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
+                  style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}
+                >
+                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg flex items-center justify-center ${musicEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}>
+                    {musicEnabled ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#3DC55B">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#545454">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Enhanced track background */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${musicEnabled ? 'bg-green-400' : 'bg-gray-500'}`}
+                      style={{ width: musicEnabled ? '100%' : '0%' }}
+                    ></div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Sound Effects Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}>
+                    {soundEnabled ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-white font-medium block">Sound Effects</span>
+                    <span className="text-gray-400 text-sm">{soundEnabled ? 'Enabled' : 'Disabled'}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${soundEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
+                  style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}
+                >
+                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg flex items-center justify-center ${soundEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}>
+                    {soundEnabled ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#3DC55B">
+                        <path d="M3 9v6h4l5 5V4L7 9H3z" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#545454">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Enhanced track background */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${soundEnabled ? 'bg-green-400' : 'bg-gray-500'}`}
+                      style={{ width: soundEnabled ? '100%' : '0%' }}
+                    ></div>
+                  </div>
+                </button>
+              </div>
+
+
+
+
+
+              {/* Test Audio with Howler.js */}
+              <button
+                onClick={playCashoutAudio}
+                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
+              >
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <span className="text-lg">💰</span>
+                </div>
+                <span className="text-white font-medium">Test Cashout Sound</span>
+              </button>
+
+              <button
+                onClick={playCrashAudio}
+                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
+              >
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <span className="text-lg">💥</span>
+                </div>
+                <span className="text-white font-medium">Test Crash Sound</span>
+              </button>
+
+              {/* How to Play */}
+              <button
+                onClick={() => {
+                  setShowHowToPlay(true)
+                  setShowSettings(false)
+                }}
+                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
+              >
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <span className="text-lg">ℹ️</span>
+                </div>
+                <span className="text-white font-medium">How to Play</span>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Menu Overlay */}
+      {showMenu && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm sm:mx-4 max-h-[80vh] overflow-y-auto">
             {/* User Profile Section */}
             <div className="flex items-center gap-3 mb-6">
               {userInfo ? (
@@ -823,7 +1026,15 @@ function Chicken() {
                   <span className="text-white">Music</span>
                 </div>
                 <button
-                  onClick={() => setMusicEnabled(!musicEnabled)}
+                  onClick={() => {
+                    setMusicEnabled(!musicEnabled)
+                    // Toggle music immediately
+                    if (!musicEnabled && audioRef.current) {
+                      audioRef.current.play().catch(e => console.log('Music play failed:', e))
+                    } else if (musicEnabled && audioRef.current) {
+                      audioRef.current.pause()
+                    }
+                  }}
                   className={`w-12 h-6 rounded-full transition-colors ${musicEnabled ? 'bg-green-500' : 'bg-gray-600'
                     }`}
                 >
@@ -835,15 +1046,6 @@ function Chicken() {
 
             {/* Game Information Section */}
             <div className="space-y-3 mb-6">
-              <div className="w-full flex items-center gap-3 text-left p-2 rounded bg-gray-700">
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">📊</span>
-                </div>
-                <div className="flex-1">
-                  <div className="text-white text-sm">RTP: 95.5%</div>
-                  <div className="text-gray-400 text-xs">Max Win: $20,000</div>
-                </div>
-              </div>
               <button className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded">
                 <div className="w-6 h-6 flex items-center justify-center">
                   <span className="text-lg">🛡️</span>
@@ -877,6 +1079,17 @@ function Chicken() {
                 </div>
                 <span className="text-white">How to play?</span>
               </button>
+
+              <Link
+                to="/preview"
+                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded"
+                onClick={() => setShowMenu(false)}
+              >
+                <div className="w-6 h-6 flex items-center justify-center">
+                  <span className="text-lg">🐔</span>
+                </div>
+                <span className="text-white">Chicken Animation Preview</span>
+              </Link>
             </div>
 
             {/* Footer */}
@@ -898,12 +1111,10 @@ function Chicken() {
             </button>
           </div>
         </div>
-    )
-  }
+      )}
 
-  {/* How to Play Modal */ }
-  {
-    showHowToPlay && (
+      {/* How to Play Modal */}
+      {showHowToPlay && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 max-w-md rounded-lg">
             <h3 className="text-xl font-bold mb-4">How to Play</h3>
@@ -922,9 +1133,9 @@ function Chicken() {
             </button>
           </div>
         </div>
-      )
-    }
-    </>
+      )}
+
+    </div>
   )
 }
 

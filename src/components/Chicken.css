@@ -1,0 +1,352 @@
+/* Chicken Sprite Animations */
+
+.chicken-sprite {
+  background-size: 1000px 1228px; /* Keep original sprite sheet size to match your code */
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  width: 120px;
+  height: 100px;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+/* Row 1 - Walk → Idle → Crouch animation */
+@keyframes chicken-row1 {
+  0% {
+    background-position: 0px 0px;
+  }
+  25% {
+    background-position: -200px 0px;
+  }
+  50% {
+    background-position: -400px 0px;
+  }
+  75% {
+    background-position: -600px 0px;
+  }
+  100% {
+    background-position: 0px 0px;
+  }
+}
+
+/* Row 2 - Idle/Attitude Frames animation */
+@keyframes chicken-row2 {
+  0% {
+    background-position: 0px -166px;
+  }
+  25% {
+    background-position: -200px -166px;
+  }
+  50% {
+    background-position: -400px -166px;
+  }
+  75% {
+    background-position: -600px -166px;
+  }
+  100% {
+    background-position: 0px -166px;
+  }
+}
+
+/* Row 3 - Roll/Jump/Run Mix animation */
+@keyframes chicken-row3 {
+  0% {
+    background-position: 0px -332px;
+  }
+  25% {
+    background-position: -200px -332px;
+  }
+  50% {
+    background-position: -400px -332px;
+  }
+  75% {
+    background-position: -600px -332px;
+  }
+  100% {
+    background-position: 0px -332px;
+  }
+}
+
+/* Row 4 - Walk/Idle Transitions animation */
+@keyframes chicken-row4 {
+  0% {
+    background-position: 0px -498px;
+  }
+  25% {
+    background-position: -200px -498px;
+  }
+  50% {
+    background-position: -400px -498px;
+  }
+  75% {
+    background-position: -600px -498px;
+  }
+  100% {
+    background-position: 0px -498px;
+  }
+}
+
+/* Row 5 - Jump/Celebrate + Walk animation */
+@keyframes chicken-row5 {
+  0% {
+    background-position: 0px -664px;
+  }
+  25% {
+    background-position: -200px -664px;
+  }
+  50% {
+    background-position: -400px -664px;
+  }
+  75% {
+    background-position: -600px -664px;
+  }
+  100% {
+    background-position: 0px -664px;
+  }
+}
+
+/* Row 6 - Jump/Mini Version animation */
+@keyframes chicken-row6 {
+  0% {
+    background-position: 0px -830px;
+  }
+  25% {
+    background-position: -200px -830px;
+  }
+  50% {
+    background-position: -400px -830px;
+  }
+  75% {
+    background-position: -600px -830px;
+  }
+  100% {
+    background-position: 0px -830px;
+  }
+}
+
+.animate-chicken-walk {
+  animation: chicken-row1 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-jump {
+  animation: chicken-row2 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row1 {
+  animation: chicken-row1 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row2 {
+  animation: chicken-row2 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row3 {
+  animation: chicken-row3 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row4 {
+  animation: chicken-row4 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row5 {
+  animation: chicken-row5 var(--animation-duration, 1s) infinite steps(1);
+}
+
+.animate-chicken-row6 {
+  animation: chicken-row6 var(--animation-duration, 1s) infinite steps(1);
+}
+
+/* Combined animation - cycles through rows 1-5 */
+@keyframes chicken-combined {
+  0% {
+    background-position: 0px 0px; /* Row 1, Frame 1 */
+  }
+  4% {
+    background-position: -200px 0px; /* Row 1, Frame 2 */
+  }
+  8% {
+    background-position: -400px 0px; /* Row 1, Frame 3 */
+  }
+  12% {
+    background-position: -600px 0px; /* Row 1, Frame 4 */
+  }
+  16% {
+    background-position: 0px -166px; /* Row 2, Frame 1 */
+  }
+  20% {
+    background-position: -200px -166px; /* Row 2, Frame 2 */
+  }
+  24% {
+    background-position: -400px -166px; /* Row 2, Frame 3 */
+  }
+  28% {
+    background-position: -600px -166px; /* Row 2, Frame 4 */
+  }
+  32% {
+    background-position: 0px -332px; /* Row 3, Frame 1 */
+  }
+  36% {
+    background-position: -200px -332px; /* Row 3, Frame 2 */
+  }
+  40% {
+    background-position: -400px -332px; /* Row 3, Frame 3 */
+  }
+  44% {
+    background-position: -600px -332px; /* Row 3, Frame 4 */
+  }
+  48% {
+    background-position: 0px -498px; /* Row 4, Frame 1 */
+  }
+  52% {
+    background-position: -200px -498px; /* Row 4, Frame 2 */
+  }
+  56% {
+    background-position: -400px -498px; /* Row 4, Frame 3 */
+  }
+  60% {
+    background-position: -600px -498px; /* Row 4, Frame 4 */
+  }
+  64% {
+    background-position: 0px -664px; /* Row 5, Frame 1 */
+  }
+  68% {
+    background-position: -200px -664px; /* Row 5, Frame 2 */
+  }
+  72% {
+    background-position: -400px -664px; /* Row 5, Frame 3 */
+  }
+  76% {
+    background-position: -600px -664px; /* Row 5, Frame 4 */
+  }
+  80% {
+    background-position: 0px 0px; /* Back to Row 1, Frame 1 */
+  }
+  100% {
+    background-position: 0px 0px; /* Row 1, Frame 1 */
+  }
+}
+
+.animate-chicken-combined {
+  animation: chicken-combined var(--animation-duration, 5s) infinite steps(1);
+}
+
+/* Progressive combination animations */
+@keyframes chicken-1-2 {
+  0% { background-position: 0px 0px; } /* Row 1, Frame 1 */
+  12.5% { background-position: -200px 0px; } /* Row 1, Frame 2 */
+  25% { background-position: -400px 0px; } /* Row 1, Frame 3 */
+  37.5% { background-position: -600px 0px; } /* Row 1, Frame 4 */
+  50% { background-position: 0px -166px; } /* Row 2, Frame 1 */
+  62.5% { background-position: -200px -166px; } /* Row 2, Frame 2 */
+  75% { background-position: -400px -166px; } /* Row 2, Frame 3 */
+  87.5% { background-position: -600px -166px; } /* Row 2, Frame 4 */
+  100% { background-position: 0px 0px; } /* Back to Row 1, Frame 1 */
+}
+
+@keyframes chicken-1-3 {
+  0% { background-position: 0px 0px; } /* Row 1, Frame 1 */
+  8.33% { background-position: -200px 0px; } /* Row 1, Frame 2 */
+  16.67% { background-position: -400px 0px; } /* Row 1, Frame 3 */
+  25% { background-position: -600px 0px; } /* Row 1, Frame 4 */
+  33.33% { background-position: 0px -166px; } /* Row 2, Frame 1 */
+  41.67% { background-position: -200px -166px; } /* Row 2, Frame 2 */
+  50% { background-position: -400px -166px; } /* Row 2, Frame 3 */
+  58.33% { background-position: -600px -166px; } /* Row 2, Frame 4 */
+  66.67% { background-position: 0px -332px; } /* Row 3, Frame 1 */
+  75% { background-position: -200px -332px; } /* Row 3, Frame 2 */
+  83.33% { background-position: -400px -332px; } /* Row 3, Frame 3 */
+  91.67% { background-position: -600px -332px; } /* Row 3, Frame 4 */
+  100% { background-position: 0px 0px; } /* Back to Row 1, Frame 1 */
+}
+
+@keyframes chicken-1-4 {
+  0% { background-position: 0px 0px; } /* Row 1, Frame 1 */
+  6.25% { background-position: -200px 0px; } /* Row 1, Frame 2 */
+  12.5% { background-position: -400px 0px; } /* Row 1, Frame 3 */
+  18.75% { background-position: -600px 0px; } /* Row 1, Frame 4 */
+  25% { background-position: 0px -166px; } /* Row 2, Frame 1 */
+  31.25% { background-position: -200px -166px; } /* Row 2, Frame 2 */
+  37.5% { background-position: -400px -166px; } /* Row 2, Frame 3 */
+  43.75% { background-position: -600px -166px; } /* Row 2, Frame 4 */
+  50% { background-position: 0px -332px; } /* Row 3, Frame 1 */
+  56.25% { background-position: -200px -332px; } /* Row 3, Frame 2 */
+  62.5% { background-position: -400px -332px; } /* Row 3, Frame 3 */
+  68.75% { background-position: -600px -332px; } /* Row 3, Frame 4 */
+  75% { background-position: 0px -498px; } /* Row 4, Frame 1 */
+  81.25% { background-position: -200px -498px; } /* Row 4, Frame 2 */
+  87.5% { background-position: -400px -498px; } /* Row 4, Frame 3 */
+  93.75% { background-position: -600px -498px; } /* Row 4, Frame 4 */
+  100% { background-position: 0px 0px; } /* Back to Row 1, Frame 1 */
+}
+
+@keyframes chicken-1-5 {
+  0% { background-position: 0px 0px; } /* Row 1, Frame 1 */
+  5% { background-position: -200px 0px; } /* Row 1, Frame 2 */
+  10% { background-position: -400px 0px; } /* Row 1, Frame 3 */
+  15% { background-position: -600px 0px; } /* Row 1, Frame 4 */
+  20% { background-position: 0px -166px; } /* Row 2, Frame 1 */
+  25% { background-position: -200px -166px; } /* Row 2, Frame 2 */
+  30% { background-position: -400px -166px; } /* Row 2, Frame 3 */
+  35% { background-position: -600px -166px; } /* Row 2, Frame 4 */
+  40% { background-position: 0px -332px; } /* Row 3, Frame 1 */
+  45% { background-position: -200px -332px; } /* Row 3, Frame 2 */
+  50% { background-position: -400px -332px; } /* Row 3, Frame 3 */
+  55% { background-position: -600px -332px; } /* Row 3, Frame 4 */
+  60% { background-position: 0px -498px; } /* Row 4, Frame 1 */
+  65% { background-position: -200px -498px; } /* Row 4, Frame 2 */
+  70% { background-position: -400px -498px; } /* Row 4, Frame 3 */
+  75% { background-position: -600px -498px; } /* Row 4, Frame 4 */
+  80% { background-position: 0px -664px; } /* Row 5, Frame 1 */
+  85% { background-position: -200px -664px; } /* Row 5, Frame 2 */
+  90% { background-position: -400px -664px; } /* Row 5, Frame 3 */
+  95% { background-position: -600px -664px; } /* Row 5, Frame 4 */
+  100% { background-position: 0px 0px; } /* Back to Row 1, Frame 1 */
+}
+
+@keyframes chicken-1-6 {
+  0% { background-position: 0px 0px; } /* Row 1, Frame 1 */
+  4.17% { background-position: -200px 0px; } /* Row 1, Frame 2 */
+  8.33% { background-position: -400px 0px; } /* Row 1, Frame 3 */
+  12.5% { background-position: -600px 0px; } /* Row 1, Frame 4 */
+  16.67% { background-position: 0px -166px; } /* Row 2, Frame 1 */
+  20.83% { background-position: -200px -166px; } /* Row 2, Frame 2 */
+  25% { background-position: -400px -166px; } /* Row 2, Frame 3 */
+  29.17% { background-position: -600px -166px; } /* Row 2, Frame 4 */
+  33.33% { background-position: 0px -332px; } /* Row 3, Frame 1 */
+  37.5% { background-position: -200px -332px; } /* Row 3, Frame 2 */
+  41.67% { background-position: -400px -332px; } /* Row 3, Frame 3 */
+  45.83% { background-position: -600px -332px; } /* Row 3, Frame 4 */
+  50% { background-position: 0px -498px; } /* Row 4, Frame 1 */
+  54.17% { background-position: -200px -498px; } /* Row 4, Frame 2 */
+  58.33% { background-position: -400px -498px; } /* Row 4, Frame 3 */
+  62.5% { background-position: -600px -498px; } /* Row 4, Frame 4 */
+  66.67% { background-position: 0px -664px; } /* Row 5, Frame 1 */
+  70.83% { background-position: -200px -664px; } /* Row 5, Frame 2 */
+  75% { background-position: -400px -664px; } /* Row 5, Frame 3 */
+  79.17% { background-position: -600px -664px; } /* Row 5, Frame 4 */
+  83.33% { background-position: 0px -830px; } /* Row 6, Frame 1 */
+  87.5% { background-position: -200px -830px; } /* Row 6, Frame 2 */
+  91.67% { background-position: -400px -830px; } /* Row 6, Frame 3 */
+  95.83% { background-position: -600px -830px; } /* Row 6, Frame 4 */
+  100% { background-position: 0px 0px; } /* Back to Row 1, Frame 1 */
+}
+
+.animate-chicken-1-2 {
+  animation: chicken-1-2 var(--animation-duration, 2s) infinite steps(1);
+}
+
+.animate-chicken-1-3 {
+  animation: chicken-1-3 var(--animation-duration, 3s) infinite steps(1);
+}
+
+.animate-chicken-1-4 {
+  animation: chicken-1-4 var(--animation-duration, 4s) infinite steps(1);
+}
+
+.animate-chicken-1-5 {
+  animation: chicken-1-5 var(--animation-duration, 5s) infinite steps(1);
+}
+
+.animate-chicken-1-6 {
+  animation: chicken-1-6 var(--animation-duration, 6s) infinite steps(1);
+}

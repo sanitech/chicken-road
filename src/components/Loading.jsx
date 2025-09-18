@@ -53,7 +53,7 @@ const Loading = ({ onLoadingComplete }) => {
       title="Click to skip loading"
     >
       {/* Background matching game theme */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-gray-950 to-black"></div>
       
       {/* Subtle blue accent overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent"></div>
