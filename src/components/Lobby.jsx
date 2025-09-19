@@ -331,9 +331,14 @@ function Chicken() {
 
       // Auto-restart shortly after crash (mirror cashout flow), controlled by config
       if (GAME_CONFIG.RESTART?.AUTO) {
-        setTimeout(() => {
+        const delay = GAME_CONFIG.RESTART?.DELAY_MS ?? 1200
+        if (delay <= 0) {
           resetGame()
-        }, GAME_CONFIG.RESTART?.DELAY_MS ?? 1200)
+        } else {
+          setTimeout(() => {
+            resetGame()
+          }, delay)
+        }
       }
       return
     }
@@ -555,6 +560,11 @@ function Chicken() {
     if (isDead && gameEnded) {
       restartGuardRef.current = true
       const delay = GAME_CONFIG.RESTART?.DELAY_MS ?? 1200
+      if (delay <= 0) {
+        resetGame()
+        restartGuardRef.current = false
+        return
+      }
       const t = setTimeout(() => {
         resetGame()
         restartGuardRef.current = false
