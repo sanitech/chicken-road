@@ -5,28 +5,15 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
   const [animationClass, setAnimationClass] = useState('')
 
   useEffect(() => {
-    if (isPaused) {
-      // Car is paused by chicken jump - fast pause animation
-      setAnimationClass('animate-car-paused')
-    } else if (isBlocked) {
-      // Car is stopped by blocker - very fast stop animation
-      setAnimationClass('animate-car-stopped-fast')
-    } else if (isAnimating) {
-      if (isContinuous) {
-        // Continuous animation for moving cars
-        setAnimationClass('animate-car-move-continuous')
-      } else {
-        // One-time animation for crash car
-        setAnimationClass('animate-car-move')
-        
-        // Use custom speed for animation completion
-        const timer = setTimeout(() => {
-          setAnimationClass('animate-car-disappear')
-          if (onAnimationComplete) {
-            onAnimationComplete()
-          }
-        }, customSpeed)
+    // Choose a single movement animation class and pause/play it via CSS for stability
+    if (isAnimating || isPaused || isBlocked) {
+      setAnimationClass(isContinuous ? 'animate-car-move-continuous' : 'animate-car-move')
 
+      // For one-time animation (non-continuous), signal completion ONLY when actually moving
+      if (!isContinuous && isAnimating && !isPaused && !isBlocked) {
+        const timer = setTimeout(() => {
+          if (onAnimationComplete) onAnimationComplete()
+        }, customSpeed)
         return () => clearTimeout(timer)
       }
     } else {
@@ -39,7 +26,11 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
       className={`w-[50px] h-full relative ${animationClass}`}
       style={{
         // Apply custom animation duration
-        '--custom-car-duration': `${customSpeed}ms`
+        '--custom-car-duration': `${customSpeed}ms`,
+        // Pause the animation without changing keyframes to avoid snapping
+        animationPlayState: (isPaused || isBlocked) ? 'paused' : 'running',
+        // Hold the last frame when paused so it doesn't jump
+        animationFillMode: 'both'
       }}
     >
       <img 

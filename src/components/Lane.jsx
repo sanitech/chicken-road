@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import cap1Image from '../assets/cap1.png'
 import cap2Image from '../assets/cap2.png'
 import blockerImage from '../assets/blocker.png'
@@ -6,11 +6,13 @@ import sideRoadImage from '../assets/sideroad.png'
 import crashAudio from '../assets/audio/crash.6d250f25.mp3'
 import Chicken from './Chicken'
 import Car from './Car'
+import { GAME_CONFIG } from '../utils/gameConfig'
 
 // Smart Car Component with chicken collision detection and pause system
-function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane }) {
+function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive = false, reservationDecision = 'pause', cutoff = 0.6 }) {
     const [carState, setCarState] = useState('waiting') // waiting -> moving -> paused -> stopped -> gone
     const [hasPlayedCrashAudio, setHasPlayedCrashAudio] = useState(false) // Track if audio already played
+    const [pausedByReservation, setPausedByReservation] = useState(false)
 
     // Play crash audio when car hits blocker - only once
     const playCrashAudio = () => {
@@ -31,15 +33,33 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
         // Start immediately (no artificial delay)
         setCarState('moving')
 
-        // Check if chicken is jumping to this car's lane at same time
-        if (isChickenJumping && chickenTargetLane === carData.laneIndex) {
-            // Pause car when chicken jumps to same lane
-            const pauseTimer = setTimeout(() => {
-                setCarState('paused')
-                console.log(`Car paused - chicken jumping to lane ${carData.laneIndex}`)
-            }, 200) // Small delay to detect chicken jump
+        // Reservation pause (only once per reservation) based on latched decision
+        if (isReservationActive && reservationDecision === 'pause' && !pausedByReservation && isChickenJumping && chickenTargetLane === carData.laneIndex) {
+            const stopPercent = (GAME_CONFIG.CAR.STOP_TOP_PERCENT || 0) / 100
+            const easeDelta = Math.max(0, Math.min(0.2, GAME_CONFIG.CAR.STOP_EASE_DELTA ?? 0))
+            const stopAt = Math.max(0, stopPercent - easeDelta)
+            const tick = () => {
+                const now = Date.now()
+                const progress = Math.max(0, Math.min(1, (now - carData.startTime) / carData.animationDuration))
 
-            return () => clearTimeout(pauseTimer)
+                // Already beyond cutoff -> let it pass
+                if (progress >= cutoff) return
+
+                // Reached or passed stop threshold -> pause now
+                if (progress >= stopAt) {
+                    setCarState('paused')
+                    setPausedByReservation(true)
+                    return
+                }
+
+                // Keep polling until we hit the stop threshold or reservation ends
+                if (isReservationActive && !pausedByReservation) {
+                    requestAnimationFrame(tick)
+                }
+            }
+
+            // Kick off the polling loop
+            requestAnimationFrame(tick)
         }
 
         // If there's a blocker, car uses pause-resume animation with crash sound
@@ -49,15 +69,19 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
             // Play crash audio when car hits blocker
             playCrashAudio()
 
-            const completeTimer = setTimeout(() => {
-                setCarState('gone')
-                if (carData.isCrashLane && onAnimationComplete) {
-                    onAnimationComplete()
-                }
-                console.log(`Car completed pause-resume cycle in lane ${carData.laneIndex}`)
-            }, carData.animationDuration) // Full animation duration includes pause and resume
+            // Do not auto-remove the car if this pause is due to a landing reservation;
+            // keep it visible until reservation ends, then it will resume and exit.
+            if (!isReservationActive) {
+                const completeTimer = setTimeout(() => {
+                    setCarState('gone')
+                    if (carData.isCrashLane && onAnimationComplete) {
+                        onAnimationComplete()
+                    }
+                    console.log(`Car completed pause-resume cycle in lane ${carData.laneIndex}`)
+                }, carData.animationDuration)
 
-            return () => clearTimeout(completeTimer)
+                return () => clearTimeout(completeTimer)
+            }
         } else {
             // Car completes its journey and disappears
             const completionTimer = setTimeout(() => {
@@ -69,14 +93,23 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
 
             return () => clearTimeout(completionTimer)
         }
-    }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane])
+    }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive, reservationDecision, cutoff, pausedByReservation])
+
+    // Resume movement automatically when reservation ends
+    useEffect(() => {
+        if (!isReservationActive && pausedByReservation) {
+            setCarState('moving')
+        }
+    }, [isReservationActive, pausedByReservation])
 
     if (carState === 'waiting' || carState === 'gone') return null
 
     return (
         <div
-            className="absolute top-0 left-1/2 transform -translate-x-1/2"
+            className="absolute left-1/2"
             style={{
+                top: 0,
+                transform: 'translateX(-50%)',
                 // Dynamic animation speed based on car data
                 '--car-animation-duration': `${carData.animationDuration}ms`
             }}
@@ -102,6 +135,57 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     // Dynamic car generation state
     const [dynamicCars, setDynamicCars] = useState(new Map())
 
+    // Latch the reservation decision AFTER landing (so visuals appear post-landing)
+    // Structure: { active: boolean, targetLane: number, decision: 'pause' | 'pass' }
+    const reservationRef = useRef({ active: false, targetLane: -1, decision: 'pause' })
+    const prevIsJumpingRef = useRef(isJumping)
+
+    useEffect(() => {
+        const prev = prevIsJumpingRef.current
+        prevIsJumpingRef.current = isJumping
+
+        // Detect landing: was jumping, now not jumping
+        if (prev && !isJumping) {
+            const target = jumpTargetLane
+            let decision = 'pause'
+            const car = dynamicCars.get(target)
+            if (car) {
+                const now = Date.now()
+                const progress = Math.max(0, Math.min(1, (now - car.startTime) / car.animationDuration))
+                // If already beyond cutoff, let it pass
+                if (progress >= GAME_CONFIG.BLOCKER.STOP_CUTOFF_PROGRESS) {
+                    decision = 'pass'
+                }
+            } else {
+                // No car yet → if one appears after landing, pause it at blocker
+                decision = 'pause'
+            }
+            reservationRef.current = { active: true, targetLane: target, decision }
+
+            // If we decided to pause and there is no car yet, synthesize one so it animates from top
+            if (decision === 'pause' && !car && target > 0) {
+                const isCrashLane = target === crashIndex - 1
+                const laneSpeedPattern = GAME_CONFIG.CAR_SPEED?.LANE_SPEED_PATTERN_MS || [2800,2600,2400,2200,2000]
+                const crashSpeed = GAME_CONFIG.CAR_SPEED?.CRASH_LANE_SPEED_MS || 1200
+                const patternIndex = Math.min(Math.max(target - 1, 0), laneSpeedPattern.length - 1)
+                const animationDuration = isCrashLane ? crashSpeed : (laneSpeedPattern[patternIndex] || laneSpeedPattern[laneSpeedPattern.length - 1])
+                const synthetic = {
+                    id: `car-synth-${target}-${Date.now()}`,
+                    isCrashLane,
+                    animationDuration,
+                    startTime: Date.now(),
+                    laneIndex: target
+                }
+                setDynamicCars(prev => new Map(prev.set(target, synthetic)))
+            }
+        }
+
+        // When a new jump starts, clear previous reservation visuals
+        if (!prev && isJumping) {
+            reservationRef.current = { active: false, targetLane: -1, decision: 'pause' }
+        }
+    }, [isJumping, jumpTargetLane, dynamicCars])
+
     // Realistic car generation system like real-world games
     useEffect(() => {
         const carTimers = new Map()
@@ -112,20 +196,13 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
             // Each lane has consistent speed - no random variation per car
             if (isCrashLane) {
-                return 1200 // Crash lane: fast and dangerous
+                return GAME_CONFIG.CAR_SPEED.CRASH_LANE_SPEED_MS
             }
 
             // Different lanes have different consistent speeds
-            const laneSpeedPattern = [
-                2800, // Lane 1: slow
-                2600, // Lane 2: medium-slow  
-                2400, // Lane 3: medium
-                2200, // Lane 4: medium-fast
-                2000, // Lane 5+: fast
-            ]
-
+            const laneSpeedPattern = GAME_CONFIG.CAR_SPEED.LANE_SPEED_PATTERN_MS
             const patternIndex = Math.min(globalIndex - 1, laneSpeedPattern.length - 1)
-            return laneSpeedPattern[patternIndex] || 2000
+            return laneSpeedPattern[patternIndex] || laneSpeedPattern[laneSpeedPattern.length - 1]
         }
 
         const generateCarForLane = (globalIndex) => {
@@ -153,12 +230,13 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 const isCrashLane = globalIndex === crashIndex - 1
 
                 if (isCrashLane) {
-                    return 1800 + Math.random() * 1200 // Crash lane: 1.8-3s intervals
+                    const jitter = GAME_CONFIG.CAR_SPEED.TRAFFIC_RANDOM_JITTER_MS
+                    return GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS - 700 + Math.random() * (jitter + 700)
                 }
 
                 // Each lane has consistent traffic density
-                const baseInterval = 2500 + (globalIndex * 200) // Later lanes = longer intervals
-                return baseInterval + Math.random() * 1000 // Small random variation
+                const baseInterval = GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS + (globalIndex * GAME_CONFIG.CAR_SPEED.TRAFFIC_PER_LANE_INCREMENT_MS)
+                return baseInterval + Math.random() * GAME_CONFIG.CAR_SPEED.TRAFFIC_RANDOM_JITTER_MS
             }
 
             const nextCarDelay = getTrafficInterval(globalIndex)
@@ -213,136 +291,75 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         // Chicken position based on current lane
         const isAtStart = globalCurrentIndex === 0
 
-        // Handle restart animation - smooth transition back to side road
+        // Helper: compute chicken left value based on config
+        const getConfiguredLeft = () => {
+            if (GAME_CONFIG.CHICKEN_X_MODE === 'fixed_px') {
+                return `${GAME_CONFIG.CHICKEN_FIXED_X_PX}px`
+            }
+            if (GAME_CONFIG.CHICKEN_X_MODE === 'percent') {
+                return `${GAME_CONFIG.CHICKEN_LEFT_PERCENT}%`
+            }
+            // 'boundary' -> align with sidewalk/lane-1 seam in px
+            return `${LANE_WIDTH_PX}px`
+        }
+
+        // Handle restart animation - smooth transition back to configured X position
         if (isRestarting) {
             return {
-                left: '15%', // Side road position
-                top: '50%',
+                left: getConfiguredLeft(),
+                top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
                 transform: 'translate(-50%, -50%)',
                 transition: 'all 1s ease-in-out' // Smooth 1-second animation
             }
         }
 
         if (!isJumping) {
-            // Responsive positioning based on screen size
-            const getResponsivePosition = (basePosition) => {
-                if (window.innerWidth < 640) return basePosition // Mobile: keep full position
-                if (window.innerWidth < 768) return basePosition * 0.95 // Tablet: slight adjustment
-                if (window.innerWidth < 1024) return basePosition * 0.9 // Desktop: moderate adjustment
-                return basePosition * 0.85 // Large screens: some adjustment
-            }
-
-            if (isAtStart) {
-                // Chicken starts from side road (responsive positioning)
-                return {
-                    left: `${getResponsivePosition(15)}%`, // Responsive side road position
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
-                }
-            } else if (globalCurrentIndex === 1) {
-                // First lane position (responsive)
-                return {
-                    left: `${getResponsivePosition(40)}%`, // Responsive first lane position
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
-                }
-            } else if (globalCurrentIndex === 2) {
-                // Center position for lane 2
-                return {
-                    left: '65%', // Center position
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
-                }
-            }
-            else {
-                // Center position for lanes 3+
-                return {
-                    left: '50%', // True center for higher lanes
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
-                }
+            return {
+                left: getConfiguredLeft(),
+                top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
+                transform: 'translate(-50%, -50%)'
             }
         }
 
-        // Jump animation - only vertical movement and rotation (mobile optimized)
+        // Jump animation - vertical movement with optional rotation/scale only
         const jumpHeight = Math.sin(jumpProgress * Math.PI) * 60 // Reduced from 80px for mobile
         const verticalOffset = -jumpHeight
         const rotation = Math.sin(jumpProgress * Math.PI) * 10 // Reduced from 15 degrees
-        const scale = 1 + (Math.sin(jumpProgress * Math.PI) * 0.05) // Much more subtle scaling (reduced from 0.1)
+        const scale = 1 + (Math.sin(jumpProgress * Math.PI) * 0.05) // Subtle scaling
 
-        // Handle different jump types with proper positioning (updated to match your changes)
-        if (jumpStartLane === 0 && jumpTargetLane === 1) {
-            // First jump: Side road (20%) to first lane (40%)
-            const horizontalProgress = jumpProgress
-            const startX = 20 // Side road position (matches your correction)
-            const endX = 40 // First lane position (matches your correction)
-            const currentX = startX + (endX - startX) * horizontalProgress
-
-            return {
-                left: `${currentX}%`,
-                top: '50%',
-                transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(1)`, // No scaling for first jump
-                transition: 'none',
-                zIndex: 10
-            }
-        } else if (jumpStartLane === 1 && jumpTargetLane === 2) {
-            // Second jump: First lane (40%) to center (65%)
-            const horizontalProgress = jumpProgress
-            const startX = 40 // First lane position (matches your correction)
-            const endX = 65 // Center position (matches your correction)
-            const currentX = startX + (endX - startX) * horizontalProgress
-
-            return {
-                left: `${currentX}%`,
-                top: '50%',
-                transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(${scale})`,
-                transition: 'none',
-                zIndex: 10
-            }
-        } else {
-            // Normal center jumps for lanes 3+ (stay at center after positioning jumps)
-            return {
-                left: '50%', // True center for lanes 3+ (after positioning is complete)
-                top: '50%',
-                transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(${scale})`,
-                transition: 'none',
-                zIndex: 10
-            }
+        return {
+            left: getConfiguredLeft(),
+            top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
+            transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(${scale})`,
+            transition: 'none',
+            zIndex: 10
         }
     }
 
-    // Lane movement system - lanes move, chicken stays fixed (except first jump)
+    // Lane movement system - start parallax from the beginning (no initial offset)
+    // Offset is simply based on how many lanes have been progressed within the current window.
     const getBackgroundOffset = (layer = 'main') => {
-        if (!isJumping) {
-            return { transform: 'translateX(0)' }
-        }
-
-        // NO PARALLAX on first two jumps - only chicken moves to get into position
-        if ((jumpStartLane === 0 && jumpTargetLane === 1) || (jumpStartLane === 1 && jumpTargetLane === 2)) {
-            return { transform: 'translateX(0)' } // Keep lanes static for positioning jumps
-        }
-
-        // Multi-layer movement with different speeds for depth effect (after first jump)
         const layerSpeeds = {
-            background: 0.5, // Slower (far background)
-            main: 1.0        // Full speed (lanes and cars together)
+            main: 1.0
         }
 
-        // Calculate smooth lane movement with pixel-perfect alignment
-        const laneDistance = 100 / remainingMultipliers.length // Distance between lanes in %
-        const totalMovement = laneDistance // Move by one lane width
+        const currentWithinWindow = Math.max(0, Math.min(remainingMultipliers.length, globalCurrentIndex - globalDisplayStart))
 
-        // Apply smooth easing curve for natural movement
-        const easedProgress = jumpProgress < 0.5
-            ? 2 * jumpProgress * jumpProgress // Ease-in (first half)
-            : 1 - Math.pow(-2 * jumpProgress + 2, 2) / 2 // Ease-out (second half)
+        const easedProgress = isJumping
+            ? (jumpProgress < 0.5
+                ? 2 * jumpProgress * jumpProgress
+                : 1 - Math.pow(-2 * jumpProgress + 2, 2) / 2)
+            : 0
 
-        // Layer-specific movement calculation with sub-pixel precision
-        const layerSpeed = layerSpeeds[layer] || layerSpeeds.main
-        const movementOffset = Math.round(-totalMovement * easedProgress * layerSpeed * 100) / 100 // Round to prevent sub-pixel gaps
+        // Move the strip left by PARALLAX.STEP_PX per lane of progress; at start => 0px
+        const virtualIndex = currentWithinWindow + easedProgress
+        const offsetPx = -(virtualIndex * GAME_CONFIG.PARALLAX.STEP_PX)
+
+        const layerSpeed = layerSpeeds.main
+        const totalPx = Math.round(offsetPx * layerSpeed)
 
         return {
-            transform: `translateX(${movementOffset}%)`,
+            transform: `translateX(${totalPx}px)`,
             transition: 'none'
         }
     }
@@ -360,7 +377,10 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         // 2. Current lane (chicken is there)
         // 3. Next lane (for crash determination)
         // 4. Lane 0 (starting position)
-        if (isPassedLane || isCurrentLane || isNextLane || globalIndex === 0) {
+        // Reserve the target lane during the jump
+        const isReservedJumpTarget = isJumping && globalIndex === jumpTargetLane
+
+        if (isPassedLane || isCurrentLane || isNextLane || isReservedJumpTarget || globalIndex === 0) {
             return false
         }
 
@@ -372,61 +392,28 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         return true
     }
 
+    // Fixed widths from central config
+    const LANE_WIDTH_PX = GAME_CONFIG.LANE_WIDTH_PX
+    const SIDEWALK_WIDTH_PX = GAME_CONFIG.SIDEWALK_WIDTH_PX
+
     return (
         <div
             className=""
         >
-            {/* Far background layer - moves slower */}
-            <div
-                className="absolute inset-0"
-                style={{
-                    background: `linear-gradient(to right, #716C69, #5A5651)`, // Custom gradient with your color
-                    ...getBackgroundOffset('background'),
-                    filter: isJumping ? `blur(${jumpProgress * 2}px)` : 'none',
-                    transition: 'none',
-                    zIndex: 1
-                }}
-            ></div>
-
-            {/* Main background layer - moves at normal speed */}
-            <div
-                className="absolute inset-0"
-                style={{
-                    background: `linear-gradient(to right, #716C69, #635E5A)`, // Custom gradient with your color
-                    ...getBackgroundOffset('main'),
-                    filter: isJumping ? `blur(${jumpProgress * 1}px)` : 'none',
-                    transition: 'none',
-                    opacity: 0.8,
-                    zIndex: 2
-                }}
-            ></div>
-
-            {/* Continuous background fill to prevent black lines */}
-            <div
-                className="absolute"
-                style={{
-                    backgroundColor: '#716C69', // Custom lane color
-                    left: '-50%',
-                    right: '-50%',
-                    top: 0,
-                    bottom: 0,
-                    ...getBackgroundOffset('main'),
-                    transition: 'none',
-                    zIndex: 2.5
-                }}
-            ></div>
-
             {/* Lane markers/segments - main movement */}
             <div
                 className="absolute flex"
                 style={{
-                    left: '-20%', // Extend beyond visible area
-                    right: '-20%',
+                    background: `linear-gradient(to right, #716C69, #635E5A)`,
+                    filter: isJumping ? `blur(${jumpProgress * 1}px)` : 'none',
+                    opacity: 0.9,
+                    left: 0,
                     top: 0,
                     bottom: 0,
+                    width: `${remainingMultipliers.length * LANE_WIDTH_PX}px`,
                     ...getBackgroundOffset('main'),
                     transition: 'none',
-                    zIndex: 3
+                    zIndex: 2
                 }}
             >
                 {remainingMultipliers.map((multiplier, index) => {
@@ -437,10 +424,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     const isCurrent = globalIndex === referenceIndex
                     const isFuture = globalIndex > referenceIndex
 
+                    // Compute hasBlocker for this lane (prevents cars entering/stops cars)
+                    const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1
+                    const isReservationLane = reservationRef.current.active && reservationRef.current.targetLane === globalIndex
+                    const computedHasBlocker = baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause')
+
                     return (
                         <div
                             key={globalIndex}
-                            className={`${globalIndex === 0 ? 'w-1/2 sm:w-2/5 md:w-1/3 lg:w-1/4' : 'flex items-end pb-52'} relative`}
+                            className={`relative ${globalIndex > 0 ? 'flex items-end pb-52' : ''}`}
+                            style={{ width: `${globalIndex === 0 ? SIDEWALK_WIDTH_PX : LANE_WIDTH_PX}px` }}
                             // style={{
                             //     backgroundColor: globalIndex === 0 ? '#716C69' : '#716C69', // Custom lane color for all lanes
                             //     backgroundImage: globalIndex === 0 ? 'none' : // No background for side road - using img element instead
@@ -493,43 +486,58 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 />
                             )}
 
-                            {globalIndex >= 0 && (
-                                <div className='relative'>
-                                    <img
-                                        src={(isCompleted && globalIndex > 0) ? cap2Image :
-                                            ((isCurrent || isFuture) && globalIndex > 0) ? cap1Image : cap1Image}
-                                        alt="Lane Image"
-                                        className="w-4/5 mx-auto"
+                            {globalIndex > 0 && isFuture && (
+                                <>
+                                    {/* Absolutely positioned lane cap tied to TOP_PERCENT */}
+                                    <div
+                                        className="absolute left-1/2 -translate-x-1/2"
                                         style={{
-                                            zIndex: 1
+                                            top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                            zIndex: 2,
+                                            width: '100%',
+                                            pointerEvents: 'none'
                                         }}
-                                    />
-                                    {/* Multiplier text overlay - not for side road (lane 0) */}
-                                    {(isCompleted || isFuture) && globalIndex > 0 && (
-                                        <div className="absolute inset-0 flex items-center justify-center">
+                                    >
+                                        <img
+                                            src={cap1Image}
+                                            alt="Lane Cap"
+                                            className="w-4/5 mx-auto object-contain"
+                                            style={{ objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION }}
+                                        />
+                                    </div>
+
+                                    {/* Multiplier overlay centered on cap */}
+                                    {
+                                        <div className="absolute left-1/2 -translate-x-1/2"
+                                            style={{ top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`, transform: 'translate(-50%, -50%)', zIndex: 3 }}>
                                             <span className="text-white font-bold text-lg">
-                                                {/* Use correct global indexing: globalIndex 1 should show allLanes[0] = 1.01x */}
                                                 {allLanes[globalIndex - 1]?.toFixed(2)}x
                                             </span>
                                         </div>
-                                    )}
-                                </div>
+                                    }
+                                </>
                             )}
 
                             {/* Smart car for this specific lane - with chicken collision detection */}
                             {dynamicCars.has(globalIndex) && (
                                 <DynamicCar
                                     carData={dynamicCars.get(globalIndex)}
-                                    hasBlocker={((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1}
+                                    hasBlocker={computedHasBlocker}
+                                    isReservationActive={reservationRef.current.active && reservationRef.current.targetLane === globalIndex}
+                                    reservationDecision={reservationRef.current.decision}
+                                    cutoff={GAME_CONFIG.BLOCKER.STOP_CUTOFF_PROGRESS}
                                     onAnimationComplete={globalIndex === crashIndex - 1 ? handleCarAnimationComplete : () => { }}
                                     isChickenJumping={isJumping}
                                     chickenTargetLane={jumpTargetLane}
                                 />
                             )}
 
-                            {/* Blocker Image */}
-                            {((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1 && (
-                                <div className="absolute left-0 right-0 h-8 flex items-center justify-center" style={{ bottom: '60%' }}>
+                            {/* Blocker Image (show during reservation only if decision is 'pause') */}
+                            {((((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1)
+                               || (reservationRef.current.active && reservationRef.current.targetLane === globalIndex && reservationRef.current.decision === 'pause')) && (
+                                <div className="absolute left-0 right-0 h-8 flex items-center justify-center"
+                                     style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
                                     <img
                                         src={blockerImage}
                                         alt="Blocker"
@@ -543,7 +551,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
 
                             {/* Lane Divider Lines - Realistic Road Markings for each lane */}
-                            {globalIndex > 0 && globalIndex < allLanes.length - 1 && (
+                            {globalIndex >= 0 && globalIndex < allLanes.length - 1 && (
                                 <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent z-10">
                                     <div className="lane-divider-dashes"></div>
                                 </div>

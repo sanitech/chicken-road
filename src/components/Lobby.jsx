@@ -10,7 +10,7 @@ import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
 import crashAudio from '../assets/audio/crash.6d250f25.mp3'
 import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
-
+import { GAME_CONFIG } from '../utils/gameConfig'
 // Generate lanes based on difficulty configuration
 const generateLanesForDifficulty = (difficultyConfigs, difficulty = 'easy') => {
   const config = difficultyConfigs[difficulty]
@@ -183,7 +183,21 @@ function Chicken() {
   const [gameEnded, setGameEnded] = useState(false) // Track if game has ended due to crash
   const [isDead, setIsDead] = useState(false) // Track if chicken is dead (crashed)
 
-  // Range display state
+  // Fixed lane width in pixels (central config)
+  const LANE_WIDTH_PX = GAME_CONFIG.LANE_WIDTH_PX
+
+  // Element ref for the game container to measure available width
+  const gameContainerRef = useRef(null)
+
+  // Compute how many lanes fit in the visible area based on fixed lane width
+  const computeWindowSizeFromContainer = () => {
+    const el = gameContainerRef.current
+    if (!el) return 5
+    const width = el.clientWidth || 0
+    // Ensure at least 5 lanes, cap by total lanes if needed later
+    return Math.max(5, Math.floor(width / LANE_WIDTH_PX))
+  }
+
   const [windowSize, setWindowSize] = useState(5) // Number of lanes to show at once
   const [stableRange, setStableRange] = useState({ start: 0, end: 4 }) // Stable range during jumps
 
@@ -271,9 +285,18 @@ function Chicken() {
 
   // Complete the jump and update state
   const completeJump = (targetLane) => {
-    setIsJumping(false)
-    setJumpProgress(0)
+    // 1) Advance index first so range computations use the new lane
     setCurrentLaneIndex(targetLane)
+
+    // 2) Update stableRange immediately to the new sliding window to avoid a frame where background resets
+    const totalLanes = allLanes.length
+    let start = Math.min(targetLane, Math.max(0, totalLanes - windowSize))
+    let end = Math.min(totalLanes - 1, start + windowSize - 1)
+    setStableRange(prev => (prev.start === start && prev.end === end) ? prev : { start, end })
+
+    // 3) Now end the jump and reset progress
+    setJumpProgress(0)
+    setIsJumping(false)
 
     // Update moved lanes
     setMovedLanes(prevLanes => {
@@ -319,44 +342,51 @@ function Chicken() {
   }
 
 
-  // Calculate dynamic range based on current chicken position
+  // Calculate visible range using a sliding window that advances with the chicken
   const calculateDynamicRange = () => {
-    const totalLanes = allLanes.length
-    const halfWindow = Math.floor(windowSize / 2)
-
-    // During jumps, return stable range to prevent flickering
-    if (isJumping) {
-      return stableRange
-    }
-
-    // Center the window around the current chicken position
-    let start = Math.max(0, currentLaneIndex - halfWindow)
-    let end = Math.min(totalLanes - 1, start + windowSize - 1)
-
-    // Adjust start if we're near the end
-    if (end === totalLanes - 1) {
-      start = Math.max(0, end - windowSize + 1)
-    }
-
-    return { start, end }
+    return stableRange
   }
 
 
-  // Update stable range when not jumping - prevents infinite render loop
+  // Update stable range when not jumping using a sliding window
   useEffect(() => {
     if (!isJumping) {
       const totalLanes = allLanes.length
-      const halfWindow = Math.floor(windowSize / 2)
-      let start = Math.max(0, currentLaneIndex - halfWindow)
+      // Slide window so it advances as the chicken moves forward
+      let start = Math.min(currentLaneIndex, Math.max(0, totalLanes - windowSize))
       let end = Math.min(totalLanes - 1, start + windowSize - 1)
 
-      if (end === totalLanes - 1) {
-        start = Math.max(0, end - windowSize + 1)
-      }
-
-      setStableRange({ start, end })
+      setStableRange(prev => {
+        if (prev.start === start && prev.end === end) return prev
+        return { start, end }
+      })
     }
   }, [currentLaneIndex, windowSize, isJumping, allLanes.length])
+
+  // After first render, measure container and set initial windowSize
+  useEffect(() => {
+    const initial = computeWindowSizeFromContainer()
+    setWindowSize(initial)
+    setStableRange({ start: 0, end: Math.max(0, initial - 1) })
+  }, [])
+
+  // Responsively update the number of visible lanes when the container resizes
+  useEffect(() => {
+    let frame
+    const handleResize = () => {
+      // Use rAF to avoid excessive updates during continuous resize
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const next = computeWindowSizeFromContainer()
+        setWindowSize(prev => (prev === next ? prev : next))
+      })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
 
   // Get multipliers for display within the dynamic range
   const getVisibleLanes = () => {
@@ -544,7 +574,7 @@ function Chicken() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-900 text-white overflow-hidden">
       {/* CSS to hide number input arrows */}
-      <style jsx>{`
+      <style>{`
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button {
           -webkit-appearance: none;
@@ -577,11 +607,7 @@ function Chicken() {
       </header>
 
       {/* Full-Screen Game Container */}
-      <div className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden"             style={{
-                // Prevent sub-pixel rendering issues that cause black lines
-                backfaceVisibility: 'hidden',
-                transform: 'translateZ(0)', // Force hardware acceleration
-                willChange: 'transform' // Optimize for animations
+      <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden"             style={{
             }}
 >
         {/* Lane component with dynamic range */}

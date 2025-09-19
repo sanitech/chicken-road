@@ -4,6 +4,7 @@ import deadChickenImage from '../assets/chickendead.png'
 import oddsBottomImage from '../assets/oddsbottom.png'
 import spritesImage from '../assets/sprites.png'
 import './Chicken.css'
+import { GAME_CONFIG } from '../utils/gameConfig'
 
 function Chicken({
   isDead = false,
@@ -33,19 +34,8 @@ function Chicken({
         return { width: '300px', height: '300px' }
       case 'auto':
       default:
-        // Responsive auto-sizing based on screen width
-        const screenWidth = window.innerWidth
-        if (screenWidth < 480) {
-          return { width: '105px', height: '105px' }  // Extra small for tiny phones
-        } else if (screenWidth < 640) {
-          return { width: '120px', height: '120px' }  // Small for mobile
-        } else if (screenWidth < 768) {
-          return { width: '160px', height: '160px' }  // Medium for tablets
-        } else if (screenWidth < 1024) {
-          return { width: '240px', height: '240px' }  // Default for desktop
-        } else {
-          return { width: '360px', height: '360px' }  // Large for big screens
-        }
+        // Fixed size based on central config
+        return { width: `${GAME_CONFIG.CHICKEN_SIZE_PX}px`, height: `${GAME_CONFIG.CHICKEN_SIZE_PX}px` }
     }
   }
 
