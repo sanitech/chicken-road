@@ -111,7 +111,9 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
                 top: 0,
                 transform: 'translateX(-50%)',
                 // Dynamic animation speed based on car data
-                '--car-animation-duration': `${carData.animationDuration}ms`
+                '--car-animation-duration': `${carData.animationDuration}ms`,
+                // Ensure cars render above cap/blocker (z-2/3) but below chicken (z-10)
+                zIndex: 5
             }}
         >
             <Car
@@ -427,7 +429,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     // Compute hasBlocker for this lane (prevents cars entering/stops cars)
                     const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1
                     const isReservationLane = reservationRef.current.active && reservationRef.current.targetLane === globalIndex
-                    const computedHasBlocker = baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause')
+                    const isCrashLaneIndex = globalIndex === crashIndex - 1
+                    const computedHasBlocker = !isCrashLaneIndex && (baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause'))
 
                     return (
                         <div
@@ -535,7 +538,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
                             {/* Blocker Image (show during reservation only if decision is 'pause') */}
                             {((((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0)) && globalIndex !== crashIndex && globalIndex !== crashIndex - 1)
-                               || (reservationRef.current.active && reservationRef.current.targetLane === globalIndex && reservationRef.current.decision === 'pause')) && (
+                               || (reservationRef.current.active && reservationRef.current.targetLane === globalIndex && reservationRef.current.decision === 'pause' && globalIndex !== crashIndex - 1)) && (
                                 <div className="absolute left-0 right-0 h-8 flex items-center justify-center"
                                      style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
                                     <img
