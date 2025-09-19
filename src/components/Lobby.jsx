@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGetUserInfo } from '../utils/getUserinfo'
+import gameApi from '../utils/gameApi'
 import { FaCoins, FaCog } from 'react-icons/fa'
 import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
@@ -8,6 +9,8 @@ import deadChickenImage from '../assets/chickendead.png'
 import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
 import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
 import crashAudio from '../assets/audio/crash.6d250f25.mp3'
+import buttonClickAudio from '../assets/audio/buttonClick.mp3'
+import jumpAudio from '../assets/audio/chick.ffd1f39b.mp3'
 import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
 import { GAME_CONFIG } from '../utils/gameConfig'
@@ -46,6 +49,22 @@ class GameAudioManager {
       onplay: () => console.log('Crash sound played'),
       onerror: (id, error) => console.log('Crash sound error:', error)
     })
+
+    this.buttonClickSound = new Howl({
+      src: [buttonClickAudio],
+      volume: 0.5,
+      onload: () => console.log('Button click sound loaded'),
+      onplay: () => console.log('Button click sound played'),
+      onerror: (id, error) => console.log('Button click sound error:', error)
+    })
+
+    this.jumpSound = new Howl({
+      src: [jumpAudio],
+      volume: 0.4,
+      onload: () => console.log('Jump sound loaded'),
+      onplay: () => console.log('Jump sound played'),
+      onerror: (id, error) => console.log('Jump sound error:', error)
+    })
   }
 
   // Background music controls
@@ -66,6 +85,14 @@ class GameAudioManager {
 
   playCrash() {
     this.crashSound.play()
+  }
+
+  playButtonClick() {
+    this.buttonClickSound.play()
+  }
+
+  playJump() {
+    this.jumpSound.play()
   }
 
   // Master controls
@@ -211,10 +238,16 @@ function Chicken() {
   const [isRestarting, setIsRestarting] = useState(false) // Track if restart animation is playing
   const [betAmount, setBetAmount] = useState(4.00) // Bet amount state
   const [isInputFocused, setIsInputFocused] = useState(false) // Track if input is focused
-  const [demoBalance, setDemoBalance] = useState(1000.00) // Demo balance for cash out simulation
   const [showCashOutAnimation, setShowCashOutAnimation] = useState(false) // Cash out animation state
   const [lastCashOutAmount, setLastCashOutAmount] = useState(0) // Track last cash out for animation
   const audioManager = useRef(null) // Reference for Howler.js audio manager
+  
+  // Server game state
+  const [currentGameId, setCurrentGameId] = useState(null) // Active game ID from server
+  const [isGameActive, setIsGameActive] = useState(false) // Whether a server game is active
+  const [serverMultiplier, setServerMultiplier] = useState(null) // Current multiplier from server
+  const [isCreatingGame, setIsCreatingGame] = useState(false) // Loading state for game creation
+  const [gameError, setGameError] = useState(null) // Game-related errors
 
   // Token handling and user info
   useEffect(() => {
@@ -235,7 +268,7 @@ function Chicken() {
     }
   }, [])
 
-  const { userInfo } = useGetUserInfo(token)
+  const { userInfo, isLoading: userLoading, error: userError } = useGetUserInfo(token)
 
   // Update balance when user info changes
   useEffect(() => {
@@ -251,6 +284,9 @@ function Chicken() {
   // Physics-based jump function
   const startJump = (targetLane) => {
     if (isJumping) return // Prevent multiple jumps
+
+    // Play jump audio when starting jump
+    playJumpAudio()
 
     setIsJumping(true)
     setJumpStartLane(currentLaneIndex)
@@ -308,37 +344,59 @@ function Chicken() {
     // No dynamic multiplier removal - using pre-generated lanes
   }
 
-  // Function to move chicken to next lane
-  const moveToNextLane = () => {
-    // Check if next move would trigger crash
-    const nextPosition = currentLaneIndex + 1
-    const nextLaneNumber = nextPosition // Position 1 = Lane 1, Position 2 = Lane 2, etc.
-
-    console.log(`Moving to position ${nextPosition} (Lane ${nextLaneNumber}), crash set for Lane ${crashIndex}`)
-
-    // Crash check: if moving to the crash lane
-    if (nextLaneNumber === crashIndex) {
-      console.log(`CRASH DETECTED! Moving to Lane ${nextLaneNumber} which is the crash lane ${crashIndex}`)
-
-      // Play crash audio
-      playCrashAudio()
-
-      setGameEnded(true)
-      setIsDead(true) // Set chicken as dead when it crashes
-      console.log(`Chicken crashed at Lane ${nextLaneNumber}! Crash was set for Lane ${crashIndex}`)
-      console.log(`Dead state: ${true}, Game ended: ${true}`)
-      return
+  // Function to move chicken to next lane with server validation
+  const moveToNextLane = async () => {
+    // For first move in a new game, just start the jump animation
+    if (!isGameActive || !currentGameId) {
+      const nextPosition = currentLaneIndex + 1;
+      console.log(`Starting local jump to position ${nextPosition} (no server validation needed for first move)`);
+      startJump(nextPosition);
+      return;
     }
 
-    // Prevent going beyond the last lane
-    if (nextPosition > allLanes.length) {
-      console.log(`Cannot go beyond last lane: position ${nextPosition} > ${allLanes.length} lanes`)
-      return
-    }
+    // For subsequent moves, validate with server
+    const nextPosition = currentLaneIndex + 1;
+    const nextLaneNumber = nextPosition;
 
-    // Start physics-based jump to next lane
-    console.log(`Starting jump to position ${nextPosition} (Lane ${nextLaneNumber})`)
-    startJump(nextPosition)
+    try {
+      console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextLaneNumber})?`);
+
+      // Check with server if move is valid
+      const moveData = await gameApi.canMove(currentGameId, nextLaneNumber, token);
+      
+      console.log('Server move validation:', moveData);
+
+      if (moveData.canMove) {
+        // Server says move is safe - start jump animation
+        console.log(`Server approved move to Lane ${nextLaneNumber}`);
+        setServerMultiplier(moveData.multiplier);
+        startJump(nextPosition);
+      } else {
+        // Server detected crash
+        console.log(`CRASH DETECTED by server at Lane ${nextLaneNumber}!`);
+        
+        // Play crash audio
+        playCrashAudio();
+
+        setGameEnded(true);
+        setIsDead(true);
+        setIsGameActive(false);
+        setCurrentGameId(null);
+        
+        console.log(`Chicken crashed at Lane ${nextLaneNumber}! Game ended.`);
+        return;
+      }
+
+    } catch (error) {
+      console.error('Error validating move with server:', error);
+      setGameError(error.message || 'Failed to validate move');
+      
+      // On error, treat as crash to be safe
+      setGameEnded(true);
+      setIsDead(true);
+      setIsGameActive(false);
+      setCurrentGameId(null);
+    }
   }
 
 
@@ -396,10 +454,12 @@ function Chicken() {
 
   // Bet amount functions
   const incrementBet = () => {
+    playButtonClickAudio();
     setBetAmount(prev => parseFloat((prev + 0.50).toFixed(2)))
   }
 
   const decrementBet = () => {
+    playButtonClickAudio();
     setBetAmount(prev => Math.max(0.50, parseFloat((prev - 0.50).toFixed(2))))
   }
 
@@ -458,41 +518,82 @@ function Chicken() {
     }
   }
 
-  // Cash out functionality - only for successful cash outs, not deaths
-  const handleCashOut = () => {
-    if (currentLaneIndex > 0 && !isDead && !gameEnded) {
-      const currentMultiplier = allLanes[currentLaneIndex - 1] || 1
-      const winnings = betAmount * currentMultiplier
-      const profit = winnings - betAmount
+  // Play button click audio
+  const playButtonClickAudio = () => {
+    console.log('Playing button click audio...', { soundEnabled })
+    if (audioManager.current && soundEnabled) {
+      audioManager.current.playButtonClick()
+    }
+  }
 
-      // Play cashout audio
-      playCashoutAudio()
+  // Play jump audio
+  const playJumpAudio = () => {
+    console.log('Playing jump audio...', { soundEnabled })
+    if (audioManager.current && soundEnabled) {
+      audioManager.current.playJump()
+    }
+  }
 
-      // Update demo balance with winnings
-      setDemoBalance(prev => parseFloat((prev + winnings).toFixed(2)))
+  // Cash out functionality with real backend API
+  const handleCashOut = async () => {
+    if (currentLaneIndex > 0 && !isDead && !gameEnded && isGameActive && currentGameId) {
+      // Play button click audio
+      playButtonClickAudio();
+      
+      try {
+        console.log(`Attempting to cash out at lane ${currentLaneIndex}`);
 
-      // Store cash out amount for animation
-      setLastCashOutAmount(winnings)
+        // Call backend cash out API
+        const cashOutData = await gameApi.cashOut(currentGameId, currentLaneIndex, token);
+        
+        console.log('Cash out successful:', cashOutData);
 
-      // Show cash out animation
-      setShowCashOutAnimation(true)
+        // Play cashout audio
+        playCashoutAudio();
 
-      // Hide animation after 3 seconds
-      setTimeout(() => {
-        setShowCashOutAnimation(false)
-      }, 3000)
+        // Store cash out amount for animation
+        setLastCashOutAmount(cashOutData.winAmount);
 
-      // Reset game after cash out
-      setTimeout(() => {
-        resetGame()
-      }, 1500)
+        // Show cash out animation
+        setShowCashOutAnimation(true);
 
-      console.log(`Cashed out: ${winnings.toFixed(2)} ETB (Profit: +${profit.toFixed(2)} ETB)`)
+        // Hide animation after 3 seconds
+        setTimeout(() => {
+          setShowCashOutAnimation(false);
+        }, 3000);
+
+        // Reset game state
+        setIsGameActive(false);
+        setCurrentGameId(null);
+        setServerMultiplier(null);
+
+        // Reset game after cash out
+        setTimeout(() => {
+          resetGame();
+        }, 1500);
+
+        console.log(`Cashed out: ${cashOutData.winAmount} ETB at ${cashOutData.multiplier}x multiplier`);
+
+        // Force refresh user info to get updated balance
+        window.location.reload(); // Simple way to refresh user data
+
+      } catch (error) {
+        console.error('Cash out failed:', error);
+        setGameError(error.message || 'Failed to cash out');
+        
+        // On error, reset game state
+        setIsGameActive(false);
+        setCurrentGameId(null);
+        setServerMultiplier(null);
+      }
     }
   }
 
   // Change difficulty and regenerate lanes
   const changeDifficulty = (newDifficulty) => {
+    // Play button click audio
+    playButtonClickAudio();
+    
     setCurrentDifficulty(newDifficulty)
     const newLanes = generateLanesForDifficulty(DIFFICULTY_CONFIGS, newDifficulty)
     setAllLanes(newLanes)
@@ -512,46 +613,88 @@ function Chicken() {
     setJumpProgress(0)
     setIsRestarting(false) // Reset restart animation
     setStableRange({ start: 0, end: 4 }) // Reset stable range
-    // Generate new crash index based on current difficulty
+    
+    // Clear server game state
+    setCurrentGameId(null)
+    setIsGameActive(false)
+    setServerMultiplier(null)
+    setGameError(null)
+    
+    // Generate new crash index based on current difficulty (for visual purposes only)
     const config = DIFFICULTY_CONFIGS[currentDifficulty]
     // Crash should be at lane 2 or higher (position 2+)
     const minCrashLane = 2 // Minimum Lane 2
     const maxCrashLane = Math.min(config.lanes, allLanes.length) // Don't exceed available lanes
     const newCrashIndex = Math.floor(Math.random() * (maxCrashLane - minCrashLane + 1)) + minCrashLane
     setCrashIndex(newCrashIndex)
-    console.log(`Game reset complete - New crash at Lane ${newCrashIndex} (available lanes: ${allLanes.length})`)
+    console.log(`Game reset complete - Visual crash at Lane ${newCrashIndex} (Server will determine real crash)`)
   }
 
-  // Start new game (deduct bet amount)
-  const startNewGame = () => {
-    // Check if player has enough balance
-    if (demoBalance >= betAmount) {
-      // Close any open dropdowns
-      setShowDifficultyDropdown(false)
+  // Start new game with real backend API
+  const startNewGame = async () => {
+    // Play button click audio
+    playButtonClickAudio();
 
-      // Deduct bet amount from balance
-      setDemoBalance(prev => parseFloat((prev - betAmount).toFixed(2)))
-      console.log(`New game started - Bet: ${betAmount.toFixed(2)} ETB deducted`)
-      moveToNextLane() // Start the game
-    } else {
-      console.log('Insufficient balance for bet')
-      // Could show error message here
+    // Check if user info is available
+    if (!userInfo || !token) {
+      setGameError('Please login to play');
+      return;
+    }
+
+    // Check if player has enough balance
+    if (userInfo.balance < betAmount) {
+      setGameError(`Insufficient balance. You need ${betAmount.toFixed(2)} ETB to play`);
+      return;
+    }
+
+    try {
+      setIsCreatingGame(true);
+      setGameError(null);
+      
+      // Close any open dropdowns
+      setShowDifficultyDropdown(false);
+
+      console.log(`Creating new game - Bet: ${betAmount.toFixed(2)} ETB, Difficulty: ${currentDifficulty}`);
+
+      // Create game via backend API
+      const gameData = await gameApi.createGame({
+        clientSeed: gameApi.generateClientSeed(),
+        difficulty: currentDifficulty,
+        betAmount: betAmount,
+        creatorChatId: userInfo.chatId
+      }, token);
+
+      console.log('Game created successfully:', gameData);
+
+      // Set server game state
+      setCurrentGameId(gameData.gameId);
+      setIsGameActive(true);
+      setServerMultiplier(gameData.multiplier);
+      
+      // Start the game by moving to first lane
+      moveToNextLane();
+
+    } catch (error) {
+      console.error('Failed to create game:', error);
+      setGameError(error.message || 'Failed to create game');
+    } finally {
+      setIsCreatingGame(false);
     }
   }
 
-  // Auto-restart when chicken dies with smooth parallax animation
+  // Auto-restart when chicken dies - immediate restart without popup
   useEffect(() => {
     console.log('Restart effect triggered:', { isDead, gameEnded, isRestarting })
 
     if (isDead && gameEnded && !isRestarting) {
-      console.log('Chicken died! Starting smooth reset animation...')
+      console.log('Chicken died! Starting immediate reset...')
       setIsRestarting(true)
 
-      // Start smooth parallax animation back to side road after brief pause
+      // Immediate restart after crash animation completes
       const restartTimer = setTimeout(() => {
-        console.log('Resetting game with parallax animation...')
+        console.log('Resetting game automatically...')
         resetGame()
-      }, 1000) // 1 second delay for smooth transition
+      }, 500) // Short delay just for crash animation to be visible
 
       return () => clearTimeout(restartTimer)
     }
@@ -597,11 +740,19 @@ function Chicken() {
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2" style={{ backgroundColor: '#2A2A2A' }}>
             <FaCoins className="text-yellow-400 text-sm" />
-            <span className="text-sm sm:text-md font-bold">
-              {demoBalance.toFixed(2)}
-            </span>
-            <span className="text-xs text-gray-300">ETB</span>
-            <span className="text-xs text-gray-400">(Demo)</span>
+            {userInfo ? (
+              <>
+                <span className="text-sm sm:text-md font-bold">
+                  {userInfo.balance?.toFixed(2) || '0.00'}
+                </span>
+                <span className="text-xs text-gray-300">ETB</span>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-4 bg-gray-600 rounded animate-pulse"></div>
+                <span className="text-xs text-gray-300">ETB</span>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -629,24 +780,22 @@ function Chicken() {
           isRestarting={isRestarting}
         />
 
-        {/* Floating Game Status Overlay */}
-        {gameEnded && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-            <div className="bg-red-600 rounded-xl p-6 text-center shadow-2xl">
-              <div className="text-2xl font-bold mb-2">💥 CRASH!</div>
-              <div className="text-sm opacity-90 mb-4">
-                {currentLaneIndex === 0 ? 'Side Road' : `Lane ${currentLaneIndex}`} • Final: {currentLaneIndex > 0 ? allLanes[currentLaneIndex - 1]?.toFixed(2) + 'x' : 'No multiplier'}
-              </div>
-              {/* Manual restart button for debugging */}
+        {/* Game Error Overlay */}
+        {gameError && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+            <div className="bg-red-600 rounded-xl p-6 text-center shadow-2xl max-w-sm">
+              <div className="text-2xl font-bold mb-2">⚠️ Error</div>
+              <div className="text-sm opacity-90 mb-4">{gameError}</div>
               <button
-                onClick={resetGame}
-                className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm"
+                onClick={() => setGameError(null)}
+                className="px-4 py-2 bg-white text-red-600 rounded-lg text-sm font-medium hover:bg-gray-100"
               >
-                🔄 Manual Restart
+                OK
               </button>
             </div>
           </div>
         )}
+
 
         {/* Cash Out Success Animation with Win Notification Image */}
         {showCashOutAnimation && (
@@ -729,7 +878,10 @@ function Chicken() {
                 </button>
               </div>
               <button
-                onClick={() => setShowSettings(true)}
+                onClick={() => {
+                  playButtonClickAudio();
+                  setShowSettings(true);
+                }}
                 className="ml-3 w-10 h-10 rounded-lg flex items-center justify-center text-white hover:opacity-80"
                 style={{ backgroundColor: '#2A2A2A' }}
               >
@@ -740,7 +892,12 @@ function Chicken() {
             {/* Difficulty Selector */}
             <div className={`rounded-lg p-3 relative difficulty-selector transition-opacity ${currentLaneIndex > 0 ? 'opacity-0' : 'opacity-100'}`} style={{ backgroundColor: '#2A2A2A' }}>
               <button
-                onClick={() => currentLaneIndex === 0 && setShowDifficultyDropdown(!showDifficultyDropdown)}
+                onClick={() => {
+                  if (currentLaneIndex === 0) {
+                    playButtonClickAudio();
+                    setShowDifficultyDropdown(!showDifficultyDropdown);
+                  }
+                }}
                 disabled={currentLaneIndex > 0} // Disable when game is active
                 className={`w-full flex items-center justify-between text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed' : ''
                   }`}
@@ -776,17 +933,20 @@ function Chicken() {
               /* Initial Play Button - Before Game Starts */
               <button
                 onClick={startNewGame}
-                disabled={demoBalance < betAmount}
-                className={`w-full font-bold py-4 px-6 rounded-lg text-lg transition-all duration-200 ${demoBalance < betAmount
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:opacity-90 active:scale-95'
+                disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
+                className={`w-full font-bold py-4 px-6 rounded-lg text-lg transition-all duration-200 ${
+                  !userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:opacity-90 active:scale-95'
                   }`}
                 style={{
-                  backgroundColor: demoBalance < betAmount ? '#2A2A2A' : '#3DC55B',
+                  backgroundColor: (!userInfo || (userInfo.balance < betAmount) || isCreatingGame) ? '#2A2A2A' : '#3DC55B',
                   color: 'white'
                 }}
               >
-                {demoBalance < betAmount ? 'Insufficient Balance' : 'Play'}
+                {isCreatingGame ? 'Creating Game...' : 
+                 !userInfo ? 'Loading...' :
+                 (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
               </button>
             ) : (
               /* Dual Button Layout - During Game */
@@ -955,30 +1115,6 @@ function Chicken() {
               </div>
 
 
-
-
-
-              {/* Test Audio with Howler.js */}
-              <button
-                onClick={playCashoutAudio}
-                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
-              >
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <span className="text-lg">💰</span>
-                </div>
-                <span className="text-white font-medium">Test Cashout Sound</span>
-              </button>
-
-              <button
-                onClick={playCrashAudio}
-                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
-              >
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <span className="text-lg">💥</span>
-                </div>
-                <span className="text-white font-medium">Test Crash Sound</span>
-              </button>
-
               {/* How to Play */}
               <button
                 onClick={() => {
@@ -1010,7 +1146,7 @@ function Chicken() {
                     <div className="text-white font-medium">@{userInfo.username}</div>
                     <div className="text-gray-400 text-sm flex items-center gap-1">
                       <FaCoins className="text-[#A78BFA] text-xs" />
-                      {userInfo.balance || 0} ETB
+                      {userInfo.balance?.toFixed(2) || '0.00'} ETB
                     </div>
                   </div>
                 </>

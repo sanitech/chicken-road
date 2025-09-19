@@ -16,7 +16,7 @@ const Loading = ({ onLoadingComplete }) => {
     }
   }, []);
   
-  const { userInfo, isLoading } = useGetUserInfo(token);
+  const { userInfo, isLoading, error } = useGetUserInfo(token);
 
   const completeLoading = () => {
     setIsVisible(false);
@@ -43,6 +43,19 @@ const Loading = ({ onLoadingComplete }) => {
       }, 300);
     }
   }, [isLoading]);
+
+  // Show error message if authentication fails
+  if (error && !isLoading) {
+    return (
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center z-50 bg-gradient-to-br from-gray-950 via-gray-950 to-black">
+        <div className="text-center p-8">
+          <div className="text-red-400 text-xl mb-4">⚠️ Authentication Error</div>
+          <div className="text-white mb-4">{error}</div>
+          <div className="text-gray-400 text-sm">Please check your token and try again</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isVisible) return null;
 
