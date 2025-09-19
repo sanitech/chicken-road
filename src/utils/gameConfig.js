@@ -76,6 +76,6 @@ export const GAME_CONFIG = {
   // Game restart tuning
   RESTART: {
     AUTO: true,
-    DELAY_MS: 0,
+    DELAY_MS: 1500, // 1.5 second delay before auto-restart when chicken dies
   },
 };
