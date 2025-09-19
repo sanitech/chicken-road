@@ -42,6 +42,11 @@ export const GAME_CONFIG = {
     STOP_TOP_PERCENT: 20, // slightly above blocker/cap
     // Pause this much before STOP_TOP_PERCENT (as a fraction 0..1) to reduce visual snap
     STOP_EASE_DELTA: 0.05,
+    // Collision detection band for car vs chicken contact (percent-based)
+    // We consider a hit when the car vertical position is within +/- this band
+    // around DETECTION_TOP_PERCENT.
+    DETECTION_TOP_PERCENT: 20,
+    DETECTION_BAND_PERCENT: 8,
   },
 
   // Parallax/scroll movement between lanes
@@ -66,5 +71,11 @@ export const GAME_CONFIG = {
     MASTER_VOLUME: 1.0,
     MUSIC_VOLUME: 0.3,
     SFX_VOLUME: 0.7,
+  },
+
+  // Game restart tuning
+  RESTART: {
+    AUTO: true,
+    DELAY_MS: 0,
   },
 };

@@ -215,6 +215,7 @@ function Chicken() {
   const [showCashOutAnimation, setShowCashOutAnimation] = useState(false) // Cash out animation state
   const [lastCashOutAmount, setLastCashOutAmount] = useState(0) // Track last cash out for animation
   const audioManager = useRef(null) // Reference for Howler.js audio manager
+  const restartGuardRef = useRef(false) // prevent double scheduling of restart
 
   // Token handling and user info
   useEffect(() => {
@@ -327,6 +328,13 @@ function Chicken() {
       setIsDead(true) // Set chicken as dead when it crashes
       console.log(`Chicken crashed at Lane ${nextLaneNumber}! Crash was set for Lane ${crashIndex}`)
       console.log(`Dead state: ${true}, Game ended: ${true}`)
+
+      // Auto-restart shortly after crash (mirror cashout flow), controlled by config
+      if (GAME_CONFIG.RESTART?.AUTO) {
+        setTimeout(() => {
+          resetGame()
+        }, GAME_CONFIG.RESTART?.DELAY_MS ?? 1200)
+      }
       return
     }
 
@@ -539,23 +547,21 @@ function Chicken() {
     }
   }
 
-  // Auto-restart when chicken dies with smooth parallax animation
+  // Auto-restart when chicken dies is handled inline in moveToNextLane crash branch.
+  // Also add a guarded effect in case other code paths set isDead/gameEnded.
   useEffect(() => {
-    console.log('Restart effect triggered:', { isDead, gameEnded, isRestarting })
-
-    if (isDead && gameEnded && !isRestarting) {
-      console.log('Chicken died! Starting smooth reset animation...')
-      setIsRestarting(true)
-
-      // Start smooth parallax animation back to side road after brief pause
-      const restartTimer = setTimeout(() => {
-        console.log('Resetting game with parallax animation...')
+    if (!GAME_CONFIG.RESTART?.AUTO) return
+    if (restartGuardRef.current) return
+    if (isDead && gameEnded) {
+      restartGuardRef.current = true
+      const delay = GAME_CONFIG.RESTART?.DELAY_MS ?? 1200
+      const t = setTimeout(() => {
         resetGame()
-      }, 1000) // 1 second delay for smooth transition
-
-      return () => clearTimeout(restartTimer)
+        restartGuardRef.current = false
+      }, delay)
+      return () => clearTimeout(t)
     }
-  }, [isDead, gameEnded, isRestarting])
+  }, [isDead, gameEnded])
 
   // Close difficulty dropdown when clicking outside
   useEffect(() => {
@@ -808,13 +814,13 @@ function Chicken() {
                 {/* GO Button */}
                 <button
                   onClick={moveToNextLane}
-                  disabled={currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping}
-                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping
+                  disabled={currentLaneIndex >= allLanes.length - 1 || isJumping}
+                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || isJumping
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:opacity-90 active:scale-95'
                     }`}
                   style={{
-                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || currentLaneIndex >= crashIndex - 1 || isJumping
+                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || isJumping
                       ? '#2A2A2A' : '#3DC55B',
                     color: 'white'
                   }}
