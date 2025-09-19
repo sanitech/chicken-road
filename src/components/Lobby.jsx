@@ -285,6 +285,7 @@ function Chicken() {
   // Physics-based jump function
   const startJump = (targetLane) => {
     if (isJumping) return // Prevent multiple jumps
+    if (isDead || gameEnded) return // Prevent jumping when chicken is dead or game ended
 
     // Play jump audio when starting jump
     playJumpAudio()
@@ -347,6 +348,12 @@ function Chicken() {
 
   // Function to move chicken to next lane with server validation
   const moveToNextLane = async () => {
+    // Don't allow movement if chicken is dead or game has ended
+    if (isDead || gameEnded) {
+      console.log('Cannot move: chicken is dead or game has ended');
+      return;
+    }
+
     // For first move in a new game, just start the jump animation
     if (!isGameActive || !currentGameId) {
       const nextPosition = currentLaneIndex + 1;
@@ -972,13 +979,13 @@ function Chicken() {
                 {/* GO Button */}
                 <button
                   onClick={moveToNextLane}
-                  disabled={currentLaneIndex >= allLanes.length - 1 || isJumping}
-                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || isJumping
+                  disabled={currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded}
+                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:opacity-90 active:scale-95'
                     }`}
                   style={{
-                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || isJumping
+                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded
                       ? '#2A2A2A' : '#3DC55B',
                     color: 'white'
                   }}
@@ -988,7 +995,8 @@ function Chicken() {
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-sm">...</span>
                     </div>
-                  ) : currentLaneIndex >= allLanes.length - 1 ? 'MAX' :
+                  ) : isDead || gameEnded ? '💀' : 
+                    currentLaneIndex >= allLanes.length - 1 ? 'MAX' :
                     currentLaneIndex >= crashIndex - 1 ? '⚠️' : 'GO'}
                 </button>
               </div>
