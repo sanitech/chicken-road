@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGetUserInfo } from '../utils/getUserinfo'
 import gameApi from '../utils/gameApi'
+import socketGameAPI from '../utils/socketApi'
 import { FaCoins, FaCog } from 'react-icons/fa'
 import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
@@ -185,7 +186,7 @@ const DIFFICULTY_CONFIGS = {
     ]
   }
 }
-
+ 
 function Chicken() {
   const [token, setToken] = useState(null)
   const [gameState, setGameState] = useState({
@@ -198,13 +199,13 @@ function Chicken() {
   const [currentLaneIndex, setCurrentLaneIndex] = useState(0)
   const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
   const [allLanes, setAllLanes] = useState(() => generateLanesForDifficulty(DIFFICULTY_CONFIGS, 'easy')) // Generate lanes based on difficulty
-
+  
   // Jump physics state
   const [isJumping, setIsJumping] = useState(false)
   const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
   const [jumpStartLane, setJumpStartLane] = useState(0)
   const [jumpTargetLane, setJumpTargetLane] = useState(0)
-
+  
   // Crash control state
   const [crashIndex, setCrashIndex] = useState(5) // Default crash at Lane 5
   const [gameEnded, setGameEnded] = useState(false) // Track if game has ended due to crash
@@ -226,8 +227,17 @@ function Chicken() {
   }
 
   const [windowSize, setWindowSize] = useState(5) // Number of lanes to show at once
+  
+  // Initialize WebSocket connection
+  useEffect(() => {
+    socketGameAPI.connect();
+    
+    return () => {
+      socketGameAPI.disconnect();
+    };
+  }, []);
   const [stableRange, setStableRange] = useState({ start: 0, end: 4 }) // Stable range during jumps
-
+ 
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -340,7 +350,7 @@ function Chicken() {
     setMovedLanes(prevLanes => {
       const newLanes = [...prevLanes, targetLane]
       console.log('Chicken jumped through lanes:', newLanes)
-      return newLanes
+        return newLanes
     })
 
     // No dynamic multiplier removal - using pre-generated lanes
@@ -366,44 +376,35 @@ function Chicken() {
     const nextPosition = currentLaneIndex + 1;
     const nextLaneNumber = nextPosition;
 
+    console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextLaneNumber})?`);
+
+    // Start jump animation immediately for responsive UI
+    startJump(nextPosition);
+    
     try {
-      console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextLaneNumber})?`);
+      // Validate with server via WebSocket (non-blocking)
+      const moveData = await socketGameAPI.validateMove(currentGameId, nextLaneNumber, token);
+      console.log('WebSocket move validation:', moveData);
 
-      // Check with server if move is valid
-      const moveData = await gameApi.canMove(currentGameId, nextLaneNumber, token);
-      
-      console.log('Server move validation:', moveData);
-
-      if (moveData.canMove) {
-        // Server says move is safe - start jump animation
-        console.log(`Server approved move to Lane ${nextLaneNumber}`);
-        setServerMultiplier(moveData.multiplier);
-        startJump(nextPosition);
-      } else {
-        // Server detected crash
-        console.log(`CRASH DETECTED by server at Lane ${nextLaneNumber}!`);
-        
-        // Play crash audio
-        playCrashAudio();
-
-        setGameEnded(true);
-        setIsDead(true);
-        setIsGameActive(false);
-        setCurrentGameId(null);
-        
-        console.log(`Chicken crashed at Lane ${nextLaneNumber}! Game ended.`);
-        return;
+      if (!moveData.canMove) {
+        // Server says this move crashes - handle after animation
+      setTimeout(() => {
+          handleCrash(moveData);
+        }, 800); // Wait for jump animation to complete
       }
-
-    } catch (error) {
-      console.error('Error validating move with server:', error);
-      setGameError(error.message || 'Failed to validate move');
-      
-      // On error, treat as crash to be safe
-      setGameEnded(true);
-      setIsDead(true);
-      setIsGameActive(false);
-      setCurrentGameId(null);
+    } catch (wsError) {
+      console.error('WebSocket validation failed, falling back to HTTP:', wsError);
+      try {
+        // Fallback to HTTP if WebSocket fails
+        const moveData = await gameApi.canMove(currentGameId, nextLaneNumber, token);
+        if (!moveData.canMove) {
+        setTimeout(() => {
+            handleCrash(moveData);
+          }, 800);
+        }
+      } catch (httpError) {
+        console.error('Both WebSocket and HTTP validation failed:', httpError);
+      }
     }
   }
 
@@ -551,8 +552,16 @@ function Chicken() {
       try {
         console.log(`Attempting to cash out at lane ${currentLaneIndex}`);
 
-        // Call backend cash out API
-        const cashOutData = await gameApi.cashOut(currentGameId, currentLaneIndex, token);
+        // Call backend cash out API via WebSocket for instant response
+        let cashOutData;
+        try {
+          cashOutData = await socketGameAPI.cashOut(currentGameId, currentLaneIndex, token);
+          console.log('WebSocket cash out successful:', cashOutData);
+        } catch (wsError) {
+          console.error('WebSocket cash out failed, falling back to HTTP:', wsError);
+          // Fallback to HTTP if WebSocket fails
+          cashOutData = await gameApi.cashOut(currentGameId, currentLaneIndex, token);
+        }
         
         console.log('Cash out successful:', cashOutData);
 
@@ -679,6 +688,9 @@ function Chicken() {
       setIsGameActive(true);
       setServerMultiplier(gameData.multiplier);
       
+      // Join WebSocket room for this game
+      socketGameAPI.joinGame(gameData.gameId);
+      
       // Start the game by moving to first lane
       moveToNextLane();
 
@@ -772,22 +784,22 @@ function Chicken() {
       <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden"             style={{
             }}
 >
-        {/* Lane component with dynamic range */}
-        <Lane
+              {/* Lane component with dynamic range */}
+              <Lane
           remainingMultipliers={getVisibleLanes()}
-          currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-          displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-          globalCurrentIndex={currentLaneIndex}
-          globalDisplayStart={calculateDynamicRange().start}
+                currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+                displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
+                globalCurrentIndex={currentLaneIndex}
+                globalDisplayStart={calculateDynamicRange().start}
           allLanes={allLanes} // Pass the full lanes array for correct indexing
           isDead={isDead || currentLaneIndex >= crashIndex - 1}
-          crashIndex={crashIndex}
-          shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
-          gameEnded={gameEnded}
-          isJumping={isJumping}
-          jumpProgress={jumpProgress}
-          jumpStartLane={jumpStartLane}
-          jumpTargetLane={jumpTargetLane}
+                crashIndex={crashIndex}
+                shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
+                gameEnded={gameEnded}
+                isJumping={isJumping}
+                jumpProgress={jumpProgress}
+                jumpStartLane={jumpStartLane}
+                jumpTargetLane={jumpTargetLane}
           isRestarting={isRestarting}
         />
 
@@ -813,9 +825,9 @@ function Chicken() {
           <div className="absolute z-30" style={{ top: '20%', left: '50%', transform: 'translate(-50%, -50%)' }}>
             <div className="relative">
               {/* Win Notification Background Image */}
-              <img
-                src={winNotificationImage}
-                alt="Win Notification"
+                <img 
+                  src={winNotificationImage} 
+                  alt="Win Notification" 
                 className="w-96 h-40"
               />
 
@@ -824,16 +836,16 @@ function Chicken() {
                 {/* WIN! Text */}
                 <div className=" text-black font-black text-lg px-6  ">
                   WIN!
-                </div>
+            </div>
 
                 {/* Amount */}
                 <div className="text-white  font-bold text-2xl drop-shadow-lg mt-7">
                   {lastCashOutAmount.toFixed(2)} ETB
                 </div>
               </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
       </div>
 
@@ -844,7 +856,7 @@ function Chicken() {
             {/* Bet Amount Control */}
             <div className="flex items-center justify-between ">
               <div className="flex  flex-1 items-center justify-between rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
-                <button
+                  <button
                   onClick={decrementBet}
                   disabled={currentLaneIndex > 0} // Disable when game is active
                   className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
@@ -854,7 +866,7 @@ function Chicken() {
                   style={{ backgroundColor: '#2A2A2A' }}
                 >
                   −
-                </button>
+                  </button>
                 <div className="flex-1 text-center relative">
                   <input
                     type="number"
@@ -875,8 +887,8 @@ function Chicken() {
                       WebkitAppearance: 'none'
                     }}
                   />
-                </div>
-                <button
+              </div>
+                  <button
                   onClick={incrementBet}
                   disabled={currentLaneIndex > 0} // Disable when game is active
                   className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
@@ -886,8 +898,8 @@ function Chicken() {
                   style={{ backgroundColor: '#2A2A2A' }}
                 >
                   +
-                </button>
-              </div>
+                  </button>
+            </div>
               <button
                 onClick={() => {
                   playButtonClickAudio();
@@ -902,7 +914,7 @@ function Chicken() {
 
             {/* Difficulty Selector */}
             <div className={`rounded-lg p-3 relative difficulty-selector transition-opacity ${currentLaneIndex > 0 ? 'opacity-0' : 'opacity-100'}`} style={{ backgroundColor: '#2A2A2A' }}>
-              <button
+                  <button
                 onClick={() => {
                   if (currentLaneIndex === 0) {
                     playButtonClickAudio();
@@ -917,13 +929,13 @@ function Chicken() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`}>
                   <path d="M7 10l5 5 5-5z" />
                 </svg>
-              </button>
+                  </button>
 
               {/* Difficulty Dropdown */}
               {showDifficultyDropdown && currentLaneIndex === 0 && (
                 <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg overflow-hidden z-50" style={{ backgroundColor: '#2A2A2A' }}>
                   {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
-                    <button
+                  <button
                       key={key}
                       onClick={() => {
                         changeDifficulty(key)
@@ -933,16 +945,16 @@ function Chicken() {
                         }`}
                     >
                       <div className="text-white font-medium">{config.name}</div>
-                    </button>
+                  </button>
                   ))}
-                </div>
+              </div>
               )}
             </div>
 
             {/* Game Control Buttons */}
             {currentLaneIndex === 0 && !isJumping ? (
               /* Initial Play Button - Before Game Starts */
-              <button
+                <button
                 onClick={startNewGame}
                 disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
                 className={`w-full font-bold py-4 px-6 rounded-lg text-lg transition-all duration-200 ${
@@ -958,12 +970,12 @@ function Chicken() {
                 {isCreatingGame ? 'Creating Game...' : 
                  !userInfo ? 'Loading...' :
                  (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
-              </button>
+                </button>
             ) : (
               /* Dual Button Layout - During Game */
               <div className="flex gap-3">
                 {/* Cash Out Button */}
-                <button
+              <button 
                   onClick={handleCashOut}
                   className="flex-1 font-bold py-4 px-4 rounded-lg text-2xl transition-all duration-200 hover:opacity-90 active:scale-95"
                   style={{ backgroundColor: '#FECF4B', color: 'black' }}
@@ -972,12 +984,12 @@ function Chicken() {
                     <div className="text-2xl opacity-90">CASH OUT</div>
                     <div className="text-2xl font-bold">
                       {(betAmount * (allLanes[currentLaneIndex - 1] || 1)).toFixed(2)} ETB
-                    </div>
-                  </div>
+              </div>
+            </div>
                 </button>
 
                 {/* GO Button */}
-                <button
+              <button
                   onClick={moveToNextLane}
                   disabled={currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded}
                   className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded
@@ -998,11 +1010,11 @@ function Chicken() {
                   ) : isDead || gameEnded ? '💀' : 
                     currentLaneIndex >= allLanes.length - 1 ? 'MAX' :
                     currentLaneIndex >= crashIndex - 1 ? '⚠️' : 'GO'}
-                </button>
-              </div>
-            )}
-          </div>
+              </button>
+            </div>
+          )}
         </div>
+      </div>
 
 
 
@@ -1016,12 +1028,12 @@ function Chicken() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-white">Settings</h3>
-              <button
+            <button
                 onClick={() => setShowSettings(false)}
                 className="text-gray-400 hover:text-white text-xl"
-              >
+            >
                 ✕
-              </button>
+            </button>
             </div>
 
             {/* Settings Options */}
@@ -1045,7 +1057,7 @@ function Chicken() {
                     <span className="text-gray-400 text-sm">{musicEnabled ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
-                <button
+            <button
                   onClick={() => {
                     setMusicEnabled(!musicEnabled)
                     // Toggle music immediately
@@ -1077,8 +1089,8 @@ function Chicken() {
                       style={{ width: musicEnabled ? '100%' : '0%' }}
                     ></div>
                   </div>
-                </button>
-              </div>
+            </button>
+          </div>
 
               {/* Sound Effects Toggle */}
               <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
@@ -1093,13 +1105,13 @@ function Chicken() {
                         <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                       </svg>
                     )}
-                  </div>
+            </div>
                   <div>
                     <span className="text-white font-medium block">Sound Effects</span>
                     <span className="text-gray-400 text-sm">{soundEnabled ? 'Enabled' : 'Disabled'}</span>
-                  </div>
-                </div>
-                <button
+            </div>
+          </div>
+              <button
                   onClick={() => setSoundEnabled(!soundEnabled)}
                   className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${soundEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
                   style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}
@@ -1123,12 +1135,12 @@ function Chicken() {
                       style={{ width: soundEnabled ? '100%' : '0%' }}
                     ></div>
                   </div>
-                </button>
+              </button>
               </div>
 
 
               {/* How to Play */}
-              <button
+              <button 
                 onClick={() => {
                   setShowHowToPlay(true)
                   setShowSettings(false)
@@ -1141,8 +1153,8 @@ function Chicken() {
                 <span className="text-white font-medium">How to Play</span>
               </button>
 
-            </div>
           </div>
+        </div>
         </div>
       )}
 
@@ -1309,7 +1321,7 @@ function Chicken() {
         </div>
       )}
 
-    </div>
+        </div>
   )
 }
 

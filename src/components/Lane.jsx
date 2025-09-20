@@ -232,13 +232,11 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 const isCrashLane = globalIndex === crashIndex - 1
 
                 if (isCrashLane) {
-                    const jitter = GAME_CONFIG.CAR_SPEED.TRAFFIC_RANDOM_JITTER_MS
-                    return GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS - 700 + Math.random() * (jitter + 700)
+                    return GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS - 700
                 }
 
-                // Each lane has consistent traffic density
-                const baseInterval = GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS + (globalIndex * GAME_CONFIG.CAR_SPEED.TRAFFIC_PER_LANE_INCREMENT_MS)
-                return baseInterval + Math.random() * GAME_CONFIG.CAR_SPEED.TRAFFIC_RANDOM_JITTER_MS
+                // Each lane has consistent traffic density - no randomness
+                return GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS + (globalIndex * GAME_CONFIG.CAR_SPEED.TRAFFIC_PER_LANE_INCREMENT_MS)
             }
 
             const nextCarDelay = getTrafficInterval(globalIndex)
@@ -256,8 +254,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         remainingMultipliers.forEach((multiplier, index) => {
             const globalIndex = globalDisplayStart + index
             if (shouldShowCarInLane(globalIndex)) {
-                // Stagger initial car spawns (realistic traffic flow)
-                const initialDelay = Math.random() * 2000
+                // Stagger initial car spawns with deterministic delay
+                const initialDelay = globalIndex * 500 // 500ms per lane, deterministic
                 setTimeout(() => {
                     generateCarForLane(globalIndex)
                 }, initialDelay)
