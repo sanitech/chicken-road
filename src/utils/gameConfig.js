@@ -22,6 +22,8 @@ export const GAME_CONFIG = {
 
   // Absolute positioning controls (percentages are relative to lane column height)
   CAP: {
+    // Size configuration for cap images
+    SIZE_PX: 100,
     // Vertical position of the cap (grate), absolute within lane column
     TOP_PERCENT: 60, // default: align with CHICKEN_TOP_PERCENT
     // CSS object-position value for the cap image inside its lane column
@@ -30,6 +32,8 @@ export const GAME_CONFIG = {
   },
 
   BLOCKER: {
+    // Size configuration for blocker images
+    SIZE_PX: 140,
     // Prefer TOP_PERCENT; if omitted, code will fallback to CAR_BLOCKER_BOTTOM_PERCENT
     TOP_PERCENT: 30, // slightly above cap
     // If an existing car has already progressed beyond this fraction of its path
@@ -39,6 +43,8 @@ export const GAME_CONFIG = {
 
   // Where cars should stop (when blocked), as a top percent inside the lane column
   CAR: {
+    // Size configuration for car images
+    SIZE_PX: 100,
     STOP_TOP_PERCENT: 20, // slightly above blocker/cap
     // Pause this much before STOP_TOP_PERCENT (as a fraction 0..1) to reduce visual snap
     STOP_EASE_DELTA: 0.05,

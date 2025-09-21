@@ -477,7 +477,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 <>
                                     {/* Absolutely positioned lane cap tied to TOP_PERCENT */}
                                     <div
-                                        className="absolute left-1/2 -translate-x-1/2"
+                                        className="absolute left-1/2 -translate-x-1/2 p-4"
                                         style={{
                                             top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`,
                                             transform: 'translate(-50%, -50%)',
@@ -489,8 +489,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                         <img
                                             src={cap1Image}
                                             alt="Lane Cap"
-                                            className="w-4/5 mx-auto object-contain"
-                                            style={{ objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION }}
+                                            className="mx-auto object-contain"
+                                            style={{ 
+                                                objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION,
+                                                width: `${GAME_CONFIG.CAP.SIZE_PX}px`,
+                                                height: `${GAME_CONFIG.CAP.SIZE_PX}px`
+                                            }}
                                         />
                                     </div>
 
@@ -528,7 +532,11 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                     <img
                                         src={blockerImage}
                                         alt="Blocker"
-                                        className="w-20 object-contain"
+                                        className="object-contain"
+                                        style={{
+                                            width: `${GAME_CONFIG.BLOCKER.SIZE_PX}px`,
+                                            height: `${GAME_CONFIG.BLOCKER.SIZE_PX}px`
+                                        }}
                                     />
                                 </div>
                             )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import carImage from '../assets/car1.png'
+import { GAME_CONFIG } from '../utils/gameConfig'
 
 function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, customSpeed = 3000, isBlocked = false, isPaused = false }) {
   const [animationClass, setAnimationClass] = useState('')
@@ -23,7 +24,7 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
 
   return (
     <div 
-      className={`w-[50px] h-full relative ${animationClass}`}
+      className={`w-[${GAME_CONFIG.CAR.SIZE_PX}px] relative ${animationClass}`}
       style={{
         // Apply custom animation duration
         '--custom-car-duration': `${customSpeed}ms`,
