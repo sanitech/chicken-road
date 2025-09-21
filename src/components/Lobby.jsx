@@ -207,7 +207,7 @@ function Chicken() {
   const [jumpTargetLane, setJumpTargetLane] = useState(0)
   
   // Crash control state
-  const [crashIndex, setCrashIndex] = useState(5) // Default crash at Lane 5
+  // Crash index removed - server handles all crash detection via WebSocket
   const [gameEnded, setGameEnded] = useState(false) // Track if game has ended due to crash
   const [isDead, setIsDead] = useState(false) // Track if chicken is dead (crashed)
 
@@ -408,6 +408,32 @@ function Chicken() {
     }
   }
 
+  // Handle crash when server detects collision
+  const handleCrash = (moveData) => {
+    console.log('🔥 CRASH DETECTED by server!', moveData);
+    
+    // Stop all animations and movement
+    setIsJumping(false);
+    setJumpProgress(0);
+    
+    // Set death state
+    setIsDead(true);
+    setGameEnded(true);
+    setIsGameActive(false);
+    
+    // Play crash audio
+    playCrashAudio();
+    
+    // Clear game data
+    setCurrentGameId(null);
+    
+    // Auto-restart after delay if configured
+    if (GAME_CONFIG.RESTART.AUTO) {
+        setTimeout(() => {
+        resetGame();
+      }, GAME_CONFIG.RESTART.DELAY_MS);
+    }
+  };
 
   // Calculate visible range using a sliding window that advances with the chicken
   const calculateDynamicRange = () => {
@@ -594,7 +620,7 @@ function Chicken() {
         // Force refresh user info to get updated balance
         window.location.reload(); // Simple way to refresh user data
 
-      } catch (error) {
+    } catch (error) {
         console.error('Cash out failed:', error);
         setGameError(error.message || 'Failed to cash out');
         
@@ -792,9 +818,8 @@ function Chicken() {
                 globalCurrentIndex={currentLaneIndex}
                 globalDisplayStart={calculateDynamicRange().start}
           allLanes={allLanes} // Pass the full lanes array for correct indexing
-          isDead={isDead || currentLaneIndex >= crashIndex - 1}
-                crashIndex={crashIndex}
-                shouldAnimateCar={currentLaneIndex >= crashIndex - 1 && !gameEnded}
+          isDead={isDead}
+                shouldAnimateCar={false} // Server handles crash detection
                 gameEnded={gameEnded}
                 isJumping={isJumping}
                 jumpProgress={jumpProgress}
@@ -1008,8 +1033,7 @@ function Chicken() {
                       <span className="text-sm">...</span>
                     </div>
                   ) : isDead || gameEnded ? '💀' : 
-                    currentLaneIndex >= allLanes.length - 1 ? 'MAX' :
-                    currentLaneIndex >= crashIndex - 1 ? '⚠️' : 'GO'}
+                    currentLaneIndex >= allLanes.length - 1 ? 'MAX' : 'GO'}
               </button>
             </div>
           )}
