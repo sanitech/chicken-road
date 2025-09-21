@@ -382,16 +382,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             }
         }
 
-        // Jump animation - vertical movement with optional rotation/scale only
-        const jumpHeight = Math.sin(jumpProgress * Math.PI) * 60 // Reduced from 80px for mobile
-        const verticalOffset = -jumpHeight
-        const rotation = Math.sin(jumpProgress * Math.PI) * 10 // Reduced from 15 degrees
-        const scale = 1 + (Math.sin(jumpProgress * Math.PI) * 0.05) // Subtle scaling
+        // During jump: slight upward projection only (small vertical movement, no rotate/scale)
+        const maxLiftPx = 50
+        const lift = Math.sin(jumpProgress * Math.PI) * maxLiftPx
+        const verticalOffset = -lift // negative to move up
 
         return {
             left: getConfiguredLeft(),
             top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
-            transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) rotate(${rotation}deg) scale(${scale})`,
+            transform: `translate(-50%, calc(-50% + ${verticalOffset}px))`,
             transition: 'none',
             zIndex: 10
         }

@@ -3,6 +3,7 @@ import chickenImage from '../assets/chiken.png'
 import deadChickenImage from '../assets/chickendead.png'
 import oddsBottomImage from '../assets/oddsbottom.png'
 import spritesImage from '../assets/sprites.png'
+import SpriteAnimator from './SpriteAnimator'
 import './Chicken.css'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
@@ -16,9 +17,6 @@ function Chicken({
   fps = 4,
   size = "auto" // auto, small, medium, large, or custom number
 }) {
-  // Calculate animation duration based on FPS (4 frames per cycle)
-  const animationDuration = `${4 / fps}s`
-
   // Get responsive chicken size
   const getChickenSize = () => {
     if (typeof size === 'number') {
@@ -41,37 +39,54 @@ function Chicken({
 
   const chickenSize = getChickenSize()
 
-  // Simple chicken image style - no complex sprites
-  const getChickenImageStyle = () => {
-    if (isDead) {
-      return {
-        backgroundImage: `url(${deadChickenImage})`,
-        backgroundSize: 'contain',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        ...chickenSize  // Use responsive size
-      }
-    }
-
-    // Use simple chicken image - clean and mobile-optimized
-    return {
-      backgroundImage: `url(${chickenImage})`,
-      backgroundSize: 'contain',
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'center',
-      ...chickenSize,  // Use responsive size
-      imageRendering: 'auto', // Smooth rendering for simple image
-      display: 'block'
-    }
-  }
+  // Scale SpriteAnimator to match requested chicken size (approximate)
+  // Using active content size similar to vite-project sample. Adjust if your sheet differs.
+  const COLUMNS = 4
+  const ROWS = 6
+  const CONTENT_WIDTH = 390
+  const CONTENT_HEIGHT = 660
+  const approxFrameWidth = CONTENT_WIDTH / COLUMNS
+  const scale = Math.max(0.1, parseInt(chickenSize.width) / approxFrameWidth)
 
   return (
     <div className="relative flex items-center justify-center" style={chickenSize}>
-      {/* Simple Chicken Image - Clean and Mobile-Friendly */}
-      <div
-        style={getChickenImageStyle()}
-        className={`${className}`}
-      />
+      {/* Dead state: show static dead chicken image */}
+      {isDead ? (
+        <div
+          style={{
+            backgroundImage: `url(${deadChickenImage})`,
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            ...chickenSize,
+            imageRendering: 'auto',
+            display: 'block'
+          }}
+          className={`${className}`}
+        />
+      ) : (
+        <SpriteAnimator
+          imageUrl={spritesImage}
+          columns={COLUMNS}
+          rows={ROWS}
+          // Choose sprite column by state: 0 = jump/active, 1 = idle/walk baseline
+          columnIndex={isJumping ? 0 : 1}
+          fps={Math.max(1, fps)}
+          pixelated
+          contentWidth={CONTENT_WIDTH}
+          contentHeight={CONTENT_HEIGHT}
+          scale={scale}
+          // Preserve original delay/pause behavior for idle state similar to vite example
+          {...(!isJumping ? {
+            perRowYOffset: [-4, -2, -4, -4, -4, -4],
+            restEveryLoops: 2,
+            restDurationMs: 600,
+            restAt: 'last'
+          } : {})}
+          // Provide subtle per-row Y-offsets to stabilize baseline if needed (optional)
+          // perRowYOffset={[0, -2, 0, 0, 0, 0]}
+        />
+      )}
 
       {/* Current multiplier value below chicken - Responsive */}
       {showMultiplier && currentMultiplier && (
