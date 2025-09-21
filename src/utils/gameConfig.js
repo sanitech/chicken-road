@@ -3,8 +3,8 @@
 
 export const GAME_CONFIG = {
   // Lane sizing
-  LANE_WIDTH_PX: 160,           // Fixed width for each traffic lane (lane 1+)
-  SIDEWALK_WIDTH_PX: 160,       // Width for the sidewalk (lane index 0)
+  LANE_WIDTH_PX: 140,           // Fixed width for each traffic lane (lane 1+)
+  SIDEWALK_WIDTH_PX: 140,       // Width for the sidewalk (lane index 0)
 
   // Chicken
   CHICKEN_SIZE_PX: 90,         // Default chicken size (width = height)
@@ -13,7 +13,7 @@ export const GAME_CONFIG = {
   // 'fixed_px'  => use CHICKEN_FIXED_X_PX from the left of the game area
   // 'percent'   => use CHICKEN_LEFT_PERCENT (left as percentage of container width)
   CHICKEN_X_MODE: 'fixed_px',
-  CHICKEN_FIXED_X_PX: 90,      // Used only when CHICKEN_X_MODE === 'fixed_px'
+  CHICKEN_FIXED_X_PX: 70,      // Used only when CHICKEN_X_MODE === 'fixed_px'
   // Vertical placement baseline for the chicken (percentage of container height)
   CHICKEN_TOP_PERCENT: 60,
 
@@ -60,7 +60,7 @@ export const GAME_CONFIG = {
     // Distance (in pixels) to move the lanes strip per lane of progress.
     // By default, keep in sync with LANE_WIDTH_PX. You can set a custom value
     // (e.g., smaller than lane width) for a tighter parallax effect.
-    STEP_PX: 160,
+    STEP_PX: 140,
   },
 
   // Car generation and movement tuning
