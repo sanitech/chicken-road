@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import carImage from '../assets/car1.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
-function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, customSpeed = 3000, isBlocked = false, isPaused = false }) {
+function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, customSpeed = 3000, isBlocked = false, isPaused = false, spriteSrc }) {
   const [animationClass, setAnimationClass] = useState('')
 
   useEffect(() => {
@@ -35,7 +35,7 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
       }}
     >
       <img 
-        src={carImage} 
+        src={spriteSrc || carImage} 
         alt="Car" 
         className="w-full h-full object-contain" 
       />  

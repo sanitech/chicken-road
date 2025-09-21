@@ -5,6 +5,7 @@ export const GAME_CONFIG = {
   // Lane sizing
   LANE_WIDTH_PX: 140,           // Fixed width for each traffic lane (lane 1+)
   SIDEWALK_WIDTH_PX: 140,       // Width for the sidewalk (lane index 0)
+  FINAL_SIDEWALK_WIDTH_PX: 400, // Width for the final sidewalk (lane index 0)
 
   // Chicken
   CHICKEN_SIZE_PX: 90,         // Default chicken size (width = height)
@@ -53,6 +54,9 @@ export const GAME_CONFIG = {
     // around DETECTION_TOP_PERCENT.
     DETECTION_TOP_PERCENT: 20,
     DETECTION_BAND_PERCENT: 8,
+    // Spawn visual offset (px): cars start this many pixels above the lane area
+    // so they appear to come in from above (behind the header)
+    SPAWN_TOP_OFFSET_PX: 90,
   },
 
   // Parallax/scroll movement between lanes
@@ -70,6 +74,47 @@ export const GAME_CONFIG = {
     TRAFFIC_BASE_INTERVAL_MS: 2500,
     TRAFFIC_PER_LANE_INCREMENT_MS: 200,
     TRAFFIC_RANDOM_JITTER_MS: 1000,
+    // Minimum allowed speed for cars (after jitter and multipliers)
+    MIN_SPEED_MS: 700,
+    // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
+    SPEED_MULTIPLIER: 1.1,
+  },
+
+  // Stochastic traffic configuration (irregular, realistic)
+  TRAFFIC: {
+    // Mean spawn interval per lane (ms). If array is shorter than lanes, last value repeats.
+    // Acts as the parameter for exponential inter-arrival sampling.
+    MEAN_INTERVAL_MS_BY_LANE: [2800, 3200, 3600, 4000, 4400],
+    // Additional symmetric jitter (ms) applied to the sampled delay.
+    ARRIVAL_JITTER_MS: 800,
+    // Per-car speed jitter as a fraction (0.1 => ±10%).
+    SPEED_JITTER_PERCENT: 0.1,
+    // Minimum normalized progress (0..1) that the last car should reach before spawning another.
+    HEADWAY_MIN_PROGRESS: 0.45,
+    // Additionally require a minimum time gap relative to the last car's duration
+    // Example: 0.35 means wait at least 35% of the last car's travel time
+    HEADWAY_MIN_TIME_FRACTION: 0.40,
+    // Maximum number of cars to actively render per lane for performance.
+    MAX_CARS_PER_LANE_VISIBLE: 3,
+    // How many lanes outside the visible window to keep traffic generation active.
+    VISIBLE_BUFFER_LANES: 1,
+    // Absolute minimum delay between spawns (ms), after jitter and randomness
+    MIN_DELAY_MS: 1800,
+    // Initial randomized offset (ms) for first spawn per lane: [min, max]
+    INITIAL_OFFSET_RANGE_MS: [600, 1400],
+    // Cleanup cadence for pruning finished cars (ms)
+    CLEANUP_INTERVAL_MS: 1500,
+    // Optional per-lane toggle to enable/disable spawning; indexes map to traffic lanes 1..N
+    // Example: [true, true, false] disables lane 3 spawning. If shorter, remaining lanes default to true.
+    PER_LANE_SPAWN_ENABLED: [],
+    // Global multiplier for spawn frequency (1.0 = unchanged, <1.0 = more frequent, >1.0 = less frequent)
+    SPAWN_RATE_MULTIPLIER: 1.0,
+    // Optional weighted sprite distribution matching available car sprites
+    // If empty, uniform distribution is used.
+    SPRITE_WEIGHTS: [],
+    // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
+    // keep at most 1 car in the lane queue until it's safe to spawn more.
+    NO_OVERLAP_STRICT: true,
   },
 
   // Audio (placeholders for easy tuning)

@@ -3,13 +3,17 @@ import cap1Image from '../assets/cap1.png'
 import cap2Image from '../assets/cap2.png'
 import blockerImage from '../assets/blocker.png'
 import sideRoadImage from '../assets/sideroad.png'
+import finalSideRoadImage from '../assets/final.png'
 import crashAudio from '../assets/audio/crash.6d250f25.mp3'
 import Chicken from './Chicken'
 import Car from './Car'
+import car1 from '../assets/car1.png'
+import car2 from '../assets/car2.png'
+import car3 from '../assets/car3.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
 // Smart Car Component with chicken collision detection and pause system
-function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive = false, reservationDecision = 'pause', cutoff = 0.6 }) {
+function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive = false, reservationDecision = 'pause', cutoff = 0.6 }) {
     const [carState, setCarState] = useState('waiting') // waiting -> moving -> paused -> stopped -> gone
     const [hasPlayedCrashAudio, setHasPlayedCrashAudio] = useState(false) // Track if audio already played
     const [pausedByReservation, setPausedByReservation] = useState(false)
@@ -62,38 +66,34 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
             requestAnimationFrame(tick)
         }
 
-        // If there's a blocker, car uses pause-resume animation with crash sound
-        if (hasBlocker) {
-            setCarState('paused') // Use pause animation that includes resume
-
-            // Play crash audio when car hits blocker
-            playCrashAudio()
-
-            // Do not auto-remove the car if this pause is due to a landing reservation;
-            // keep it visible until reservation ends, then it will resume and exit.
-            if (!isReservationActive) {
-                const completeTimer = setTimeout(() => {
-                    setCarState('gone')
-                    if (carData.isCrashLane && onAnimationComplete) {
-                        onAnimationComplete()
-                    }
-                    console.log(`Car completed pause-resume cycle in lane ${carData.laneIndex}`)
-                }, carData.animationDuration)
-
-                return () => clearTimeout(completeTimer)
-            }
-        } else {
-            // Car completes its journey and disappears
-            const completionTimer = setTimeout(() => {
-                setCarState('gone')
-                if (carData.isCrashLane && onAnimationComplete) {
-                    onAnimationComplete()
+        // Server-driven blocker pause (when the next lane is blocked)
+        if (pauseForBlocker) {
+            const stopPercent = (GAME_CONFIG.CAR.STOP_TOP_PERCENT || 0) / 100
+            const easeDelta = Math.max(0, Math.min(0.2, GAME_CONFIG.CAR.STOP_EASE_DELTA ?? 0))
+            const stopAt = Math.max(0, stopPercent - easeDelta)
+            const tick2 = () => {
+                const now = Date.now()
+                const progress = Math.max(0, Math.min(1, (now - carData.startTime) / carData.animationDuration))
+                if (progress >= cutoff) return
+                if (progress >= stopAt) {
+                    setCarState('paused')
+                    return
                 }
-            }, carData.animationDuration)
-
-            return () => clearTimeout(completionTimer)
+                if (pauseForBlocker) requestAnimationFrame(tick2)
+            }
+            requestAnimationFrame(tick2)
         }
-    }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, hasBlocker, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive, reservationDecision, cutoff, pausedByReservation])
+
+        // Normal completion timer
+        const completionTimer = setTimeout(() => {
+            setCarState('gone')
+            if (carData.isCrashLane && onAnimationComplete) {
+                onAnimationComplete()
+            }
+        }, carData.animationDuration)
+
+        return () => clearTimeout(completionTimer)
+    }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive, reservationDecision, cutoff, pausedByReservation, pauseForBlocker])
 
     // Resume movement automatically when reservation ends
     useEffect(() => {
@@ -108,7 +108,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
         <div 
             className="absolute left-1/2"
             style={{
-                top: 0,
+                // Start above the lane area so cars appear from behind the header
+                top: `-${GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0}px`,
                 transform: 'translateX(-50%)',
                 // Dynamic animation speed based on car data
                 '--car-animation-duration': `${carData.animationDuration}ms`,
@@ -123,18 +124,20 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, isChickenJumping
                 customSpeed={carData.animationDuration}
                 isBlocked={carState === 'stopped'}
                 isPaused={carState === 'paused'}
+                spriteSrc={carData.spriteSrc}
             />
         </div>
     )
 }
 
-function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, shouldAnimateCar = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false }) {
+function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, shouldAnimateCar = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false }) {
     const [carAnimationState, setCarAnimationState] = useState({
         isAnimating: false,
         hasCompleted: false
     })
 
     // Dynamic car generation state
+    // Map<laneIndex, CarData[]> where CarData includes id, startTime, animationDuration, laneIndex, spriteSrc
     const [dynamicCars, setDynamicCars] = useState(new Map())
 
     // Latch the reservation decision AFTER landing (so visuals appear post-landing)
@@ -164,22 +167,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             }
             reservationRef.current = { active: true, targetLane: target, decision }
 
-            // If we decided to pause and there is no car yet, synthesize one so it animates from top
-            if (decision === 'pause' && !car && target > 0) {
-                const isCrashLane = false // Server handles crash detection
-                const laneSpeedPattern = GAME_CONFIG.CAR_SPEED?.LANE_SPEED_PATTERN_MS || [2800,2600,2400,2200,2000]
-                const crashSpeed = GAME_CONFIG.CAR_SPEED?.CRASH_LANE_SPEED_MS || 1200
-                const patternIndex = Math.min(Math.max(target - 1, 0), laneSpeedPattern.length - 1)
-                const animationDuration = isCrashLane ? crashSpeed : (laneSpeedPattern[patternIndex] || laneSpeedPattern[laneSpeedPattern.length - 1])
-                const synthetic = {
-                    id: `car-synth-${target}-${Date.now()}`,
-                    isCrashLane,
-                    animationDuration,
-                    startTime: Date.now(),
-                    laneIndex: target
-                }
-                setDynamicCars(prev => new Map(prev.set(target, synthetic)))
-            }
+            // Do not synthesize a car; if none exists, blocker will show but cars come via traffic generator
         }
 
         // When a new jump starts, clear previous reservation visuals
@@ -188,77 +176,159 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         }
     }, [isJumping, jumpTargetLane, dynamicCars])
 
-    // Realistic car generation system like real-world games
+    // Realistic stochastic car generation with per-lane Poisson arrivals and speed jitter
     useEffect(() => {
-        const carTimers = new Map()
+        const timers = new Map()
 
-        // Lane-based speed patterns (consistent per lane like real games)
-        const getLaneSpeed = (globalIndex) => {
-            // Server handles crash detection - all lanes use normal speed
-            // Each lane has consistent speed - no random variation per car
+        const carSprites = [car1, car2, car3]
 
-            // Different lanes have different consistent speeds
-            const laneSpeedPattern = GAME_CONFIG.CAR_SPEED.LANE_SPEED_PATTERN_MS
-            const patternIndex = Math.min(globalIndex - 1, laneSpeedPattern.length - 1)
-            return laneSpeedPattern[patternIndex] || laneSpeedPattern[laneSpeedPattern.length - 1]
+        const expRand = (mean) => {
+            const u = Math.max(1e-6, Math.random())
+            return Math.max(0, -Math.log(u) * mean)
         }
 
-        const generateCarForLane = (globalIndex) => {
-            if (!shouldShowCarInLane(globalIndex)) return
-
-            const animationDuration = getLaneSpeed(globalIndex) // Consistent speed per lane
-
-            // Create car with consistent lane-based timing
-            const carData = {
-                id: `car-${globalIndex}-${Date.now()}`,
-                isCrashLane: false, // Server handles crash detection
-                animationDuration,
-                startTime: Date.now(),
-                laneIndex: globalIndex
-            }
-
-            setDynamicCars(prev => new Map(prev.set(globalIndex, carData)))
-
-            // Debug: Show consistent lane speeds
-            console.log(`Lane ${globalIndex}: Speed ${animationDuration}ms`)
-
-            // Consistent traffic intervals per lane (like real games)
-            const getTrafficInterval = (globalIndex) => {
-                // Server handles crash detection - all lanes use normal intervals
-
-                // Each lane has consistent traffic density - no randomness
-                return GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS + (globalIndex * GAME_CONFIG.CAR_SPEED.TRAFFIC_PER_LANE_INCREMENT_MS)
-            }
-
-            const nextCarDelay = getTrafficInterval(globalIndex)
-
-            const timer = setTimeout(() => {
-                if (!isJumping) { // Only generate if not jumping
-                    generateCarForLane(globalIndex)
-                }
-            }, nextCarDelay)
-
-            carTimers.set(globalIndex, timer)
+        const getMeanInterval = (lane) => {
+            const arr = GAME_CONFIG.TRAFFIC?.MEAN_INTERVAL_MS_BY_LANE || []
+            const idx = Math.min(Math.max(lane - 1, 0), arr.length - 1)
+            const base = arr[idx] || GAME_CONFIG.CAR_SPEED.TRAFFIC_BASE_INTERVAL_MS
+            const rateMul = GAME_CONFIG.TRAFFIC?.SPAWN_RATE_MULTIPLIER ?? 1.0
+            return Math.max(1, base * rateMul)
         }
 
-        // Start car generation for each lane
-        remainingMultipliers.forEach((multiplier, index) => {
-            const globalIndex = globalDisplayStart + index
-            if (shouldShowCarInLane(globalIndex)) {
-                // Stagger initial car spawns with deterministic delay
-                const initialDelay = globalIndex * 500 // 500ms per lane, deterministic
-                setTimeout(() => {
-                    generateCarForLane(globalIndex)
-                }, initialDelay)
-            }
-        })
+        const getSpeedForLane = (lane) => {
+            const baseArr = GAME_CONFIG.CAR_SPEED?.LANE_SPEED_PATTERN_MS || [2400]
+            const idx = Math.min(Math.max(lane - 1, 0), baseArr.length - 1)
+            let base = baseArr[idx] || baseArr[baseArr.length - 1]
+            const speedMul = GAME_CONFIG.CAR_SPEED?.SPEED_MULTIPLIER ?? 1.0
+            base = base * speedMul
+            const jitterPct = GAME_CONFIG.TRAFFIC?.SPEED_JITTER_PERCENT ?? 0
+            const jitterFactor = 1 + ((Math.random() * 2 - 1) * jitterPct)
+            const minSpeed = GAME_CONFIG.CAR_SPEED?.MIN_SPEED_MS ?? 600
+            return Math.max(minSpeed, Math.round(base * jitterFactor))
+        }
 
-        // Cleanup timers
+        const headwayMin = GAME_CONFIG.TRAFFIC?.HEADWAY_MIN_PROGRESS ?? 0.35
+        const headwayMinTimeFrac = GAME_CONFIG.TRAFFIC?.HEADWAY_MIN_TIME_FRACTION ?? 0
+        const arrivalJitter = GAME_CONFIG.TRAFFIC?.ARRIVAL_JITTER_MS ?? 0
+        const maxCarsVisible = GAME_CONFIG.TRAFFIC?.MAX_CARS_PER_LANE_VISIBLE ?? 3
+        const buffer = GAME_CONFIG.TRAFFIC?.VISIBLE_BUFFER_LANES ?? 1
+        const minDelay = GAME_CONFIG.TRAFFIC?.MIN_DELAY_MS ?? 150
+        const initialRange = GAME_CONFIG.TRAFFIC?.INITIAL_OFFSET_RANGE_MS || [200, 800]
+        const perLaneEnabled = GAME_CONFIG.TRAFFIC?.PER_LANE_SPAWN_ENABLED || []
+        const noOverlapStrict = GAME_CONFIG.TRAFFIC?.NO_OVERLAP_STRICT ?? false
+
+        const visibleStart = Math.max(1, globalDisplayStart - buffer)
+        const visibleEnd = Math.min(allLanes.length - 1, globalDisplayStart + remainingMultipliers.length - 1 + buffer)
+
+        const isLaneBlockedNow = (lane) => {
+            const referenceIndex = isJumping ? jumpStartLane : globalCurrentIndex
+            const isCompleted = lane < referenceIndex
+            const isCurrent = lane === referenceIndex
+            const isServerBlockedNext = (lane === globalCurrentIndex + 1) && !!blockedNextLane
+            const isReservationLane = reservationRef.current.active && reservationRef.current.targetLane === lane && reservationRef.current.decision === 'pause'
+            return (lane > 0) && (isCompleted || isCurrent || isServerBlockedNext || isReservationLane)
+        }
+
+        const scheduleNext = (lane) => {
+            let delay = expRand(getMeanInterval(lane)) + (Math.random() * 2 - 1) * arrivalJitter
+            delay = Math.max(minDelay, delay)
+            const t = setTimeout(() => {
+                setDynamicCars(prev => {
+                    const next = new Map(prev)
+                    const arr = next.get(lane) || []
+
+                    // Prune old cars by time to keep array fresh
+                    const now = Date.now()
+                    const pruned = arr.filter(c => (now - c.startTime) <= (c.animationDuration + 50))
+
+                    // Headway check against last active car
+                    const last = pruned[pruned.length - 1]
+                    if (last) {
+                        const progress = Math.max(0, Math.min(1, (now - last.startTime) / last.animationDuration))
+                        const elapsed = now - last.startTime
+                        const minGapMs = (last.animationDuration || 0) * headwayMinTimeFrac
+                        if (progress < headwayMin || elapsed < minGapMs) {
+                            // reschedule and keep previous state
+                            scheduleNext(lane)
+                            next.set(lane, pruned)
+                            return next
+                        }
+                    }
+
+                    // When lane is blocked (by server or base), allow at most one car so they don't stack at the blocker
+                    if (isLaneBlockedNow(lane) && pruned.length >= 1) {
+                        scheduleNext(lane)
+                        next.set(lane, pruned)
+                        return next
+                    }
+
+                    // Global strict no-overlap: when enabled, keep at most one car per lane at any time
+                    if (noOverlapStrict && pruned.length >= 1) {
+                        scheduleNext(lane)
+                        next.set(lane, pruned)
+                        return next
+                    }
+
+                    if (pruned.length >= maxCarsVisible) {
+                        scheduleNext(lane)
+                        next.set(lane, pruned)
+                        return next
+                    }
+
+                    const carData = {
+                        id: `car-${lane}-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                        isCrashLane: false,
+                        animationDuration: getSpeedForLane(lane),
+                        startTime: now,
+                        laneIndex: lane,
+                        spriteSrc: carSprites[Math.floor(Math.random() * carSprites.length)],
+                    }
+                    next.set(lane, [...pruned, carData])
+                    return next
+                })
+
+                scheduleNext(lane)
+            }, delay)
+            timers.set(`${lane}-${Date.now()}`, t)
+        }
+
+        for (let lane = visibleStart; lane <= visibleEnd; lane++) {
+            // Respect per-lane enable flags if provided
+            const en = perLaneEnabled[lane - 1]
+            if (typeof en === 'boolean' && !en) continue
+            // Kick off with a small random initial offset so lanes are out of phase
+            const [rmin, rmax] = initialRange
+            const initial = Math.random() * (rmax - rmin) + rmin
+            const t = setTimeout(() => scheduleNext(lane), initial)
+            timers.set(`init-${lane}`, t)
+        }
+
         return () => {
-            carTimers.forEach(timer => clearTimeout(timer))
-            carTimers.clear()
+            timers.forEach(clearTimeout)
+            timers.clear()
         }
-    }, [remainingMultipliers, globalCurrentIndex, globalDisplayStart])
+    }, [remainingMultipliers, globalDisplayStart, allLanes.length, isJumping, globalCurrentIndex, jumpStartLane, blockedNextLane])
+
+    // Periodic cleanup of finished cars so arrays don't block new spawns
+    useEffect(() => {
+        const intervalMs = GAME_CONFIG.TRAFFIC?.CLEANUP_INTERVAL_MS ?? 800
+        const cleanup = setInterval(() => {
+            setDynamicCars(prev => {
+                const next = new Map(prev)
+                let changed = false
+                const now = Date.now()
+                next.forEach((arr, lane) => {
+                    const pruned = (arr || []).filter(c => (now - c.startTime) <= (c.animationDuration + 50))
+                    if (pruned.length !== (arr || []).length) {
+                        next.set(lane, pruned)
+                        changed = true
+                    }
+                })
+                return changed ? next : prev
+            })
+        }, intervalMs)
+        return () => clearInterval(cleanup)
+    }, [])
 
     // Trigger car animation when chicken reaches crash position
     useEffect(() => {
@@ -355,8 +425,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         }
     }
 
+    // Helpers
+    const isTrafficLane = (idx) => idx >= 1 && idx <= allLanes.length
+
     // Determine which lanes should show cars - realistic logic
     const shouldShowCarInLane = (globalIndex) => {
+        if (!isTrafficLane(globalIndex)) return false
         const isCurrentLane = globalIndex === globalCurrentIndex
         const isNextLane = globalIndex === globalCurrentIndex + 1 // Next lane where chicken will jump to
         const isPassedLane = globalIndex < globalCurrentIndex // Lanes chicken has already passed
@@ -379,9 +453,10 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         return true
     }
 
-    // Fixed widths from central config
+    // Widths from central config
     const LANE_WIDTH_PX = GAME_CONFIG.LANE_WIDTH_PX
     const SIDEWALK_WIDTH_PX = GAME_CONFIG.SIDEWALK_WIDTH_PX
+    const FINAL_SIDEWALK_WIDTH_PX = GAME_CONFIG.FINAL_SIDEWALK_WIDTH_PX
     
     return (
         <div
@@ -397,13 +472,13 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     left: 0,
                     top: 0,
                     bottom: 0,
-                    width: `${remainingMultipliers.length * LANE_WIDTH_PX}px`,
+                    width: `${SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}px`,
                     ...getBackgroundOffset('main'),
                     transition: 'none',
                     zIndex: 2
                 }}
             >
-                {remainingMultipliers.map((multiplier, index) => {
+                {Array.from({ length: remainingMultipliers.length + 1 }).map((_, index) => {
                     const globalIndex = globalDisplayStart + index
                     // During jumps, use the start position to prevent lane state flickering
                     const referenceIndex = isJumping ? jumpStartLane : globalCurrentIndex
@@ -413,39 +488,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
                     // Compute hasBlocker for this lane (prevents cars entering/stops cars)
                     const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
+                    const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && !!blockedNextLane
                     const isReservationLane = reservationRef.current.active && reservationRef.current.targetLane === globalIndex
-                    const computedHasBlocker = baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause')
+                    const computedHasBlocker = baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause') || isBlockedByServer
 
                     return (
                         <div
                             key={globalIndex}
                             className={`relative ${globalIndex > 0 ? 'flex items-end pb-52' : ''}`}
                             style={{ width: `${globalIndex === 0 ? SIDEWALK_WIDTH_PX : LANE_WIDTH_PX}px` }}
-                            // style={{
-                            //     backgroundColor: globalIndex === 0 ? '#716C69' : '#716C69', // Custom lane color for all lanes
-                            //     backgroundImage: globalIndex === 0 ? 'none' : // No background for side road - using img element instead
-                            //         (isCompleted && globalIndex > 0) ? `url(${cap2Image})` :
-                            //             ((isCurrent || isFuture) && globalIndex > 0) ? `url(${cap1Image})` : 'none',
-                            //     backgroundSize: globalIndex === 0 ? 'auto' : '80%', // No size needed for side road
-                            //     backgroundRepeat: 'no-repeat',
-                            //     backgroundPosition: globalIndex === 0 ? 'center' : 'center bottom 35%',
-                            //     opacity: (globalIndex === 4 && (isCurrent || isFuture)) ? 0.8 : 1,
-                            //     transition: isJumping ? 'none' : 'background-image 0.3s ease',
-                            //     // Fix black lines by ensuring continuous coverage
-                            //     // marginRight: '0px', // Overlap to prevent gaps
-                            //     borderRight: globalIndex === 0 ? '4px solid rgba(156, 163, 175, 0.6)' : 'none', // Side road border only
-                            //     // Responsive width constraints for side road
-                            //     minWidth: globalIndex === 0 ?
-                            //         window.innerWidth < 640 ? '38%' :     // Mobile: 50%
-                            //             window.innerWidth < 768 ? '40%' :     // Tablet: 40%  
-                            //                 window.innerWidth < 1024 ? '33%' :    // Desktop: 33%
-                            //                     '25%' : 0,                            // Large: 25%
-                            //     maxWidth: globalIndex === 0 ?
-                            //         window.innerWidth < 640 ? '38%' :     // Mobile: 50%
-                            //             window.innerWidth < 768 ? '40%' :     // Tablet: 40%
-                            //                 window.innerWidth < 1024 ? '33%' :    // Desktop: 33%
-                            //                     '25%' : 'none'                        // Large: 25%
-                            // }}
                         >
                             {/* Side Road Image Element - Full Control */}
                             {globalIndex === 0 && (
@@ -460,20 +511,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 />
                             )}
 
-                            {/* {/* Side Road  end of globalIndex === 0  the flip image  globalIndex > 0 */}
-                            {globalIndex === allLanes.length - 1  && (
-                                <img
-                                    src={sideRoadImage}
-                                    alt="Side Road"
-                                    className="w-full h-full object-cover rotate-180"
-                                    style={{
-                                        objectPosition: 'top center',
-                                        zIndex: 1
-                                    }}
-                                />
-                            )}
+                            {/* Final side road will be rendered outside the last lane */}
 
-                            {globalIndex > 0 && isFuture && (
+                            {globalIndex > 0 && (
                                 <>
                                     {/* Absolutely positioned lane cap tied to TOP_PERCENT */}
                                     <div
@@ -511,22 +551,23 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             )}
 
                             {/* Smart car for this specific lane - with chicken collision detection */}
-                            {dynamicCars.has(globalIndex) && (
+                            {(dynamicCars.get(globalIndex) || []).map(carData => (
                                 <DynamicCar
-                                    carData={dynamicCars.get(globalIndex)}
+                                    key={carData.id}
+                                    carData={carData}
                                     hasBlocker={computedHasBlocker}
+                                    pauseForBlocker={isBlockedByServer}
                                     isReservationActive={reservationRef.current.active && reservationRef.current.targetLane === globalIndex}
                                     reservationDecision={reservationRef.current.decision}
                                     cutoff={GAME_CONFIG.BLOCKER.STOP_CUTOFF_PROGRESS}
-                                    onAnimationComplete={() => { }} // Server handles crash detection
+                                    onAnimationComplete={() => { }}
                                     isChickenJumping={isJumping}
                                     chickenTargetLane={jumpTargetLane}
                                 />
-                            )}
+                            ))}
 
-                            {/* Blocker Image (show during reservation only if decision is 'pause') */}
-                            {(((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
-                               || (reservationRef.current.active && reservationRef.current.targetLane === globalIndex && reservationRef.current.decision === 'pause')) && (
+                            {/* Blocker Image visible when lane is base blocked, reservation pause, or server says next lane is blocked */}
+                            {(globalIndex > 0 && computedHasBlocker) && (
                                 <div className="absolute left-0 right-0 h-8 flex items-center justify-center"
                                      style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
                                     <img
@@ -556,8 +597,28 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 })}
             </div>
 
-            {/* Chicken position indicator - only show if chicken is in visible range */}
-            {((currentIndex >= 0 && currentIndex < remainingMultipliers.length) || isJumping) && (
+            {/* Final Side Road Column outside the last lane: always render so it never disappears */}
+            <div
+                className="absolute"
+                style={{
+                    top: 0,
+                    bottom: 0,
+                    left: `${SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}px`,
+                    width: `${FINAL_SIDEWALK_WIDTH_PX}px`,
+                    ...getBackgroundOffset('main'),
+                    zIndex: 2
+                }}
+            >
+                <img
+                    src={finalSideRoadImage}
+                    alt="Final Side Road"
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: 'top center' }}
+                />
+            </div>
+
+            {/* Chicken position indicator - show on all lanes including final sidewalk */}
+            {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
                 <div
                     className="absolute"
                     style={{

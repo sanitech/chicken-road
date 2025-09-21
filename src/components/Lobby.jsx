@@ -128,11 +128,6 @@ const DIFFICULTY_CONFIGS = {
     lanes: 30,
     startingMultiplier: 1.01,
     maxMultiplier: 100,
-    crashProbabilities: [
-      0.15, 0.12, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.03,
-      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
-      0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01
-    ],
     multipliers: [
       1.01, 1.03, 1.06, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40,
       1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90,
@@ -144,11 +139,6 @@ const DIFFICULTY_CONFIGS = {
     lanes: 25,
     startingMultiplier: 1.08,
     maxMultiplier: 500,
-    crashProbabilities: [
-      0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04,
-      0.03, 0.03, 0.03, 0.03, 0.03, 0.02, 0.02, 0.02, 0.02, 0.02,
-      0.01, 0.01, 0.01, 0.01, 0.01
-    ],
     multipliers: [
       1.08, 1.12, 1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85,
       1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85,
@@ -160,11 +150,6 @@ const DIFFICULTY_CONFIGS = {
     lanes: 22,
     startingMultiplier: 1.18,
     maxMultiplier: 1000,
-    crashProbabilities: [
-      0.25, 0.22, 0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06,
-      0.05, 0.05, 0.05, 0.04, 0.04, 0.04, 0.03, 0.03, 0.03, 0.03,
-      0.02, 0.02
-    ],
     multipliers: [
       1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05,
       2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.00, 3.20,
@@ -176,10 +161,6 @@ const DIFFICULTY_CONFIGS = {
     lanes: 18,
     startingMultiplier: 1.44,
     maxMultiplier: 3608855,
-    crashProbabilities: [
-      0.30, 0.28, 0.25, 0.22, 0.20, 0.18, 0.15, 0.12, 0.10, 0.08,
-      0.07, 0.06, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-    ],
     multipliers: [
       1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15,
       3.50, 3.90, 4.35, 4.85, 5.40, 6.00, 6.70, 7.50
@@ -205,6 +186,7 @@ function Chicken() {
   const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
   const [jumpStartLane, setJumpStartLane] = useState(0)
   const [jumpTargetLane, setJumpTargetLane] = useState(0)
+  const [autoFinalJumped, setAutoFinalJumped] = useState(false)
   
   // Crash control state
   // Crash index removed - server handles all crash detection via WebSocket
@@ -259,6 +241,7 @@ function Chicken() {
   const [isCreatingGame, setIsCreatingGame] = useState(false) // Loading state for game creation
   const [gameError, setGameError] = useState(null) // Game-related errors
   const restartGuardRef = useRef(false) // prevent double scheduling of restart
+  const [blockedNextLane, setBlockedNextLane] = useState(false) // Whether the immediate next lane is blocked per server
 
   // Token handling and user info
   useEffect(() => {
@@ -279,7 +262,40 @@ function Chicken() {
     }
   }, [])
 
-  const { userInfo, isLoading: userLoading, error: userError } = useGetUserInfo(token)
+  // Predictive blocker: ask server if the next lane is allowed; if not, show blocker there
+  useEffect(() => {
+    const checkNextLane = async () => {
+      try {
+        // Only when a game is active and token is present and not jumping
+        if (!isGameActive || !currentGameId || !token || isJumping) {
+          setBlockedNextLane(false)
+          return
+        }
+        const nextLaneNumber = currentLaneIndex + 1 // UI lane index (1..N), 0 is sidewalk
+        // If next is the final sidewalk (beyond last lane), never block
+        if (Array.isArray(allLanes) && nextLaneNumber > allLanes.length - 1) {
+          setBlockedNextLane(false)
+          return
+        }
+        if (nextLaneNumber <= 0) {
+          setBlockedNextLane(false)
+          return
+        }
+        // Use HTTP canMove with server's 0-based traffic lane index
+        const serverLaneIndex = nextLaneNumber - 1
+        const moveData = await gameApi.canMove(currentGameId, serverLaneIndex, token)
+        const canMove = !!moveData?.canMove
+        setBlockedNextLane(!canMove)
+      } catch (e) {
+        console.warn('Predictive blocker check failed; hiding blocker', e)
+        setBlockedNextLane(false)
+      }
+    }
+
+    checkNextLane()
+  }, [isGameActive, currentGameId, token, currentLaneIndex, isJumping])
+
+  const { userInfo, isLoading: userLoading, error: userError, refetch } = useGetUserInfo(token)
 
   // Update balance when user info changes
   useEffect(() => {
@@ -353,8 +369,29 @@ function Chicken() {
         return newLanes
     })
 
+    // If reached the last lane, log finished to console
+    if (targetLane >= allLanes.length) {
+      console.log('Finished: reached final side road')
+    } else if (targetLane === allLanes.length - 1) {
+      console.log('Finished: jumping into final lane before side road')
+    }
+
     // No dynamic multiplier removal - using pre-generated lanes
   }
+
+  // Auto-jump to final sidewalk once we reach the last multiplier (and are alive)
+  useEffect(() => {
+    if (!Array.isArray(allLanes) || allLanes.length === 0) return
+    if (!isGameActive) return
+    if (isDead || gameEnded) return
+    if (isJumping) return
+    // When standing on last multiplier lane, trigger one last jump into final sidewalk
+    if (currentLaneIndex === allLanes.length - 1 && !autoFinalJumped) {
+      console.log('Auto final jump to sidewalk from max multiplier')
+      startJump(allLanes.length)
+      setAutoFinalJumped(true)
+    }
+  }, [currentLaneIndex, isJumping, isDead, gameEnded, allLanes, isGameActive, autoFinalJumped])
 
   // Function to move chicken to next lane with server validation
   const moveToNextLane = async () => {
@@ -366,7 +403,7 @@ function Chicken() {
 
     // For first move in a new game, just start the jump animation
     if (!isGameActive || !currentGameId) {
-      const nextPosition = currentLaneIndex + 1;
+      const nextPosition = currentLaneIndex + 1; // UI lane index to jump to (1..N). 0 is sidewalk.
       console.log(`Starting local jump to position ${nextPosition} (no server validation needed for first move)`);
       startJump(nextPosition);
       return;
@@ -374,7 +411,14 @@ function Chicken() {
 
     // For subsequent moves, validate with server
     const nextPosition = currentLaneIndex + 1;
-    const nextLaneNumber = nextPosition;
+    // Allow final jump into the final sidewalk (index == allLanes.length) without server validation
+    if (Array.isArray(allLanes) && nextPosition > allLanes.length - 1) {
+      console.log('Final jump into final sidewalk');
+      startJump(nextPosition);
+      return;
+    }
+    const nextLaneNumber = nextPosition; // keep for logs (UI index)
+    const serverLaneIndex = nextPosition - 1; // server expects 0-based traffic lane index
 
     console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextLaneNumber})?`);
 
@@ -383,7 +427,7 @@ function Chicken() {
     
     try {
       // Validate with server via WebSocket (non-blocking)
-      const moveData = await socketGameAPI.validateMove(currentGameId, nextLaneNumber, token);
+      const moveData = await socketGameAPI.validateMove(currentGameId, serverLaneIndex, token);
       console.log('WebSocket move validation:', moveData);
 
       if (!moveData.canMove) {
@@ -396,7 +440,7 @@ function Chicken() {
       console.error('WebSocket validation failed, falling back to HTTP:', wsError);
       try {
         // Fallback to HTTP if WebSocket fails
-        const moveData = await gameApi.canMove(currentGameId, nextLaneNumber, token);
+        const moveData = await gameApi.canMove(currentGameId, serverLaneIndex, token);
         if (!moveData.canMove) {
         setTimeout(() => {
             handleCrash(moveData);
@@ -426,13 +470,6 @@ function Chicken() {
     
     // Clear game data
     setCurrentGameId(null);
-    
-    // Auto-restart after delay if configured
-    if (GAME_CONFIG.RESTART.AUTO) {
-        setTimeout(() => {
-        resetGame();
-      }, GAME_CONFIG.RESTART.DELAY_MS);
-    }
   };
 
   // Calculate visible range using a sliding window that advances with the chicken
@@ -617,8 +654,12 @@ function Chicken() {
 
         console.log(`Cashed out: ${cashOutData.winAmount} ETB at ${cashOutData.multiplier}x multiplier`);
 
-        // Force refresh user info to get updated balance
-        window.location.reload(); // Simple way to refresh user data
+        // Refresh user info to get updated balance without full page reload
+        try {
+          await refetch();
+        } catch (e) {
+          console.warn('User info refresh failed after cash out; continuing without reload.', e);
+        }
 
     } catch (error) {
         console.error('Cash out failed:', error);
@@ -655,6 +696,10 @@ function Chicken() {
     setIsJumping(false) // Reset jump state
     setJumpProgress(0)
     setIsRestarting(false) // Reset restart animation
+    setAutoFinalJumped(false)
+    setIsGameActive(false)
+    setShowGoControls(false)
+    setIsRestarting(true)
     setStableRange({ start: 0, end: 4 }) // Reset stable range
     
     // Clear server game state
@@ -663,14 +708,8 @@ function Chicken() {
     setServerMultiplier(null)
     setGameError(null)
     
-    // Generate new crash index based on current difficulty (for visual purposes only)
-    const config = DIFFICULTY_CONFIGS[currentDifficulty]
-    // Crash should be at lane 2 or higher (position 2+)
-    const minCrashLane = 2 // Minimum Lane 2
-    const maxCrashLane = Math.min(config.lanes, allLanes.length) // Don't exceed available lanes
-    const newCrashIndex = Math.floor(Math.random() * (maxCrashLane - minCrashLane + 1)) + minCrashLane
-    setCrashIndex(newCrashIndex)
-    console.log(`Game reset complete - Visual crash at Lane ${newCrashIndex} (Server will determine real crash)`)
+    // Crash index removed: server determines crashes via WebSocket/HTTP responses.
+    console.log('Game reset complete - waiting for server to determine crashes')
   }
 
   // Start new game with real backend API
@@ -712,6 +751,7 @@ function Chicken() {
       // Set server game state
       setCurrentGameId(gameData.gameId);
       setIsGameActive(true);
+      setAutoFinalJumped(false);
       setServerMultiplier(gameData.multiplier);
       
       // Join WebSocket room for this game
@@ -807,25 +847,23 @@ function Chicken() {
       </header>
 
       {/* Full-Screen Game Container */}
-      <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden"             style={{
-            }}
->
-              {/* Lane component with dynamic range */}
-              <Lane
-          remainingMultipliers={getVisibleLanes()}
-                currentIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                displayIndex={Math.max(0, currentLaneIndex - calculateDynamicRange().start)}
-                globalCurrentIndex={currentLaneIndex}
-                globalDisplayStart={calculateDynamicRange().start}
-          allLanes={allLanes} // Pass the full lanes array for correct indexing
+      <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden">
+        <Lane
+          remainingMultipliers={allLanes} // render all multipliers
+          currentIndex={currentLaneIndex} // relative index equals global since start=0
+          displayIndex={currentLaneIndex}
+          globalCurrentIndex={currentLaneIndex}
+          globalDisplayStart={0}
+          allLanes={allLanes}
           isDead={isDead}
-                shouldAnimateCar={false} // Server handles crash detection
-                gameEnded={gameEnded}
-                isJumping={isJumping}
-                jumpProgress={jumpProgress}
-                jumpStartLane={jumpStartLane}
-                jumpTargetLane={jumpTargetLane}
+          shouldAnimateCar={false}
+          gameEnded={gameEnded}
+          isJumping={isJumping}
+          jumpProgress={jumpProgress}
+          jumpStartLane={jumpStartLane}
+          jumpTargetLane={jumpTargetLane}
           isRestarting={isRestarting}
+          blockedNextLane={blockedNextLane}
         />
 
         {/* Game Error Overlay */}
@@ -844,34 +882,18 @@ function Chicken() {
           </div>
         )}
 
-
         {/* Cash Out Success Animation with Win Notification Image */}
         {showCashOutAnimation && (
           <div className="absolute z-30" style={{ top: '20%', left: '50%', transform: 'translate(-50%, -50%)' }}>
             <div className="relative">
-              {/* Win Notification Background Image */}
-                <img 
-                  src={winNotificationImage} 
-                  alt="Win Notification" 
-                className="w-96 h-40"
-              />
-
-              {/* Overlay Content */}
+              <img src={winNotificationImage} alt="Win Notification" className="w-96 h-40" />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                {/* WIN! Text */}
-                <div className=" text-black font-black text-lg px-6  ">
-                  WIN!
-            </div>
-
-                {/* Amount */}
-                <div className="text-white  font-bold text-2xl drop-shadow-lg mt-7">
-                  {lastCashOutAmount.toFixed(2)} ETB
-                </div>
-              </div>
+                <div className=" text-black font-black text-lg px-6  ">WIN!</div>
+                <div className="text-white  font-bold text-2xl drop-shadow-lg mt-7">{lastCashOutAmount.toFixed(2)} ETB</div>
               </div>
             </div>
-          )}
-
+          </div>
+        )}
       </div>
 
 
@@ -1016,19 +1038,19 @@ function Chicken() {
                 {/* GO Button */}
               <button
                   onClick={moveToNextLane}
-                  disabled={currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded}
-                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded
+                  disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
+                  className={`flex-1 font-bold  py-4 px-6 rounded-lg text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:opacity-90 active:scale-95'
                     }`}
                   style={{
-                    backgroundColor: currentLaneIndex >= allLanes.length - 1 || isJumping || isDead || gameEnded
+                    backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                       ? '#2A2A2A' : '#3DC55B',
                     color: 'white'
                   }}
                 >
                   {isDead || gameEnded ? '💀' : 
-                    currentLaneIndex >= allLanes.length - 1 ? 'MAX' : 'GO'}
+                    currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}
               </button>
             </div>
           )}

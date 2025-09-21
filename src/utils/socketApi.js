@@ -70,13 +70,16 @@ class SocketGameAPI {
         return;
       }
 
-      // Store callback for this move
+      // Prevent concurrent validations for the same lane to avoid callback overwrite
+      if (this.moveCallbacks.has(currentLane)) {
+        reject(new Error('Move validation already in progress for this lane'));
+        return;
+      }
+
+      // Store callback for this move. Always resolve with server payload; gameplay code
+      // decides based on result.canMove. Only reject on transport/timeouts.
       this.moveCallbacks.set(currentLane, (result) => {
-        if (result.success) {
-          resolve(result);
-        } else {
-          reject(new Error(result.error || 'Move validation failed'));
-        }
+        resolve(result);
       });
 
       // Send move validation request with token
