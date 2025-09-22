@@ -64,8 +64,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             }
         }
 
-        // During jump: slight upward projection only (small vertical movement, no rotate/scale)
-        const maxLiftPx = 50
+        // During jump: upward projection controlled from GAME_CONFIG
+        const maxLiftPx = GAME_CONFIG.JUMP?.MAX_LIFT_PX ?? 50
         const lift = Math.sin(jumpProgress * Math.PI) * maxLiftPx
         const verticalOffset = -lift // negative to move up
 

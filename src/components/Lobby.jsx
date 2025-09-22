@@ -286,6 +286,8 @@ function Chicken() {
   }, [currentLaneIndex])
 
   const { userInfo, isLoading: userLoading, error: userError, refetch } = useGetUserInfo(token)
+  // Realtime/optimistic balance display synced with server when refetch completes
+  const [displayBalance, setDisplayBalance] = useState(0)
 
   // Update balance when user info changes
   useEffect(() => {
@@ -294,6 +296,8 @@ function Chicken() {
         ...prev,
         balance: userInfo.balance
       }))
+      // Sync display balance from latest server value
+      setDisplayBalance(userInfo.balance)
     }
   }, [userInfo])
 
@@ -312,7 +316,7 @@ function Chicken() {
     setJumpProgress(0)
 
     // Animate the jump
-    const jumpDuration = 800 // 800ms jump duration
+    const jumpDuration = GAME_CONFIG.JUMP?.DURATION_MS ?? 800 // ms jump duration from config
     const startTime = Date.now()
 
     const animateJump = () => {
@@ -459,7 +463,7 @@ function Chicken() {
         // Signal the lane component to inject a one-shot car in the crash lane for visual impact
         setCrashVisual({ lane: nextPosition, tick: Date.now() })
         startJump(nextPosition);
-        const JUMP_DURATION_MS = 800;
+        const JUMP_DURATION_MS = GAME_CONFIG.JUMP?.DURATION_MS ?? 800;
         setTimeout(() => {
           handleCrash(moveData);
         }, JUMP_DURATION_MS);
@@ -568,6 +572,24 @@ function Chicken() {
   const decrementBet = () => {
     playButtonClickAudio();
     setBetAmount(prev => Math.max(0.50, parseFloat((prev - 0.50).toFixed(2))))
+  }
+
+  // Press-and-hold repeat for bet controls
+  const betHoldTimer = useRef(null)
+  const betRepeat = useRef(null)
+  const startHold = (fn) => {
+    fn()
+    if (betHoldTimer.current) clearTimeout(betHoldTimer.current)
+    if (betRepeat.current) clearInterval(betRepeat.current)
+    betHoldTimer.current = setTimeout(() => {
+      betRepeat.current = setInterval(() => fn(), 100)
+    }, 350) // delay before repeating
+  }
+  const endHold = () => {
+    if (betHoldTimer.current) clearTimeout(betHoldTimer.current)
+    if (betRepeat.current) clearInterval(betRepeat.current)
+    betHoldTimer.current = null
+    betRepeat.current = null
   }
 
   const handleBetInputChange = (e) => {
@@ -687,7 +709,7 @@ function Chicken() {
         setShowCashOutAnimation(true);
 
         // Hide animation after 3 seconds
-      setTimeout(() => {
+        setTimeout(() => {
           setShowCashOutAnimation(false);
         }, 3000);
 
@@ -695,6 +717,11 @@ function Chicken() {
         setIsGameActive(false);
         setCurrentGameId(null);
         setServerMultiplier(null);
+
+        // Optimistically add winnings to displayed balance; refetch will confirm
+        if (typeof cashOutData?.winAmount === 'number' && typeof userInfo?.balance === 'number') {
+          setDisplayBalance(prev => (userInfo.balance + cashOutData.winAmount))
+        }
 
         // Reset game after cash out
         setTimeout(() => {
@@ -747,7 +774,6 @@ function Chicken() {
     setIsRestarting(false) // Reset restart animation
     setAutoFinalJumped(false)
     setIsGameActive(false)
-    setShowGoControls(false)
     setIsRestarting(true)
     setStableRange({ start: 0, end: 4 }) // Reset stable range
     setBlockedNextLane(false) // clear blocker
@@ -817,6 +843,11 @@ function Chicken() {
       setAutoFinalJumped(false);
       setServerMultiplier(gameData.multiplier);
 
+      // Optimistically reflect the debit locally; server will confirm on next refetch
+      if (typeof userInfo?.balance === 'number') {
+        setDisplayBalance(prev => Math.max(0, (userInfo.balance - betAmount)))
+      }
+
       // Join WebSocket room for this game
       socketGameAPI.joinGame(gameData.gameId);
 
@@ -866,6 +897,18 @@ function Chicken() {
     }
   }, [isDead, gameEnded])
 
+  // Fallback watchdog: if skull (💀) stays visible too long, force reset
+  useEffect(() => {
+    if (!(isDead || gameEnded)) return
+    const watchdog = setTimeout(() => {
+      if (isDead || gameEnded) {
+        resetGame()
+        restartGuardRef.current = false
+      }
+    }, Math.max(2000, (GAME_CONFIG.RESTART?.DELAY_MS ?? 1200) + 500))
+    return () => clearTimeout(watchdog)
+  }, [isDead, gameEnded])
+
   // Close difficulty dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -881,7 +924,7 @@ function Chicken() {
 
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-900 text-white overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-gray-950 text-white overflow-hidden" style={{ backgroundColor: '#1A1A1A' }}>
       {/* CSS to hide number input arrows */}
       <style>{`
         input[type="number"]::-webkit-outer-spin-button,
@@ -926,25 +969,25 @@ function Chicken() {
       {/* Full-Screen Game Container */}
       <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden">
         <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4]}>
-          <Lane
-          key={resetKey}
-          remainingMultipliers={allLanes} // render all multipliers
-          currentIndex={currentLaneIndex} // relative index equals global since start=0
-          displayIndex={currentLaneIndex}
+              <Lane
+            key={resetKey}
+            remainingMultipliers={allLanes} // render all multipliers
+            currentIndex={currentLaneIndex} // relative index equals global since start=0
+            displayIndex={currentLaneIndex}
                 globalCurrentIndex={currentLaneIndex}
-          globalDisplayStart={0}
-          allLanes={allLanes}
-          isDead={isDead}
+            globalDisplayStart={0}
+            allLanes={allLanes}
+            isDead={isDead}
                 gameEnded={gameEnded}
                 isJumping={isJumping}
                 jumpProgress={jumpProgress}
                 jumpStartLane={jumpStartLane}
                 jumpTargetLane={jumpTargetLane}
-          isRestarting={isRestarting}
-          blockedNextLane={blockedNextLane}
-          onCarBlockedStop={handleCarBlockedStop}
-          crashVisualLane={crashVisual.lane}
-          crashVisualTick={crashVisual.tick}
+            isRestarting={isRestarting}
+            blockedNextLane={blockedNextLane}
+            onCarBlockedStop={handleCarBlockedStop}
+            crashVisualLane={crashVisual.lane}
+            crashVisualTick={crashVisual.tick}
           />
         </TrafficProvider>
 
@@ -980,178 +1023,183 @@ function Chicken() {
 
 
       {/* Bottom Controller UI - Exact Match Design */}
-      <div className="z-20 sm:p-4 border-t border-gray-960 rounded-lg" >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 w-full " style={{ backgroundColor: '#444444' }}>
-          {/* Bet Amount Control */}
-          <div className="flex md:items-center md:justify-between gap-3">
-            <div className="flex w-full md:flex-1 items-center justify-between rounded-lg px-2 sm:px-3 py-2" style={{ backgroundColor: '#2A2A2A' }}>
+      {/* Enhanced Controller UI */}
+      <div className="p-2 sm:p-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-6" style={{ backgroundColor: '#444444' }}>
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 sm:gap-4 lg:gap-6">
+
+              {/* Left Section: Bet Controls */}
+            <div className="flex items-center gap-4">
+              {/* Bet Amount Control */}
+                <div className="flex items-center rounded-xl" style={{ backgroundColor: '#2A2A2A' }}>
                   <button
-                onClick={decrementBet}
-                disabled={currentLaneIndex > 0} // Disable when game is active
-                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:opacity-80 active:scale-95'
-                  }`}
-                style={{ backgroundColor: '#2A2A2A' }}
-              >
-                −
+                    onMouseDown={() => startHold(decrementBet)}
+                    onTouchStart={() => startHold(decrementBet)}
+                    onMouseUp={endHold}
+                    onMouseLeave={endHold}
+                    onTouchEnd={endHold}
+                    onClick={decrementBet}
+                    disabled={currentLaneIndex > 0}
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-gray-700 active:scale-95'
+                      }`}
+                  >
+                    −
                   </button>
-              <div className="flex-1 text-center relative px-2">
-                <input
-                  type="number"
-                  step="0.50"
-                  min="0.50"
-                  value={betAmount.toFixed(2)}
-                  onChange={handleBetInputChange}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
-                  disabled={currentLaneIndex > 0} // Disable when game is active
-                  className={`text-white font-bold text-base sm:text-lg text-center w-full bg-transparent border-none outline-none ${currentLaneIndex > 0
-                    ? 'opacity-50 cursor-not-allowed'
-                    : isInputFocused ? 'bg-gray-700 rounded px-2 py-1' : ''
-                    }`}
-                  style={{
-                    appearance: 'none',
-                    MozAppearance: 'textfield',
-                    WebkitAppearance: 'none'
-                  }}
-                />
+                  <div className="flex-1 text-center px-4">
+                    <input
+                      type="number"
+                      step="0.50"
+                      min="0.50"
+                      value={betAmount.toFixed(2)}
+                      onChange={handleBetInputChange}
+                      onFocus={() => setIsInputFocused(true)}
+                      onBlur={() => setIsInputFocused(false)}
+                      disabled={currentLaneIndex > 0}
+                      className={`text-white font-bold text-lg text-center w-full bg-transparent border-none outline-none ${currentLaneIndex > 0
+                        ? 'opacity-50 cursor-not-allowed'
+                        : isInputFocused ? 'bg-gray-700 rounded px-2 py-1' : ''
+                        }`}
+                      style={{
+                        appearance: 'none',
+                        MozAppearance: 'textfield',
+                        WebkitAppearance: 'none'
+                      }}
+                    />
               </div>
                   <button
-                onClick={incrementBet}
-                disabled={currentLaneIndex > 0} // Disable when game is active
-                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:opacity-80 active:scale-95'
-                  }`}
-                style={{ backgroundColor: '#2A2A2A' }}
-              >
-                +
+                    onMouseDown={() => startHold(incrementBet)}
+                    onTouchStart={() => startHold(incrementBet)}
+                    onMouseUp={endHold}
+                    onMouseLeave={endHold}
+                    onTouchEnd={endHold}
+                    onClick={incrementBet}
+                    disabled={currentLaneIndex > 0}
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-gray-700 active:scale-95'
+                      }`}
+                  >
+                    +
                   </button>
             </div>
-            {/* Settings Button */}
-            <div className="flex md:ml-3 ">
-              <button
-                onClick={() => {
-                  playButtonClickAudio();
-                  setShowSettings(true);
-                }}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-white hover:opacity-80"
-                style={{ backgroundColor: '#2A2A2A' }}
-              >
-                <FaCog />
+
+                {/* Settings Button */}
+                <button
+                  onClick={() => {
+                    playButtonClickAudio();
+                    setShowSettings(true);
+                  }}
+                  className="px-4 py-3 rounded-xl flex items-center justify-center text-white transition-all" style={{ backgroundColor: '#2A2A2A' }}>
+                  <FaCog className="text-lg" />
                 </button>
             </div>
-          </div>
 
-          {/* Difficulty Selector */}
-          <div className={`rounded-lg p-3 relative difficulty-selector transition-opacity ${currentLaneIndex > 0 ? 'opacity-0' : 'opacity-100'} max-w-5xl mx-auto`} style={{ backgroundColor: '#2A2A2A' }}>
-            {/* Mobile: Dropdown */}
-            <div className="md:hidden">
+              {/* Center Section: Difficulty Selector */}
+              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative ${currentLaneIndex > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                {/* Mobile: Dropdown */}
+                <div className="lg:hidden">
               <button
-                onClick={() => {
-                  if (currentLaneIndex === 0) {
-                    playButtonClickAudio();
-                    setShowDifficultyDropdown(!showDifficultyDropdown);
-                  }
-                }}
-                disabled={currentLaneIndex > 0} // Disable when game is active
-                className={`w-full flex items-center justify-between text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed' : ''}`}
-              >
-                <span className="text-white font-medium text-base">{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`}>
-                  <path d="M7 10l5 5 5-5z" />
-                </svg>
+                    onClick={() => {
+                      if (currentLaneIndex === 0) {
+                        playButtonClickAudio();
+                        setShowDifficultyDropdown(!showDifficultyDropdown);
+                      }
+                    }}
+                    disabled={currentLaneIndex > 0}
+                    className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-800'}`} style={{ backgroundColor: '#2A2A2A' }}>
+                    <span className="text-white font-medium text-lg">{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`}>
+                      <path d="M7 10l5 5 5-5z" />
+                    </svg>
               </button>
 
-              {showDifficultyDropdown && currentLaneIndex === 0 && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg overflow-hidden z-50" style={{ backgroundColor: '#2A2A2A' }}>
+                  {showDifficultyDropdown && currentLaneIndex === 0 && (
+                    <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden z-50  shadow-2xl" style={{ backgroundColor: '#2A2A2A' }}>
+                      {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
+                  <button
+                          key={key}
+                          onClick={() => {
+                            changeDifficulty(key)
+                            setShowDifficultyDropdown(false)
+                          }}
+                          className={`w-full p-4 text-left  transition-colors ${currentDifficulty === key ? 'bg-gray-800' : ''}`}
+                        >
+                          <div className="text-white font-medium text-lg">{config.name}</div>
+                  </button>
+                      ))}
+                    </div>
+                  )}
+              </div>
+
+                {/* Desktop: Inline Pills */}
+                <div className="hidden lg:flex items-center justify-center gap-2">
                   {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
                   <button
                       key={key}
-                      onClick={() => {
-                        changeDifficulty(key)
-                        setShowDifficultyDropdown(false)
-                      }}
-                      className={`w-full p-3 text-left hover:bg-gray-600 transition-colors ${currentDifficulty === key ? 'bg-gray-600' : ''}`}
+                      onClick={() => changeDifficulty(key)}
+                      disabled={currentLaneIndex > 0}
+                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${currentDifficulty === key
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                        } ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <div className="text-white font-medium">{config.name}</div>
+                      {config.name}
                   </button>
                   ))}
-                </div>
-              )}
-              </div>
-
-            {/* Desktop/Tablet: Inline group */}
-            <div className="hidden md:flex items-center justify-center gap-3">
-              {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
-                  <button
-                  key={key}
-                  onClick={() => changeDifficulty(key)}
-                  disabled={currentLaneIndex > 0}
-                  className={`px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${currentDifficulty === key ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'} ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="text-sm sm:text-base font-medium">{config.name}</div>
-                  </button>
-              ))}
               </div>
             </div>
 
-          {/* Game Control Buttons */}
-          {currentLaneIndex === 0 && !isJumping ? (
-            /* Initial Play Button - Before Game Starts */
-            <button
-              onClick={startNewGame}
-              disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
-              className={`w-full md:w-64 md:self-center font-bold h-14 md:h-16 px-6 rounded-xl text-lg sm:text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:opacity-90 active:scale-95'
-                }`}
-              style={{
-                backgroundColor: (!userInfo || (userInfo.balance < betAmount) || isCreatingGame) ? '#2A2A2A' : '#3DC55B',
-                color: '#FFFFFF',
-                boxShadow: (!userInfo || (userInfo.balance < betAmount) || isCreatingGame) ? 'none' : '0 6px 20px rgba(61,197,91,0.35)'
-              }}
-            >
-              {isCreatingGame ? 'Creating Game...' :
-                !userInfo ? 'Loading...' :
-                  (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
+              {/* Right Section: Game Control Buttons */}
+              <div className="flex items-center gap-4">
+                {currentLaneIndex === 0 && !isJumping ? (
+                  /* Initial Play Button - Before Game Starts */
+                <button
+                    onClick={startNewGame}
+                    disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
+                    className={`w-full lg:w-48 h-16 lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                      ? 'opacity-50 cursor-not-allowed bg-gray-700'
+                      : 'hover:opacity-90 active:scale-95 bg-green-500 text-white shadow-lg shadow-green-500/25'
+                      }`}
+                  >
+                    {isCreatingGame ? 'Creating...' :
+                      !userInfo ? 'Loading...' :
+                        (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
                 </button>
-          ) : (
-            /* Dual Button Layout - During Game */
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Cash Out Button */}
+                ) : (
+                  /* Dual Button Layout - During Game */
+                  <div className="grid grid-cols-2 gap-3 w-full">
+                    {/* Cash Out Button */}
               <button 
-                onClick={handleCashOut}
-                className="flex-1 font-bold py-4 px-4 rounded-lg text-xl sm:text-2xl transition-all duration-200 hover:opacity-90 active:scale-95"
-                style={{ backgroundColor: '#FECF4B', color: 'black' }}
-              >
-                <div className="text-center">
-                  <div className="text-xl sm:text-2xl opacity-90">CASH OUT</div>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {(betAmount * (allLanes[currentLaneIndex - 1] || 1)).toFixed(2)} ETB
+                      onClick={handleCashOut}
+                      className="w-full h-16 font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 bg-yellow-400 text-black shadow-lg shadow-yellow-400/25"
+                    >
+                      <div className="text-center">
+                        <div className="text-base opacity-90">CASH OUT</div>
+                        <div className="text-xl font-extrabold">
+                          {(betAmount * (allLanes[currentLaneIndex - 1] || 1)).toFixed(2)} ETB
               </div>
             </div>
-              </button>
+                    </button>
 
-              {/* GO Button */}
+                    {/* GO Button */}
               <button
-                onClick={moveToNextLane}
-                disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
-                className={`flex-1 font-bold  py-4 px-6 rounded-lg text-2xl sm:text-3xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:opacity-90 active:scale-95'
-                  }`}
-                style={{
-                  backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
-                    ? '#2A2A2A' : '#3DC55B',
-                  color: 'white'
-                }}
-              >
-                {isDead || gameEnded ? '💀' : currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}
+                      onClick={moveToNextLane}
+                      disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
+                      className={`w-full h-16 font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
+                        ? 'opacity-50 cursor-not-allowed bg-gray-700'
+                        : 'hover:opacity-90 active:scale-95 bg-green-500 text-white shadow-lg shadow-green-500/25'
+                        }`}
+                    >
+                      {isDead || gameEnded ? '💀' : currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}
               </button>
             </div>
           )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1162,121 +1210,77 @@ function Chicken() {
 
       {/* Settings Popup Modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-sm mx-4" style={{ backgroundColor: '#2A2A2A' }}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Settings</h3>
-            <button
-                onClick={() => setShowSettings(false)}
-                className="text-gray-400 hover:text-white text-xl"
-            >
-                ✕
-            </button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl" style={{ backgroundColor: '#2A2A2A' }}>
+            {/* Profile header */}
+            <div className="px-8 pt-8 pb-6 text-center">
+              <div className="mx-auto w-20 h-20 rounded-full overflow-hidden ring-2 ring-gray-600 mb-4">
+                <img src={`https://i.pravatar.cc/160?u=${userInfo?.username || 'player'}`} alt="avatar" className="w-full h-full object-cover" />
+              </div>
+              <div className="text-2xl font-semibold text-white">{userInfo?.username || 'Player'}</div>
             </div>
 
-            {/* Settings Options */}
-            <div className="space-y-4">
-              {/* Enhanced Music Toggle */}
+            <div className="border-t border-gray-700" />
+
+            {/* Settings list */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Music Toggle */}
               <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}>
-                    {musicEnabled ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                      </svg>
-                    )}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
                   </div>
                   <div>
-                    <span className="text-white font-medium block">Background Music</span>
+                    <span className="text-white font-medium block">Music</span>
                     <span className="text-gray-400 text-sm">{musicEnabled ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
-            <button
+                <button
                   onClick={() => {
                     setMusicEnabled(!musicEnabled)
-                    // Toggle music immediately
-                    if (!musicEnabled && audioRef.current) {
-                      audioRef.current.play().catch(e => console.log('Music play failed:', e))
-                    } else if (musicEnabled && audioRef.current) {
-                      audioRef.current.pause()
+                    if (!musicEnabled && audioManager.current) {
+                      audioManager.current.play().catch(e => console.log('Music play failed:', e))
+                    } else if (musicEnabled && audioManager.current) {
+                      audioManager.current.pause()
                     }
                   }}
                   className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${musicEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
                   style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}
                 >
-                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg flex items-center justify-center ${musicEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}>
-                    {musicEnabled ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#3DC55B">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    ) : (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#545454">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Enhanced track background */}
-                  <div className="absolute inset-0 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${musicEnabled ? 'bg-green-400' : 'bg-gray-500'}`}
-                      style={{ width: musicEnabled ? '100%' : '0%' }}
-                    ></div>
-                  </div>
-            </button>
-          </div>
+                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg ${musicEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
+                </button>
+              </div>
 
               {/* Sound Effects Toggle */}
               <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}>
-                    {soundEnabled ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-                      </svg>
-                    )}
-            </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
+                  </div>
                   <div>
                     <span className="text-white font-medium block">Sound Effects</span>
                     <span className="text-gray-400 text-sm">{soundEnabled ? 'Enabled' : 'Disabled'}</span>
-            </div>
-          </div>
-              <button
+                  </div>
+                </div>
+                <button
                   onClick={() => setSoundEnabled(!soundEnabled)}
                   className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${soundEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
                   style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}
                 >
-                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg flex items-center justify-center ${soundEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}>
-                    {soundEnabled ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#3DC55B">
-                        <path d="M3 9v6h4l5 5V4L7 9H3z" />
-                      </svg>
-                    ) : (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#545454">
-                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Enhanced track background */}
-                  <div className="absolute inset-0 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${soundEnabled ? 'bg-green-400' : 'bg-gray-500'}`}
-                      style={{ width: soundEnabled ? '100%' : '0%' }}
-                    ></div>
-                  </div>
-              </button>
+                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg ${soundEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
+                </button>
               </div>
 
+              <div className="border-t border-gray-700" />
+
+              {/* Game rules (placeholder) */}
+              <button className="w-full flex items-center justify-between text-left hover:bg-gray-700 p-3 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 flex items-center justify-center">📄</div>
+                  <span className="text-white font-medium">Game rules</span>
+                </div>
+                <span className="text-gray-400">›</span>
+              </button>
 
               {/* How to Play */}
               <button 
@@ -1286,14 +1290,15 @@ function Chicken() {
                 }}
                 className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
               >
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <span className="text-lg">ℹ️</span>
-                </div>
+                <div className="w-8 h-8 flex items-center justify-center"><span className="text-lg">ℹ️</span></div>
                 <span className="text-white font-medium">How to Play</span>
               </button>
+            </div>
 
+            <div className="px-6 pb-6 pt-2 flex justify-end">
+              <button onClick={() => setShowSettings(false)} className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600">Close</button>
+            </div>
           </div>
-        </div>
         </div>
       )}
 

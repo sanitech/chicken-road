@@ -9,6 +9,12 @@ export const GAME_CONFIG = {
 
   // Chicken
   CHICKEN_SIZE_PX: 90,         // Default chicken size (width = height)
+  // Jump animation controls
+  JUMP: {
+    DURATION_MS: 700,          // total time of a jump
+    MAX_LIFT_PX: 15,           // peak vertical lift during jump
+    EASING: 'cubic',           // reserved for future easing selection
+  },
   // Chicken horizontal placement mode when at start and during jumps
   // 'boundary'  => align at sidewalk/lane-1 boundary (uses LANE_WIDTH_PX)
   // 'fixed_px'  => use CHICKEN_FIXED_X_PX from the left of the game area
@@ -42,7 +48,7 @@ export const GAME_CONFIG = {
   CAR: {
     // Size configuration for car images
     SIZE_PX: 100,
-    STOP_TOP_PERCENT: 35, // slightly above blocker/cap
+    STOP_TOP_PERCENT: 15, // slightly above blocker/cap
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
     SPAWN_TOP_OFFSET_PX: 90,
