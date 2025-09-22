@@ -489,6 +489,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && !!blockedNextLane
                     const isReservationLane = reservationRef.current.active && reservationRef.current.targetLane === globalIndex
                     const computedHasBlocker = baseBlocked || (isReservationLane && reservationRef.current.decision === 'pause') || isBlockedByServer
+                    // Destination lane is where the chicken will land: during jump it's the jumpTargetLane,
+                    // otherwise it's the immediate next lane from the current position
+                    const isDestinationLane = isJumping ? (globalIndex === jumpTargetLane) : (globalIndex === globalCurrentIndex + 1)
 
                     return (
                         <div
@@ -519,7 +522,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                         style={{
                                             top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`,
                                             transform: 'translate(-50%, -50%)',
-                                            zIndex: 2,
+                                            zIndex: 4,
                                             width: '100%',
                                             pointerEvents: 'none'
                                         }}
@@ -531,20 +534,41 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                             style={{ 
                                                 objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION,
                                                 width: `${GAME_CONFIG.CAP.SIZE_PX}px`,
-                                                height: `${GAME_CONFIG.CAP.SIZE_PX}px`
+                                                height: `${GAME_CONFIG.CAP.SIZE_PX}px`,
+                                                opacity: isDestinationLane ? 1 : 0.7,
+                                                transition: 'opacity 150ms ease-in-out'
                                             }}
                                         />
-                                    </div>
-
-                                    {/* Multiplier overlay centered on cap */}
-                                    {
-                                        <div className="absolute left-1/2 -translate-x-1/2"
-                                            style={{ top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`, transform: 'translate(-50%, -50%)', zIndex: 3 }}>
-                                            <span className="text-white font-bold text-lg">
-                                                {allLanes[globalIndex - 1]?.toFixed(2)}x
-                                            </span>
+                                        {/* Multiplier centered inside cap */}
+                                        <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 3 }}>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width={`${GAME_CONFIG.CAP.SIZE_PX}px`}
+                                                height={`${GAME_CONFIG.CAP.SIZE_PX}px`}
+                                                viewBox={`0 0 ${GAME_CONFIG.CAP.SIZE_PX} ${GAME_CONFIG.CAP.SIZE_PX}`}
+                                                style={{ display: 'block' }}
+                                                aria-hidden
+                                            >
+                                                <text
+                                                    x="50%"
+                                                    y="50%"
+                                                    textAnchor="middle"
+                                                    dominantBaseline="middle"
+                                                    fill="#fff"
+                                                    stroke="#000"
+                                                    strokeWidth="3"
+                                                    strokeLinejoin="round"
+                                                    strokeLinecap="round"
+                                                    paintOrder="stroke"
+                                                    opacity="1"
+                                                    strokeOpacity="1"
+                                                    style={{ fontSize: `24px`, fontWeight: 900 }}
+                                                >
+                                                    {allLanes[globalIndex - 1]?.toFixed(2)}x
+                                                </text>
+                                            </svg>
                                         </div>
-                                    }
+                                    </div>
                                 </>
                             )}
 
