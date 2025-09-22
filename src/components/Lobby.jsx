@@ -4,6 +4,7 @@ import { useGetUserInfo } from '../utils/getUserinfo'
 import gameApi from '../utils/gameApi'
 import socketGameAPI from '../utils/socketApi'
 import { FaCoins, FaCog } from 'react-icons/fa'
+import Switch from 'react-switch'
 import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
 import deadChickenImage from '../assets/chickendead.png'
@@ -1235,8 +1236,9 @@ function Chicken() {
                     <span className="text-gray-400 text-sm">{musicEnabled ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
+                <Switch
+                  checked={musicEnabled}
+                  onChange={() => {
                     setMusicEnabled(!musicEnabled)
                     if (!musicEnabled && audioManager.current) {
                       audioManager.current.play().catch(e => console.log('Music play failed:', e))
@@ -1244,11 +1246,14 @@ function Chicken() {
                       audioManager.current.pause()
                     }
                   }}
-                  className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${musicEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
-                  style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}
-                >
-                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg ${musicEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
-                </button>
+                  onColor="#3DC55B"
+                  offColor="#545454"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={32}
+                  width={64}
+                  handleDiameter={28}
+                />
               </div>
 
               {/* Sound Effects Toggle */}
@@ -1262,26 +1267,22 @@ function Chicken() {
                     <span className="text-gray-400 text-sm">{soundEnabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className={`w-16 h-8 rounded-full transition-all duration-300 relative shadow-inner ${soundEnabled ? 'shadow-green-600' : 'shadow-gray-700'}`}
-                  style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}
-                >
-                  <div className={`w-7 h-7 bg-white rounded-full transition-all duration-300 absolute top-0.5 shadow-lg ${soundEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
-                </button>
+                <Switch
+                  checked={soundEnabled}
+                  onChange={() => setSoundEnabled(!soundEnabled)}
+                  onColor="#3DC55B"
+                  offColor="#545454"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={32}
+                  width={64}
+                  handleDiameter={28}
+                />
               </div>
 
               <div className="border-t border-gray-700" />
 
-              {/* Game rules (placeholder) */}
-              <button className="w-full flex items-center justify-between text-left hover:bg-gray-700 p-3 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center">📄</div>
-                  <span className="text-white font-medium">Game rules</span>
-                </div>
-                <span className="text-gray-400">›</span>
-              </button>
-
+             
               {/* How to Play */}
               <button 
                 onClick={() => {
@@ -1445,9 +1446,9 @@ function Chicken() {
 
       {/* How to Play Modal */}
       {showHowToPlay && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 max-w-md rounded-lg">
-            <h3 className="text-xl font-bold mb-4">How to Play</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="p-6 max-w-md rounded-2xl shadow-2xl" style={{ backgroundColor: '#444444' }}>
+            <h3 className="text-xl font-bold mb-4 text-white">How to Play</h3>
             <div className="space-y-2 text-sm text-gray-300">
               <p>1. Set your bet amount and difficulty level</p>
               <p>2. Click "Play" to start the round</p>
@@ -1457,7 +1458,7 @@ function Chicken() {
             </div>
             <button
               onClick={() => setShowHowToPlay(false)}
-              className="mt-4 w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium"
+              className="mt-4 w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium text-white"
             >
               Got it!
             </button>
