@@ -215,3 +215,13 @@
 .animate-car-stopped-fast {
   animation: car-stopped-fast 0.8s ease-in-out forwards; /* Very fast 0.8s for immediate stop */
 }
+
+/* Generic fade-in animation for subtle reveals (e.g., blocker) */
+@keyframes fade-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+.animate-fade-in {
+  animation: fade-in 150ms ease-in both;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, memo } from 'react'
 import carImage from '../assets/car1.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
@@ -34,14 +34,17 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
   return (
     <div 
       ref={containerRef}
-      className={`w-[${GAME_CONFIG.CAR.SIZE_PX}px] relative ${animationClass}`}
+      className={`relative ${animationClass}`}
       style={{
         // Apply custom animation duration
         '--custom-car-duration': `${customSpeed}ms`,
         // Pause the animation without changing keyframes to avoid snapping
         animationPlayState: (isPaused || isBlocked) ? 'paused' : 'running',
         // Hold the last frame when paused so it doesn't jump
-        animationFillMode: 'both'
+        animationFillMode: 'both',
+        // Explicit sizing from central config (avoids Tailwind arbitrary class purge issues)
+        width: `${GAME_CONFIG.CAR.SIZE_PX}px`,
+        height: `${GAME_CONFIG.CAR.SIZE_PX}px`
       }}
     >
       <img 
@@ -53,4 +56,4 @@ function Car({ isAnimating = false, onAnimationComplete, isContinuous = false, c
   )
 }
 
-export default Car
+export default memo(Car)

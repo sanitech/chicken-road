@@ -255,6 +255,8 @@ function Chicken() {
   const [blockedNextLane, setBlockedNextLane] = useState(false) // Whether the immediate next lane is blocked per server
   const [isValidatingNext, setIsValidatingNext] = useState(false) // prevent overlapping move validations
   const [resetKey, setResetKey] = useState(0) // force re-mount Lane to reset cars/animations
+  // Crash visualization signal (lane and nonce) to inject a one-shot car in the crash lane
+  const [crashVisual, setCrashVisual] = useState({ lane: -1, tick: 0 })
 
   // Token handling and user info
   useEffect(() => {
@@ -348,11 +350,14 @@ function Chicken() {
     setJumpProgress(0)
     setIsJumping(false)
 
-    // Update moved lanes
-    setMovedLanes(prevLanes => {
-      const newLanes = [...prevLanes, targetLane]
-      console.log('Chicken jumped through lanes:', newLanes)
-      return newLanes
+    // Update moved lanes (guard duplicates and dev-only log)
+    setMovedLanes(prev => {
+      if (prev[prev.length - 1] === targetLane) return prev;
+      const next = [...prev, targetLane];
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Chicken jumped through lanes:', next);
+      }
+      return next;
     })
 
     // If reached the last lane, log finished to console
@@ -449,6 +454,8 @@ function Chicken() {
       if (willCrash) {
         // Animate the jump to the next lane, then crash after landing (not immediate)
         setBlockedNextLane(false) // ensure no blocker shows on the crash lane
+        // Signal the lane component to inject a one-shot car in the crash lane for visual impact
+        setCrashVisual({ lane: nextPosition, tick: Date.now() })
         startJump(nextPosition);
         const JUMP_DURATION_MS = 800;
         setTimeout(() => {
@@ -633,6 +640,11 @@ function Chicken() {
     }
   }
 
+  // Handler for DynamicCar blocked stop (unified audio)
+  const handleCarBlockedStop = () => {
+    playCrashAudio()
+  }
+
   // Play button click audio
   const playButtonClickAudio = () => {
     console.log('Playing button click audio...', { soundEnabled })
@@ -661,7 +673,6 @@ function Chicken() {
         // Call backend cash out via WebSocket only (no HTTP fallback)
         const cashOutData = await socketGameAPI.cashOut(currentGameId, currentLaneIndex, token);
         console.log('WebSocket cash out successful:', cashOutData);
-
         console.log('Cash out successful:', cashOutData);
 
         // Play cashout audio
@@ -913,6 +924,9 @@ function Chicken() {
                 jumpTargetLane={jumpTargetLane}
           isRestarting={isRestarting}
           blockedNextLane={blockedNextLane}
+          onCarBlockedStop={handleCarBlockedStop}
+          crashVisualLane={crashVisual.lane}
+          crashVisualTick={crashVisual.tick}
         />
 
         {/* Game Error Overlay */}
