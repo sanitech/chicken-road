@@ -17,6 +17,7 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
     const [carState, setCarState] = useState('waiting') // waiting -> moving -> paused -> stopped -> gone
     const [hasPlayedCrashAudio, setHasPlayedCrashAudio] = useState(false) // Track if audio already played
     const [pausedByReservation, setPausedByReservation] = useState(false)
+    const wrapperRef = useRef(null)
 
     // Play crash audio when car hits blocker - only once
     const playCrashAudio = () => {
@@ -37,56 +38,55 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
         // Start immediately (no artificial delay)
         setCarState('moving')
 
-        // Reservation pause (only once per reservation) based on latched decision
-        if (isReservationActive && reservationDecision === 'pause' && !pausedByReservation && isChickenJumping && chickenTargetLane === carData.laneIndex) {
-            const stopPercent = (GAME_CONFIG.CAR.STOP_TOP_PERCENT || 0) / 100
-            const easeDelta = Math.max(0, Math.min(0.2, GAME_CONFIG.CAR.STOP_EASE_DELTA ?? 0))
-            const stopAt = Math.max(0, stopPercent - easeDelta)
-            const tick = () => {
-                const now = Date.now()
-                const progress = Math.max(0, Math.min(1, (now - carData.startTime) / carData.animationDuration))
+        // JS-controlled decelerating stop when blocker is present (reservation or base/server blockers)
+        if (hasBlocker) {
+            const el = wrapperRef.current
+            if (!el) return
+            // Find the lane column (absolute parent) to compute heights
+            const laneEl = el.parentElement
+            if (!laneEl) return
+            const laneHeight = laneEl.clientHeight
 
-                // Already beyond cutoff -> let it pass
-                if (progress >= cutoff) return
+            // Target: STOP_TOP_PERCENT of the lane height (e.g., 20%)
+            const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 20
+            const targetTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
 
-                // Reached or passed stop threshold -> pause now
-                if (progress >= stopAt) {
+            // Starting top in px (current style top), default to spawn offset if not set
+            const spawnOffset = -(GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0)
+            const startTop = typeof el.style.top === 'string' && el.style.top.endsWith('px')
+                ? parseFloat(el.style.top)
+                : spawnOffset
+
+            const duration = Math.min(900, Math.max(400, carData.animationDuration * 0.4))
+            const startTime = performance.now()
+
+            const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+
+            const step = (now) => {
+                const t = Math.min(1, (now - startTime) / duration)
+                const eased = easeOutCubic(t)
+                const y = startTop + (targetTop - startTop) * eased
+                el.style.top = `${y}px`
+                if (t < 1) {
+                    requestAnimationFrame(step)
+                } else {
+                    // Reached stop point under blocker
                     setCarState('paused')
-                    setPausedByReservation(true)
-                    return
-                }
+                    // Play crash audio once
+                    try { playCrashAudio() } catch {}
 
-                // Keep polling until we hit the stop threshold or reservation ends
-                if (isReservationActive && !pausedByReservation) {
-                    requestAnimationFrame(tick)
+                    // If not reservation-controlled, optionally remove after some time
+                    if (!isReservationActive) {
+                        const timer = setTimeout(() => setCarState('gone'), Math.max(600, carData.animationDuration))
+                        return () => clearTimeout(timer)
+                    }
                 }
             }
-
-            // Kick off the polling loop
-            requestAnimationFrame(tick)
+            requestAnimationFrame(step)
         }
 
-        // Server-driven blocker pause (when the next lane is blocked)
-        if (pauseForBlocker) {
-            const stopPercent = (GAME_CONFIG.CAR.STOP_TOP_PERCENT || 0) / 100
-            const easeDelta = Math.max(0, Math.min(0.2, GAME_CONFIG.CAR.STOP_EASE_DELTA ?? 0))
-            const stopAt = Math.max(0, stopPercent - easeDelta)
-            const tick2 = () => {
-                const now = Date.now()
-                const progress = Math.max(0, Math.min(1, (now - carData.startTime) / carData.animationDuration))
-                if (progress >= cutoff) return
-                if (progress >= stopAt) {
-                    setCarState('paused')
-                    return
-                }
-                if (pauseForBlocker) requestAnimationFrame(tick2)
-            }
-            requestAnimationFrame(tick2)
-        }
-
-        // Remove old time-based completion; rely on animationend from Car instead
-        return () => {}
-    }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive, reservationDecision, cutoff, pausedByReservation, pauseForBlocker])
+        return () => { /* no-op cleanup */ }
+    }, [carData.id, carData.animationDuration, hasBlocker, isReservationActive])
 
     // Resume movement automatically when reservation ends
     useEffect(() => {
@@ -99,6 +99,7 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
 
     return (
         <div 
+            ref={wrapperRef}
             className="absolute left-1/2"
             style={{
                 // Start above the lane area so cars appear from behind the header
@@ -111,8 +112,8 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
             }}
         >
             <Car
-                isAnimating={carState === 'moving'}
-                isContinuous={!hasBlocker && carState !== 'paused'} // Stop animation if blocked or paused
+                isAnimating={!hasBlocker && carState === 'moving'}
+                isContinuous={!hasBlocker && carState !== 'paused'} // No CSS movement when blocked; we drive via JS
                 onAnimationComplete={() => { }} // Handled by timer above
                 customSpeed={carData.animationDuration}
                 isBlocked={carState === 'stopped'}
