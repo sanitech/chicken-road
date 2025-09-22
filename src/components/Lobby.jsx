@@ -24,6 +24,8 @@ import car3 from '../assets/car3.png'
 import car4 from '../assets/car4.png'
 import { preloadImages } from '../utils/preloadAssets'
 import { GAME_CONFIG } from '../utils/gameConfig'
+import { TrafficProvider } from '../traffic/TrafficProvider'
+import trafficEngine from '../traffic/TrafficEngine'
 // Generate lanes based on difficulty configuration
 const generateLanesForDifficulty = (difficultyConfigs, difficulty = 'easy') => {
   const config = difficultyConfigs[difficulty]
@@ -749,6 +751,7 @@ function Chicken() {
     setIsRestarting(true)
     setStableRange({ start: 0, end: 4 }) // Reset stable range
     setBlockedNextLane(false) // clear blocker
+    setCrashVisual({ lane: -1, tick: 0 }) // clear any crash lane visuals
     setResetKey(prev => prev + 1) // force Lane re-mount to reset cars
 
     // Clear server game state
@@ -756,6 +759,17 @@ function Chicken() {
     setIsGameActive(false)
     setServerMultiplier(null)
     setGameError(null)
+
+    // Reset global traffic engine to remove any leftover cars/state
+    try {
+      trafficEngine.stop()
+      trafficEngine.reset()
+      // Re-init with current lane count and sprites so it restarts cleanly
+      trafficEngine.init({ laneCount: allLanes.length, cfg: GAME_CONFIG, carSprites: [car1, car2, car3, car4] })
+      trafficEngine.start()
+    } catch (e) {
+      console.warn('Traffic engine reset encountered an issue:', e)
+    }
 
     // Crash index removed: server determines crashes via WebSocket/HTTP responses.
     console.log('Game reset complete - waiting for server to determine crashes')
@@ -810,7 +824,11 @@ function Chicken() {
       // If backend says first lane (server 0) will crash, still animate jump then crash
       if (gameData?.canMoveFirstMove === false || gameData?.isCrashOnFirstLane === true) {
         // Animate to lane 1
-        startJump(currentLaneIndex + 1);
+        // Ensure no blocker shows on the crash lane and inject a crash car for the visual
+        const nextPosition = currentLaneIndex + 1
+        setBlockedNextLane(false)
+        setCrashVisual({ lane: nextPosition, tick: Date.now() })
+        startJump(nextPosition);
         // After animation, handle crash
         setTimeout(() => {
           handleCrash({ reason: 'first_move_crash', currentLane: 0 });
@@ -907,7 +925,8 @@ function Chicken() {
 
       {/* Full-Screen Game Container */}
       <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden">
-              <Lane
+        <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4]}>
+          <Lane
           key={resetKey}
           remainingMultipliers={allLanes} // render all multipliers
           currentIndex={currentLaneIndex} // relative index equals global since start=0
@@ -927,7 +946,8 @@ function Chicken() {
           onCarBlockedStop={handleCarBlockedStop}
           crashVisualLane={crashVisual.lane}
           crashVisualTick={crashVisual.tick}
-        />
+          />
+        </TrafficProvider>
 
         {/* Game Error Overlay */}
         {gameError && (

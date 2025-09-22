@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from "react"; 
 import heroImage from '../assets/hero-img.png';
+import cap1Image from '../assets/cap1.png'
+import cap2Image from '../assets/cap2.png'
+import blockerImage from '../assets/blocker.png'
+import sideRoadImage from '../assets/sideroad.png'
+import finalSideRoadImage from '../assets/final.png'
+import car1 from '../assets/car1.png'
+import car2 from '../assets/car2.png'
+import car3 from '../assets/car3.png'
+import car4 from '../assets/car4.png'
+import logoImage from '../assets/logo.png'
+import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
+import deadChickenImage from '../assets/chickendead.png'
+import { preloadImages } from '../utils/preloadAssets'
 import { useGetUserInfo } from "../utils/getUserinfo";
 
 const Loading = ({ onLoadingComplete }) => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [assetsReady, setAssetsReady] = useState(false)
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token") || localStorage.getItem("chicknroad");
   
@@ -26,23 +40,33 @@ const Loading = ({ onLoadingComplete }) => {
   };
 
   useEffect(() => {
-    // Simulate loading progress while fetching user info
+    // Simulate loading progress while fetching and preloading
     const progressInterval = setInterval(() => {
-      setLoadingProgress(prev => Math.min(99, prev + Math.random() * 15));
-    }, 100);
-
+      setLoadingProgress(prev => Math.min(99, prev + Math.random() * 12));
+    }, 120);
     return () => clearInterval(progressInterval);
   }, [onLoadingComplete]);
 
-  // When user info finishes loading, complete overlay
+  // Preload image assets at app start
   useEffect(() => {
-    if (!isLoading) {
-      setLoadingProgress(100);
-      setTimeout(() => {
-        completeLoading();
-      }, 300);
+    const images = [
+      heroImage,
+      cap1Image, cap2Image, blockerImage,
+      sideRoadImage, finalSideRoadImage,
+      car1, car2, car3, car4,
+      logoImage, winNotificationImage, deadChickenImage,
+    ]
+    preloadImages(images).then(() => setAssetsReady(true))
+  }, [])
+
+  // Complete when both assets and user info are ready
+  useEffect(() => {
+    if (!isLoading && assetsReady) {
+      setLoadingProgress(100)
+      const t = setTimeout(() => completeLoading(), 300)
+      return () => clearTimeout(t)
     }
-  }, [isLoading]);
+  }, [isLoading, assetsReady])
 
   // Show error message if authentication fails
   if (error && !isLoading) {

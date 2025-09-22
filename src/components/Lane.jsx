@@ -10,29 +10,21 @@ import car2 from '../assets/car2.png'
 import car3 from '../assets/car3.png'
 import car4 from '../assets/car4.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
-import { useTrafficGenerator } from '../hooks/useTrafficGenerator'
+import { useTraffic } from '../traffic/TrafficProvider'
 
 function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, shouldAnimateCar = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false, onCarBlockedStop = () => {}, crashVisualLane = -1, crashVisualTick = 0 }) {
     // Removed legacy carAnimationState; DynamicCar manages its own animation lifecycle.
 
-    // Traffic generation via custom hook
-    const carSprites = useMemo(() => [car1, car2, car3, car4], [])
-    const { dynamicCars, markCarDone, addOneShotCar } = useTrafficGenerator({
-        remainingMultipliers,
-        globalDisplayStart,
-        allLanes,
-        isJumping,
-        globalCurrentIndex,
-        jumpStartLane,
-        blockedNextLane,
-        carSprites,
-    })
+    // Traffic via global engine context (independent of Lane re-renders)
+    const traffic = useTraffic()
+    const carsMap = traffic.getCarsMap()
+    const markCarDone = (laneIndex, carId) => traffic.markCarDone(laneIndex, carId)
 
     // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
     useEffect(() => {
         if (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) {
             // Inject a fast car to coincide with crash animation; duration roughly matches jump
-            addOneShotCar(crashVisualLane, 900)
+            traffic.injectCrashCar(crashVisualLane, 900)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crashVisualTick])
@@ -142,7 +134,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
                     // Only show server blocker for the next lane once the jump has actually started
                     const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
-                    const computedHasBlocker = baseBlocked || isBlockedByServer
+                    // Never show a blocker on the crash lane (visual car will handle the effect)
+                    const isCrashLane = (globalIndex === crashVisualLane)
+                    const computedHasBlocker = !isCrashLane && (baseBlocked || isBlockedByServer)
                     // Destination lane is where the chicken will land: during jump it's the jumpTargetLane,
                     // otherwise it's the immediate next lane from the current position
                     const isDestinationLane = isJumping ? (globalIndex === jumpTargetLane) : (globalIndex === globalCurrentIndex + 1)
@@ -226,8 +220,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 </>
                             )}
 
-                            {/* Smart car for this specific lane - with chicken collision detection */}
-                            {(dynamicCars.get(globalIndex) || []).map(carData => (
+                            {/* Smart car render for this lane (no client-side collision) */}
+                            {(carsMap.get(globalIndex) || []).map(carData => (
                                 <DynamicCar
                                     key={carData.id}
                                     carData={carData}
@@ -255,10 +249,6 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                     />
                                 </div>
                             )}
-
-
-
-
 
                             {/* Lane Divider Lines - Realistic Road Markings for each lane (excluding sideroad) */}
                             {globalIndex > 0 && globalIndex < allLanes.length - 1 && (

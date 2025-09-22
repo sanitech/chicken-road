@@ -48,11 +48,6 @@ export const GAME_CONFIG = {
     STOP_TOP_PERCENT: 35, // slightly above blocker/cap
     // Pause this much before STOP_TOP_PERCENT (as a fraction 0..1) to reduce visual snap
     STOP_EASE_DELTA: 0.05,
-    // Collision detection band for car vs chicken contact (percent-based)
-    // We consider a hit when the car vertical position is within +/- this band
-    // around DETECTION_TOP_PERCENT.
-    DETECTION_TOP_PERCENT: 20,
-    DETECTION_BAND_PERCENT: 8,
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
     SPAWN_TOP_OFFSET_PX: 90,

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, memo } from 'react'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import Car from './Car'
 
-// Smart Car Component with chicken collision detection and pause system
-function DynamicCar({ carData, hasBlocker, onAnimationComplete, cutoff = 0.6, onBlockedStop }) {
+// Car component: animates once; pauses under blockers; no client-side collision
+function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop }) {
   const [carState, setCarState] = useState('waiting') // waiting -> moving -> paused -> stopped -> gone
   const wrapperRef = useRef(null)
   // Control wrapper Y position via state so React doesn't overwrite it on re-render
