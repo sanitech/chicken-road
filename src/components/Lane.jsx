@@ -39,14 +39,16 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
         }
     }
 
+    // Initialize when a NEW car mounts (by id)
     useEffect(() => {
-        // Start immediately (no artificial delay)
         setCarState('moving')
-
-        // Reset position on new car id
         setCurrentTopPx(spawnOffset)
+        // reset one-shot flags
+        setHasPlayedCrashAudio(false)
+    }, [carData.id])
 
-        // JS-controlled decelerating stop when blocker is present (reservation or base/server blockers)
+    // Handle blocker deceleration without resetting position on non-id changes
+    useEffect(() => {
         if (hasBlocker) {
             const el = wrapperRef.current
             if (!el) return
@@ -95,7 +97,7 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
                 removeTimerRef.current = null
             }
         }
-    }, [carData.id, carData.animationDuration, hasBlocker, isReservationActive])
+    }, [hasBlocker, isReservationActive, carData.animationDuration, currentTopPx])
 
     // Resume movement automatically when reservation ends
     useEffect(() => {
