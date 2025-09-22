@@ -10,6 +10,7 @@ import Car from './Car'
 import car1 from '../assets/car1.png'
 import car2 from '../assets/car2.png'
 import car3 from '../assets/car3.png'
+import car4 from '../assets/car4.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
 // Smart Car Component with chicken collision detection and pause system
@@ -18,6 +19,10 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
     const [hasPlayedCrashAudio, setHasPlayedCrashAudio] = useState(false) // Track if audio already played
     const [pausedByReservation, setPausedByReservation] = useState(false)
     const wrapperRef = useRef(null)
+    // Control wrapper Y position via state so React doesn't overwrite it on re-render
+    const spawnOffset = -(GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0)
+    const [currentTopPx, setCurrentTopPx] = useState(spawnOffset)
+    const removeTimerRef = useRef(null)
 
     // Play crash audio when car hits blocker - only once
     const playCrashAudio = () => {
@@ -38,6 +43,9 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
         // Start immediately (no artificial delay)
         setCarState('moving')
 
+        // Reset position on new car id
+        setCurrentTopPx(spawnOffset)
+
         // JS-controlled decelerating stop when blocker is present (reservation or base/server blockers)
         if (hasBlocker) {
             const el = wrapperRef.current
@@ -51,11 +59,8 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
             const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 20
             const targetTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
 
-            // Starting top in px (current style top), default to spawn offset if not set
-            const spawnOffset = -(GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0)
-            const startTop = typeof el.style.top === 'string' && el.style.top.endsWith('px')
-                ? parseFloat(el.style.top)
-                : spawnOffset
+            // Starting top from state (persisted across renders)
+            const startTop = currentTopPx
 
             const duration = Math.min(900, Math.max(400, carData.animationDuration * 0.4))
             const startTime = performance.now()
@@ -66,7 +71,7 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
                 const t = Math.min(1, (now - startTime) / duration)
                 const eased = easeOutCubic(t)
                 const y = startTop + (targetTop - startTop) * eased
-                el.style.top = `${y}px`
+                setCurrentTopPx(y)
                 if (t < 1) {
                     requestAnimationFrame(step)
                 } else {
@@ -77,15 +82,19 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
 
                     // If not reservation-controlled, optionally remove after some time
                     if (!isReservationActive) {
-                        const timer = setTimeout(() => setCarState('gone'), Math.max(600, carData.animationDuration))
-            return () => clearTimeout(timer)
+                        removeTimerRef.current = setTimeout(() => setCarState('gone'), Math.max(600, carData.animationDuration))
                     }
                 }
             }
             requestAnimationFrame(step)
         }
 
-        return () => { /* no-op cleanup */ }
+        return () => {
+            if (removeTimerRef.current) {
+                clearTimeout(removeTimerRef.current)
+                removeTimerRef.current = null
+            }
+        }
     }, [carData.id, carData.animationDuration, hasBlocker, isReservationActive])
 
     // Resume movement automatically when reservation ends
@@ -102,8 +111,8 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
             ref={wrapperRef}
             className="absolute left-1/2"
             style={{
-                // Start above the lane area so cars appear from behind the header
-                top: `-${GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0}px`,
+                // Use state-controlled top so it persists across re-renders
+                top: `${currentTopPx}px`,
                 transform: 'translateX(-50%)',
                 // Dynamic animation speed based on car data
                 '--car-animation-duration': `${carData.animationDuration}ms`,
@@ -113,8 +122,8 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
         >
             <Car
                 isAnimating={!hasBlocker && carState === 'moving'}
-                isContinuous={!hasBlocker && carState !== 'paused'} // No CSS movement when blocked; we drive via JS
-                onAnimationComplete={() => { }} // Handled by timer above
+                isContinuous={false} // Single-run so cars finish naturally and are not swapped mid-way
+                onAnimationComplete={onAnimationComplete} // Bubble completion to parent to mark car as done
                 customSpeed={carData.animationDuration}
                 isBlocked={carState === 'stopped'}
                 isPaused={carState === 'paused'}
@@ -174,7 +183,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     useEffect(() => {
         const timers = new Map()
 
-        const carSprites = [car1, car2, car3]
+        const carSprites = [car1, car2, car3, car4]
 
         const expRand = (mean) => {
             const u = Math.max(1e-6, Math.random())
@@ -233,7 +242,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
                     // Prune old cars by time to keep array fresh
                     const now = Date.now()
-                    const pruned = arr.filter(c => (now - c.startTime) <= (c.animationDuration + 50))
+                    // Keep all cars unless they've explicitly finished (done=true)
+                    const pruned = arr.filter(c => !c.done)
 
                     // Headway check against last active car
                     const last = pruned[pruned.length - 1]
@@ -303,21 +313,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         }
     }, [remainingMultipliers, globalDisplayStart, allLanes.length, isJumping, globalCurrentIndex, jumpStartLane, blockedNextLane])
 
-    // Periodic cleanup of finished cars so arrays don't block new spawns
+    // Periodic cleanup of finished cars only (do NOT time-prune active/paused cars)
     useEffect(() => {
         const intervalMs = GAME_CONFIG.TRAFFIC?.CLEANUP_INTERVAL_MS ?? 800
         const cleanup = setInterval(() => {
             setDynamicCars(prev => {
                 const next = new Map(prev)
                 let changed = false
-                const now = Date.now()
                 next.forEach((arr, lane) => {
-                    const pruned = (arr || []).filter(c => {
-                        // If marked done by animationend, remove
-                        if (c.done) return false
-                        // Otherwise keep generously to avoid premature pruning (allow pauses)
-                        return (now - c.startTime) <= (c.animationDuration * 3)
-                    })
+                    // Remove only cars that have been explicitly marked done by animation end
+                    const pruned = (arr || []).filter(c => !c.done)
                     if (pruned.length !== (arr || []).length) {
                         next.set(lane, pruned)
                         changed = true

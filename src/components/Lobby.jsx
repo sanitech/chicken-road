@@ -21,6 +21,7 @@ import sideRoadImage from '../assets/sideroad.png'
 import car1 from '../assets/car1.png'
 import car2 from '../assets/car2.png'
 import car3 from '../assets/car3.png'
+import car4 from '../assets/car4.png'
 import { preloadImages } from '../utils/preloadAssets'
 import { GAME_CONFIG } from '../utils/gameConfig'
 // Generate lanes based on difficulty configuration
@@ -596,6 +597,7 @@ function Chicken() {
       car1,
       car2,
       car3,
+      car4,
       logoImage,
       winNotificationImage,
       deadChickenImage

@@ -19,14 +19,13 @@ export const GAME_CONFIG = {
   CHICKEN_TOP_PERCENT: 60,
 
   // Car/blocker visuals
-  CAR_BLOCKER_BOTTOM_PERCENT: 60, // Legacy: Blocker vertical placement (distance from bottom in %)
 
   // Absolute positioning controls (percentages are relative to lane column height)
   CAP: {
     // Size configuration for cap images
     SIZE_PX: 100,
     // Vertical position of the cap (grate), absolute within lane column
-    TOP_PERCENT: 60, // default: align with CHICKEN_TOP_PERCENT
+    TOP_PERCENT: 70, // default: align with CHICKEN_TOP_PERCENT
     // CSS object-position value for the cap image inside its lane column
     // Example: 'center bottom', 'center bottom 35%'
     OBJECT_POSITION: 'center bottom 35%',
@@ -34,9 +33,9 @@ export const GAME_CONFIG = {
 
   BLOCKER: {
     // Size configuration for blocker images
-    SIZE_PX: 140,
+    SIZE_PX: 120,
     // Prefer TOP_PERCENT; if omitted, code will fallback to CAR_BLOCKER_BOTTOM_PERCENT
-    TOP_PERCENT: 30, // slightly above cap
+    TOP_PERCENT: 40, // slightly above cap
     // If an existing car has already progressed beyond this fraction of its path
     // when the jump starts, do not interrupt it (let it finish).
     STOP_CUTOFF_PROGRESS: 0.6,
@@ -46,9 +45,9 @@ export const GAME_CONFIG = {
   CAR: {
     // Size configuration for car images
     SIZE_PX: 100,
-    STOP_TOP_PERCENT: 20, // slightly above blocker/cap
+    STOP_TOP_PERCENT: 30, // slightly above blocker/cap
     // Pause this much before STOP_TOP_PERCENT (as a fraction 0..1) to reduce visual snap
-    STOP_EASE_DELTA: 0.05,
+    STOP_EASE_DELTA: 0.1,
     // Collision detection band for car vs chicken contact (percent-based)
     // We consider a hit when the car vertical position is within +/- this band
     // around DETECTION_TOP_PERCENT.
