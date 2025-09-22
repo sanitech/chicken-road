@@ -80,7 +80,7 @@ function Chicken({
           {...(!isJumping ? {
             perRowYOffset: [-4, -2, -4, -4, -4, -4],
             restEveryLoops: 2,
-            restDurationMs: 600,
+            restDurationMs: 300,
             restAt: 'last'
           } : {})}
           // Provide subtle per-row Y-offsets to stabilize baseline if needed (optional)

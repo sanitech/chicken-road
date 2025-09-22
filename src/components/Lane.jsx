@@ -84,15 +84,8 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
             requestAnimationFrame(tick2)
         }
 
-        // Normal completion timer
-        const completionTimer = setTimeout(() => {
-            setCarState('gone')
-            if (carData.isCrashLane && onAnimationComplete) {
-                onAnimationComplete()
-            }
-        }, carData.animationDuration)
-
-        return () => clearTimeout(completionTimer)
+        // Remove old time-based completion; rely on animationend from Car instead
+        return () => {}
     }, [carData.id, carData.animationDuration, carData.isCrashLane, carData.laneIndex, onAnimationComplete, isChickenJumping, chickenTargetLane, isReservationActive, reservationDecision, cutoff, pausedByReservation, pauseForBlocker])
 
     // Resume movement automatically when reservation ends
@@ -318,7 +311,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 let changed = false
                 const now = Date.now()
                 next.forEach((arr, lane) => {
-                    const pruned = (arr || []).filter(c => (now - c.startTime) <= (c.animationDuration + 50))
+                    const pruned = (arr || []).filter(c => {
+                        // If marked done by animationend, remove
+                        if (c.done) return false
+                        // Otherwise keep generously to avoid premature pruning (allow pauses)
+                        return (now - c.startTime) <= (c.animationDuration * 3)
+                    })
                     if (pruned.length !== (arr || []).length) {
                         next.set(lane, pruned)
                         changed = true
@@ -559,7 +557,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                     isReservationActive={reservationRef.current.active && reservationRef.current.targetLane === globalIndex}
                                     reservationDecision={reservationRef.current.decision}
                                     cutoff={GAME_CONFIG.BLOCKER.STOP_CUTOFF_PROGRESS}
-                                    onAnimationComplete={() => { }}
+                                    onAnimationComplete={() => {
+                                        // Mark car as done so cleanup can prune it
+                                        setDynamicCars(prev => {
+                                            const next = new Map(prev)
+                                            const arr = next.get(globalIndex) || []
+                                            next.set(globalIndex, arr.map(c => c.id === carData.id ? { ...c, done: true } : c))
+                                            return next
+                                        })
+                                    }}
                                     isChickenJumping={isJumping}
                                     chickenTargetLane={jumpTargetLane}
                                 />

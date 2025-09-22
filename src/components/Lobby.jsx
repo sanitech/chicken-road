@@ -379,16 +379,22 @@ function Chicken() {
     // No dynamic multiplier removal - using pre-generated lanes
   }
 
-  // Auto-jump to final sidewalk once we reach the last multiplier (and are alive)
+  // Auto-jump to final sidewalk when standing on the LAST multiplier value (e.g., 2.80)
   useEffect(() => {
     if (!Array.isArray(allLanes) || allLanes.length === 0) return
     if (!isGameActive) return
     if (isDead || gameEnded) return
     if (isJumping) return
-    // When standing on last multiplier lane, trigger one last jump into final sidewalk
-    if (currentLaneIndex === allLanes.length - 1 && !autoFinalJumped) {
-      console.log('Auto final jump to sidewalk from max multiplier')
-      startJump(allLanes.length)
+    if (autoFinalJumped) return
+
+    // Determine the currently displayed multiplier (UI index maps to array index - 1)
+    const currentValue = currentLaneIndex > 0 ? allLanes[currentLaneIndex - 1] : null
+    const lastValue = allLanes[allLanes.length - 1]
+
+    // If currently on the last multiplier value, auto-jump to the final sidewalk (next UI index)
+    if (currentValue != null && currentValue === lastValue) {
+      console.log('Auto final jump to sidewalk from last multiplier value', currentValue)
+      startJump(currentLaneIndex + 1)
       setAutoFinalJumped(true)
     }
   }, [currentLaneIndex, isJumping, isDead, gameEnded, allLanes, isGameActive, autoFinalJumped])
