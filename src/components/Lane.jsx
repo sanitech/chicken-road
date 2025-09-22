@@ -12,7 +12,7 @@ import car4 from '../assets/car4.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import { useTraffic } from '../traffic/TrafficProvider'
 
-function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, shouldAnimateCar = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false, onCarBlockedStop = () => {}, crashVisualLane = -1, crashVisualTick = 0 }) {
+function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false, onCarBlockedStop = () => {}, crashVisualLane = -1, crashVisualTick = 0 }) {
     // Removed legacy carAnimationState; DynamicCar manages its own animation lifecycle.
 
     // Traffic via global engine context (independent of Lane re-renders)

@@ -935,7 +935,6 @@ function Chicken() {
           globalDisplayStart={0}
           allLanes={allLanes}
           isDead={isDead}
-          shouldAnimateCar={false}
                 gameEnded={gameEnded}
                 isJumping={isJumping}
                 jumpProgress={jumpProgress}

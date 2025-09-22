@@ -36,9 +36,6 @@ export const GAME_CONFIG = {
     SIZE_PX: 120,
     // Prefer TOP_PERCENT; if omitted, code will fallback to CAR_BLOCKER_BOTTOM_PERCENT
     TOP_PERCENT: 40, // slightly above cap
-    // If an existing car has already progressed beyond this fraction of its path
-    // when the jump starts, do not interrupt it (let it finish).
-    STOP_CUTOFF_PROGRESS: 0.6,
   },
 
   // Where cars should stop (when blocked), as a top percent inside the lane column
@@ -46,8 +43,6 @@ export const GAME_CONFIG = {
     // Size configuration for car images
     SIZE_PX: 100,
     STOP_TOP_PERCENT: 35, // slightly above blocker/cap
-    // Pause this much before STOP_TOP_PERCENT (as a fraction 0..1) to reduce visual snap
-    STOP_EASE_DELTA: 0.05,
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
     SPAWN_TOP_OFFSET_PX: 90,
@@ -63,11 +58,8 @@ export const GAME_CONFIG = {
 
   // Car generation and movement tuning
   CAR_SPEED: {
-    CRASH_LANE_SPEED_MS: 1200,
     LANE_SPEED_PATTERN_MS: [2800, 2600, 2400, 2200, 2000],
     TRAFFIC_BASE_INTERVAL_MS: 2500,
-    TRAFFIC_PER_LANE_INCREMENT_MS: 200,
-    TRAFFIC_RANDOM_JITTER_MS: 1000,
     // Minimum allowed speed for cars (after jitter and multipliers)
     MIN_SPEED_MS: 700,
     // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
@@ -90,8 +82,6 @@ export const GAME_CONFIG = {
     HEADWAY_MIN_TIME_FRACTION: 0.40,
     // Maximum number of cars to actively render per lane for performance.
     MAX_CARS_PER_LANE_VISIBLE: 3,
-    // How many lanes outside the visible window to keep traffic generation active.
-    VISIBLE_BUFFER_LANES: 1,
     // Absolute minimum delay between spawns (ms), after jitter and randomness
     MIN_DELAY_MS: 1800,
     // Initial randomized offset (ms) for first spawn per lane: [min, max]
@@ -103,19 +93,9 @@ export const GAME_CONFIG = {
     PER_LANE_SPAWN_ENABLED: [],
     // Global multiplier for spawn frequency (1.0 = unchanged, <1.0 = more frequent, >1.0 = less frequent)
     SPAWN_RATE_MULTIPLIER: 1.0,
-    // Optional weighted sprite distribution matching available car sprites
-    // If empty, uniform distribution is used.
-    SPRITE_WEIGHTS: [],
     // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
     // keep at most 1 car in the lane queue until it's safe to spawn more.
     NO_OVERLAP_STRICT: true,
-  },
-
-  // Audio (placeholders for easy tuning)
-  AUDIO: {
-    MASTER_VOLUME: 1.0,
-    MUSIC_VOLUME: 0.3,
-    SFX_VOLUME: 0.7,
   },
 
   // Game restart tuning

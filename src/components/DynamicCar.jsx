@@ -9,7 +9,6 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
   // Control wrapper Y position via state so React doesn't overwrite it on re-render
   const spawnOffset = -(GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0)
   const [currentTopPx, setCurrentTopPx] = useState(spawnOffset)
-  const removeTimerRef = useRef(null)
   const notifiedBlockedRef = useRef(false)
   const rafRef = useRef(null)
 
@@ -71,14 +70,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
       }
-      if (removeTimerRef.current) {
-        clearTimeout(removeTimerRef.current)
-        removeTimerRef.current = null
-      }
     }
   }, [hasBlocker, carData.animationDuration, currentTopPx])
-
-  // No reservation-based resume; server controls flow
 
   if (carState === 'waiting' || carState === 'gone') return null
 
