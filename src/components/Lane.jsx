@@ -78,7 +78,7 @@ function DynamicCar({ carData, hasBlocker, pauseForBlocker = false, onAnimationC
                     // If not reservation-controlled, optionally remove after some time
                     if (!isReservationActive) {
                         const timer = setTimeout(() => setCarState('gone'), Math.max(600, carData.animationDuration))
-                        return () => clearTimeout(timer)
+            return () => clearTimeout(timer)
                     }
                 }
             }

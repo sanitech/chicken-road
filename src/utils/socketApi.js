@@ -7,20 +7,31 @@ class SocketGameAPI {
     this.gameId = null;
     this.moveCallbacks = new Map();
     this.isConnected = false;
+    this.connectPromise = null;
   }
 
   // Connect to WebSocket server
-  connect() {
+  connect(token) {
     if (this.socket) return;
 
+    // Get token from localStorage if not provided
+    const authToken = token || localStorage.getItem("chicknroad");
+    
     this.socket = io(apiUrl, {
       transports: ['websocket', 'polling'],
       timeout: 5000,
+      auth: {
+        token: authToken
+      }
     });
 
     this.socket.on('connect', () => {
       console.log('🔗 WebSocket connected');
       this.isConnected = true;
+      if (this.connectPromise) {
+        this.connectPromise.resolve();
+        this.connectPromise = null;
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -41,6 +52,10 @@ class SocketGameAPI {
 
     this.socket.on('connect_error', (error) => {
       console.error('🚫 WebSocket connection error:', error);
+      if (this.connectPromise) {
+        this.connectPromise.reject(error);
+        this.connectPromise = null;
+      }
     });
   }
 
@@ -62,13 +77,35 @@ class SocketGameAPI {
     console.log(`🎮 Joined game room: ${gameId}`);
   }
 
+  // Wait for socket connection with timeout
+  async waitForConnection(timeoutMs = 3000) {
+    if (this.isSocketConnected()) return;
+    if (!this.connectPromise) {
+      let resolveFn, rejectFn;
+      const p = new Promise((resolve, reject) => {
+        resolveFn = resolve;
+        rejectFn = reject;
+      });
+      this.connectPromise = { promise: p, resolve: resolveFn, reject: rejectFn };
+    }
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('WebSocket connect timeout')), timeoutMs));
+    await Promise.race([this.connectPromise.promise, timeout]).catch((e) => { throw e; });
+  }
+
+  // Ensure connected (calls connect if needed) and waits
+  async ensureConnected(token) {
+    if (!this.socket) {
+      this.connect(token);
+    }
+    if (!this.isSocketConnected()) {
+      await this.waitForConnection();
+    }
+  }
+
   // Validate move with WebSocket (instant response)
   async validateMove(gameId, currentLane, token) {
+    await this.ensureConnected(token);
     return new Promise((resolve, reject) => {
-      if (!this.socket || !this.isConnected) {
-        reject(new Error('WebSocket not connected'));
-        return;
-      }
 
       // Prevent concurrent validations for the same lane to avoid callback overwrite
       if (this.moveCallbacks.has(currentLane)) {
@@ -101,11 +138,8 @@ class SocketGameAPI {
 
   // Cash out with WebSocket (instant response)
   async cashOut(gameId, currentLane, token) {
+    await this.ensureConnected(token);
     return new Promise((resolve, reject) => {
-      if (!this.socket || !this.isConnected) {
-        reject(new Error('WebSocket not connected'));
-        return;
-      }
 
       // Store callback for cash out
       const cashOutCallback = (result) => {
