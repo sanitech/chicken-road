@@ -95,7 +95,7 @@ export const GAME_CONFIG = {
     // Minimum allowed speed for cars (after jitter and multipliers)
     MIN_SPEED_MS: 700,
     // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
-    SPEED_MULTIPLIER: 0.7, // 70% faster globally
+    SPEED_MULTIPLIER: 0.8, // 70% faster globally
   },
 
   // Stochastic traffic configuration (irregular, realistic)
