@@ -752,7 +752,7 @@ function Chicken() {
 
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950 text-white overflow-hidden" style={{ backgroundColor: '#1A1A1A' }}>
+        <div className="flex min-h-screen flex-col text-white overflow-hidden" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND }}>
       {/* CSS to hide number input arrows */}
       <style>{`
         input[type="number"]::-webkit-outer-spin-button,
@@ -765,7 +765,7 @@ function Chicken() {
         }
       `}</style>
       {/* Mobile-First Game Header */}
-      <header className="bg-black px-1 py-2 flex items-center justify-between border-b border-gray-900">
+        <header className="px-1 py-2 flex items-center justify-between border-b" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND, borderColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
         <div className="flex items-center gap-2">
           <img
             src={logoImage}
@@ -775,19 +775,19 @@ function Chicken() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2" style={{ backgroundColor: '#2A2A2A' }}>
-            <FaCoins className="text-yellow-400 text-sm" />
+          <div className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+            <FaCoins className="text-sm" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }} />
             {userInfo ? (
               <>
-                <span className="text-sm sm:text-md font-bold">
+                <span className="text-sm sm:text-md font-bold" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
                   {userInfo.balance?.toFixed(2) || '0.00'}
                 </span>
-                <span className="text-xs text-gray-300">ETB</span>
+                <span className="text-xs" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>ETB</span>
               </>
             ) : (
               <>
-                <div className="w-16 h-4 bg-gray-600 rounded animate-pulse"></div>
-                <span className="text-xs text-gray-300">ETB</span>
+                <div className="w-16 h-4 rounded animate-pulse" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
+                <span className="text-xs" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>ETB</span>
               </>
             )}
           </div>
@@ -795,7 +795,7 @@ function Chicken() {
       </header>
 
       {/* Full-Screen Game Container */}
-      <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden">
+        <div ref={gameContainerRef} className="grow relative  w-full h-[58%] overflow-hidden" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
         <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4, car5, car6]}>
               <Lane
             key={resetKey}
@@ -822,13 +822,17 @@ function Chicken() {
         {/* Game Error Overlay */}
         {gameError && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
-            <div className="bg-red-600 rounded-xl p-6 text-center shadow-2xl max-w-sm">
-              <div className="text-2xl font-bold mb-2">⚠️ Error</div>
-              <div className="text-sm opacity-90 mb-4">{gameError}</div>
-              <button
-                onClick={() => setGameError(null)}
-                className="px-4 py-2 bg-white text-red-600 rounded-lg text-sm font-medium hover:bg-gray-100"
-              >
+        <div className="rounded-xl p-6 text-center shadow-2xl max-w-sm" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
+          <div className="text-2xl font-bold mb-2" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>⚠️ Error</div>
+          <div className="text-sm opacity-90 mb-4" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>{gameError}</div>
+          <button
+            onClick={() => setGameError(null)}
+            className="px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ 
+              backgroundColor: GAME_CONFIG.COLORS.PLAY_BUTTON,
+              color: GAME_CONFIG.COLORS.BRIGHT_TEXT
+            }}
+          >
                 OK
               </button>
             </div>
@@ -841,8 +845,8 @@ function Chicken() {
             <div className="relative">
               <img src={winNotificationImage} alt="Win Notification" className="w-96 h-40" />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div className=" text-black font-black text-lg px-6  ">WIN!</div>
-                <div className="text-white  font-bold text-2xl drop-shadow-lg mt-7">{lastCashOutAmount.toFixed(2)} ETB</div>
+          <div className="font-black text-lg px-6" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>WIN!</div>
+          <div className="font-bold text-2xl drop-shadow-lg mt-7" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{lastCashOutAmount.toFixed(2)} ETB</div>
               </div>
               </div>
             </div>
@@ -854,13 +858,13 @@ function Chicken() {
       {/* Enhanced Controller UI */}
       <div className="p-2 sm:p-4">
         <div className="max-w-7xl mx-auto">
-          <div className="rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-6" style={{ backgroundColor: '#444444' }}>
+          <div className="rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 sm:gap-4 lg:gap-6">
 
               {/* Left Section: Bet Controls */}
             <div className="flex items-center gap-4">
               {/* Bet Amount Control */}
-                <div className="flex items-center rounded-xl" style={{ backgroundColor: '#2A2A2A' }}>
+                <div className="flex items-center rounded-xl" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
                   <button
                     onMouseDown={() => startHold(decrementBet)}
                     onTouchStart={() => startHold(decrementBet)}
@@ -920,7 +924,7 @@ function Chicken() {
                     audioManager.playButtonClickAudio();
                     setShowSettings(true);
                   }}
-                  className="px-4 py-3 rounded-xl flex items-center justify-center text-white transition-all" style={{ backgroundColor: '#2A2A2A' }}>
+                  className="px-4 py-3 rounded-xl flex items-center justify-center transition-all" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED, color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
                   <FaCog className="text-lg" />
                 </button>
             </div>
@@ -937,15 +941,15 @@ function Chicken() {
                       }
                     }}
                     disabled={currentLaneIndex > 0}
-                    className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-800'}`} style={{ backgroundColor: '#2A2A2A' }}>
-                    <span className="text-white font-medium text-lg">{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`}>
+                    className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`} style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+                    <span className="font-medium text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`} style={{ fill: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
                       <path d="M7 10l5 5 5-5z" />
                     </svg>
               </button>
 
                   {showDifficultyDropdown && currentLaneIndex === 0 && (
-                    <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden z-50  shadow-2xl" style={{ backgroundColor: '#2A2A2A' }}>
+                    <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden z-50  shadow-2xl" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
                       {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
                   <button
                           key={key}
@@ -953,9 +957,10 @@ function Chicken() {
                             changeDifficulty(key)
                             setShowDifficultyDropdown(false)
                           }}
-                          className={`w-full p-4 text-left  transition-colors ${currentDifficulty === key ? 'bg-gray-800' : ''}`}
+                          className={`w-full p-4 text-left  transition-colors ${currentDifficulty === key ? 'opacity-80' : ''}`}
+                          style={{ backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.MORE_ELEVATED : 'transparent' }}
                         >
-                          <div className="text-white font-medium text-lg">{config.name}</div>
+                          <div className="font-medium text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{config.name}</div>
                   </button>
                       ))}
                     </div>
@@ -969,10 +974,12 @@ function Chicken() {
                       key={key}
                       onClick={() => changeDifficulty(key)}
                       disabled={currentLaneIndex > 0}
-                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${currentDifficulty === key
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                        } ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      style={{
+                        backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.ELEVATED,
+                        color: GAME_CONFIG.COLORS.BRIGHT_TEXT,
+                        boxShadow: currentDifficulty === key ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}` : 'none'
+                      }}
                     >
                       {config.name}
                   </button>
@@ -988,9 +995,17 @@ function Chicken() {
                     onClick={startNewGame}
                     disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
                     className={`w-full lg:w-48 h-16 lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
-                      ? 'opacity-50 cursor-not-allowed bg-gray-700'
-                      : 'hover:opacity-90 active:scale-95 bg-green-500 text-white shadow-lg shadow-green-500/25'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
                       }`}
+                    style={{
+                      backgroundColor: !userInfo || (userInfo.balance < betAmount) || isCreatingGame 
+                        ? GAME_CONFIG.COLORS.TERTIARY_TEXT 
+                        : GAME_CONFIG.COLORS.PLAY_BUTTON,
+                      boxShadow: !userInfo || (userInfo.balance < betAmount) || isCreatingGame 
+                        ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}` 
+                        : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                    }}
                   >
                     {isCreatingGame ? 'Creating...' :
                       !userInfo ? 'Loading...' :
@@ -1002,7 +1017,11 @@ function Chicken() {
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
-                      className="w-full h-16 font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 bg-yellow-400 text-black shadow-lg shadow-yellow-400/25"
+                      className="w-full h-16 font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 text-black shadow-lg"
+                      style={{
+                        backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
+                        boxShadow: `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                      }}
                     >
                       <div className="text-center">
                         <div className="text-base opacity-90">CASH OUT</div>
@@ -1017,9 +1036,17 @@ function Chicken() {
                       onClick={moveToNextLaneWithToken}
                       disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
                       className={`w-full h-16 font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
-                        ? 'opacity-50 cursor-not-allowed bg-gray-700'
-                        : 'hover:opacity-90 active:scale-95 bg-green-500 text-white shadow-lg shadow-green-500/25'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
                         }`}
+                      style={{
+                        backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
+                          ? GAME_CONFIG.COLORS.TERTIARY_TEXT
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
+                        boxShadow: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
+                          ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}`
+                          : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                      }}
                     >
                       {isDead || gameEnded ? '💀' : currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}
               </button>
@@ -1039,13 +1066,13 @@ function Chicken() {
       {/* Settings Popup Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl" style={{ backgroundColor: '#2A2A2A' }}>
+          <div className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND }}>
             {/* Profile header */}
             <div className="px-8 pt-8 pb-6 text-center">
               <div className="mx-auto w-20 h-20 rounded-full overflow-hidden ring-2 ring-gray-600 mb-4">
                 <img src={`https://i.pravatar.cc/160?u=${userInfo?.username || 'player'}`} alt="avatar" className="w-full h-full object-cover" />
               </div>
-              <div className="text-2xl font-semibold text-white">{userInfo?.username || 'Player'}</div>
+              <div className="text-2xl font-semibold" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{userInfo?.username || 'Player'}</div>
             </div>
 
             <div className="border-t border-gray-700" />
@@ -1053,14 +1080,16 @@ function Chicken() {
             {/* Settings list */}
             <div className="px-6 py-4 space-y-4">
               {/* Music Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
+              <div className="flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ 
+                backgroundColor: 'transparent'
+              }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: musicEnabled ? '#3DC55B' : '#545454' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: musicEnabled ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
                   </div>
                   <div>
-                    <span className="text-white font-medium block">Music</span>
-                    <span className="text-gray-400 text-sm">{musicEnabled ? 'Playing' : 'Paused'}</span>
+                    <span className="font-medium block" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Music</span>
+                    <span className="text-sm" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>{musicEnabled ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
                 <Switch
@@ -1073,8 +1102,8 @@ function Chicken() {
                       audioManager.current.pause()
                     }
                   }}
-                  onColor="#3DC55B"
-                  offColor="#545454"
+                  onColor={GAME_CONFIG.COLORS.PLAY_BUTTON}
+                  offColor={GAME_CONFIG.COLORS.TERTIARY_TEXT}
                   checkedIcon={false}
                   uncheckedIcon={false}
                   height={32}
@@ -1084,21 +1113,21 @@ function Chicken() {
               </div>
 
               {/* Sound Effects Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700 transition-colors">
+              <div className="flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ backgroundColor: 'transparent' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: soundEnabled ? '#3DC55B' : '#545454' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: soundEnabled ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" style={{ fill: GAME_CONFIG.COLORS.BRIGHT_TEXT }}><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
                   </div>
                   <div>
-                    <span className="text-white font-medium block">Sound Effects</span>
-                    <span className="text-gray-400 text-sm">{soundEnabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className="font-medium block" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Sound Effects</span>
+                    <span className="text-sm" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>{soundEnabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                 </div>
                 <Switch
                   checked={soundEnabled}
                   onChange={() => setSoundEnabled(!soundEnabled)}
-                  onColor="#3DC55B"
-                  offColor="#545454"
+                  onColor={GAME_CONFIG.COLORS.PLAY_BUTTON}
+                  offColor={GAME_CONFIG.COLORS.TERTIARY_TEXT}
                   checkedIcon={false}
                   uncheckedIcon={false}
                   height={32}
@@ -1116,15 +1145,23 @@ function Chicken() {
                   setShowHowToPlay(true)
                   setShowSettings(false)
                 }}
-                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-3 rounded-lg"
+                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-3 rounded-lg"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <div className="w-8 h-8 flex items-center justify-center"><span className="text-lg">ℹ️</span></div>
-                <span className="text-white font-medium">How to Play</span>
+                <span className="font-medium" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>How to Play</span>
               </button>
             </div>
 
             <div className="px-6 pb-6 pt-2 flex justify-end">
-              <button onClick={() => setShowSettings(false)} className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600">Close</button>
+              <button 
+                onClick={() => setShowSettings(false)} 
+                className="px-4 py-2 rounded-lg hover:opacity-80"
+                style={{ 
+                  backgroundColor: GAME_CONFIG.COLORS.ELEVATED,
+                  color: GAME_CONFIG.COLORS.BRIGHT_TEXT
+                }}
+              >Close</button>
             </div>
           </div>
         </div>
@@ -1133,25 +1170,25 @@ function Chicken() {
       {/* Mobile Menu Overlay */}
       {showMenu && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-end sm:items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm sm:mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm sm:mx-4 max-h-[80vh] overflow-y-auto" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
             {/* User Profile Section */}
             <div className="flex items-center gap-3 mb-6">
               {userInfo ? (
                 <>
                   <div className="flex-1">
-                    <div className="text-white font-medium">@{userInfo.username}</div>
-                    <div className="text-gray-400 text-sm flex items-center gap-1">
-                      <FaCoins className="text-[#A78BFA] text-xs" />
+                    <div className="font-medium" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>@{userInfo.username}</div>
+                    <div className="text-sm flex items-center gap-1" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
+                      <FaCoins className="text-xs" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }} />
                       {userInfo.balance?.toFixed(2) || '0.00'} ETB
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="animate-pulse flex items-center gap-3 w-full">
-                  <div className="w-12 h-12 rounded-full bg-gray-600"></div>
+                  <div className="w-12 h-12 rounded-full" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
                   <div className="flex-1">
-                    <div className="h-4 w-24 bg-gray-600 rounded mb-2"></div>
-                    <div className="h-3 w-16 bg-gray-600 rounded"></div>
+                    <div className="h-4 w-24 rounded mb-2" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
+                    <div className="h-3 w-16 rounded" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
                   </div>
                 </div>
               )}
@@ -1230,40 +1267,43 @@ function Chicken() {
                   setShowHowToPlay(true)
                   setShowMenu(false)
                 }}
-                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded"
+                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-2 rounded"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <div className="w-6 h-6 flex items-center justify-center">
                   <span className="text-lg">ℹ️</span>
                 </div>
-                <span className="text-white">How to play?</span>
+                <span style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>How to play?</span>
               </button>
 
               <Link
                 to="/preview"
-                className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded"
+                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-2 rounded"
                 onClick={() => setShowMenu(false)}
+                style={{ backgroundColor: 'transparent' }}
               >
                 <div className="w-6 h-6 flex items-center justify-center">
                   <span className="text-lg">🐔</span>
                 </div>
-                <span className="text-white">Chicken Animation Preview</span>
+                <span style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Chicken Animation Preview</span>
               </Link>
             </div>
 
             {/* Footer */}
             <div className="text-center">
-              <div className="text-gray-400 text-sm mb-2">Powered by</div>
+              <div className="text-sm mb-2" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>Powered by</div>
               <div className="flex items-center justify-center gap-1">
-                <span className="text-yellow-400 font-bold text-lg">IN</span>
-                <span className="text-white font-bold text-lg">OUT</span>
-                <span className="text-yellow-400 text-lg">→</span>
+                <span className="font-bold text-lg" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }}>IN</span>
+                <span className="font-bold text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>OUT</span>
+                <span className="text-lg" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }}>→</span>
               </div>
             </div>
 
             {/* Close button */}
             <button
               onClick={() => setShowMenu(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              className="absolute top-4 right-4 hover:opacity-80"
+              style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}
             >
               ✕
             </button>

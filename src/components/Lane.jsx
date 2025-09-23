@@ -110,7 +110,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             <div
                 className="absolute flex"
                 style={{
-                    background: `linear-gradient(to right, #716C69, #635E5A)`,
+                    background: GAME_CONFIG.COLORS.ASPHALT,
                     filter: isJumping ? `blur(${jumpProgress * 1}px)` : 'none',
                     opacity: 0.9,
                     left: 0,
@@ -208,8 +208,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                                     strokeLinejoin="round"
                                                     strokeLinecap="round"
                                                     paintOrder="stroke"
-                                                    opacity="1"
-                                                    strokeOpacity="1"
+                                                    opacity={isDestinationLane ? "1" : "0.7"}
+                                                    strokeOpacity={isDestinationLane ? "1" : "0.7"}
                                                     style={{ fontSize: `24px`, fontWeight: 900 }}
                                                 >
                                                     {allLanes[globalIndex - 1]?.toFixed(2)}x

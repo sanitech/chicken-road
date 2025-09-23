@@ -12,6 +12,34 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
   const notifiedBlockedRef = useRef(false)
   const rafRef = useRef(null)
 
+  // Helper: accelerate car out of the lane quickly from its current top
+  const accelerateOut = () => {
+    const el = wrapperRef.current
+    if (!el) return
+    const laneEl = el.parentElement
+    if (!laneEl) return
+    const laneHeight = laneEl.clientHeight
+    const startTop = currentTopRef.current
+    const endTop = laneHeight + (GAME_CONFIG.CAR.SIZE_PX || 100)
+    const duration = 350
+    const startTime = performance.now()
+    const easeIn = t => t * t
+    const step = (now) => {
+      const t = Math.min(1, (now - startTime) / duration)
+      const eased = easeIn(t)
+      const y = startTop + (endTop - startTop) * eased
+      currentTopRef.current = y
+      if (wrapperRef.current) wrapperRef.current.style.top = `${y}px`
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step)
+      } else {
+        setCarState('gone')
+        try { if (typeof onAnimationComplete === 'function') onAnimationComplete() } catch {}
+      }
+    }
+    rafRef.current = requestAnimationFrame(step)
+  }
+
   // Initialize when a NEW car mounts (by id)
   useEffect(() => {
     setCarState('moving')
@@ -25,7 +53,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
 
   // Handle blocker deceleration without resetting position on non-id changes
   useEffect(() => {
-    if (hasBlocker) {
+    if (hasBlocker && carState !== 'gone') {
       const el = wrapperRef.current
       if (!el) return
       // Find the lane column (absolute parent) to compute heights
@@ -37,6 +65,14 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 20
       const targetTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
 
+      // If we've already passed the stop point, accelerate out instead of snapping back
+      if (currentTopRef.current >= targetTop) {
+        // Already past blocker—leave quickly and mark as gone
+        setCarState('gone')
+        accelerateOut()
+        return
+      }
+
       // Starting top from ref (persisted across renders)
       const startTop = currentTopRef.current
 
@@ -44,6 +80,12 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const startTime = performance.now()
 
       const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+
+      // Trigger blocked sound/feedback at the BEGINNING of deceleration (more realistic)
+      if (!notifiedBlockedRef.current) {
+        notifiedBlockedRef.current = true
+        try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'decel-start' }) } catch {}
+      }
 
       const step = (now) => {
         const t = Math.min(1, (now - startTime) / duration)
@@ -58,11 +100,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         } else {
           // Reached stop point under blocker
           setCarState('paused')
-          // Notify parent (audio/UI) once
-          if (!notifiedBlockedRef.current) {
-            notifiedBlockedRef.current = true
-            try { if (typeof onBlockedStop === 'function') onBlockedStop(carData) } catch {}
-          }
+          // Optional: a separate event for reaching full stop
+          // try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
 
           // If not reservation-controlled, optionally remove after some time
           // Paused cars remain until finished; do not auto-remove here.
@@ -79,6 +118,14 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     }
   }, [hasBlocker, carData.animationDuration])
 
+  // When blocker clears while paused, prefer accelerating out to avoid blocking chicken
+  useEffect(() => {
+    if (!hasBlocker && carState === 'paused') {
+      accelerateOut()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasBlocker])
+
   if (carState === 'waiting' || carState === 'gone') return null
 
   return (
@@ -89,7 +136,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
         '--car-animation-duration': `${carData.animationDuration}ms`,
-        zIndex: 5
+        zIndex: carData.isCrashLane ? 15 : 5
       }}
     >
       <Car

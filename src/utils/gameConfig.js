@@ -7,6 +7,32 @@ export const GAME_CONFIG = {
   SIDEWALK_WIDTH_PX: 140,       // Width for the sidewalk (lane index 0)
   FINAL_SIDEWALK_WIDTH_PX: 400, // Width for the final sidewalk (lane index 0)
 
+  // Color scheme
+  COLORS: {
+    // Road elements
+    ASPHALT: '#716c69',
+    DASHES: '#d4d0cb',
+    
+    // UI backgrounds
+    BACKGROUND: '#424242',
+    ELEVATED: '#555555',
+    MORE_ELEVATED: '#646464',
+    
+    // Button colors
+    PLAY_BUTTON: '#3dc45b',
+    CASHOUT_BUTTON: '#fecf4b',
+    
+    // Text colors
+    BRIGHT_TEXT: '#fefffe',
+    SECONDARY_TEXT: '#a6a6a6',
+    TERTIARY_TEXT: '#797979',
+    
+    // Shadow colors (similar grays)
+    SHADOW_LIGHT: '#2a2a2a',
+    SHADOW_MEDIUM: '#1a1a1a',
+    SHADOW_DARK: '#0f0f0f'
+  },
+
   // Chicken
   CHICKEN_SIZE_PX: 90,         // Default chicken size (width = height)
   // Jump animation controls
@@ -51,7 +77,7 @@ export const GAME_CONFIG = {
     STOP_TOP_PERCENT: 15, // slightly above blocker/cap
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
-    SPAWN_TOP_OFFSET_PX: 90,
+    SPAWN_TOP_OFFSET_PX: 150,
   },
 
   // Parallax/scroll movement between lanes
@@ -78,9 +104,9 @@ export const GAME_CONFIG = {
     // Acts as the parameter for exponential inter-arrival sampling.
     MEAN_INTERVAL_MS_BY_LANE: [2800, 3200, 3600, 4000, 4400],
     // Additional symmetric jitter (ms) applied to the sampled delay.
-    ARRIVAL_JITTER_MS: 800,
+    ARRIVAL_JITTER_MS: 3000,
     // Per-car speed jitter as a fraction (0.1 => ±10%).
-    SPEED_JITTER_PERCENT: 0.1,
+    SPEED_JITTER_PERCENT: 0.2,
     // Minimum normalized progress (0..1) that the last car should reach before spawning another.
     HEADWAY_MIN_PROGRESS: 0.45,
     // Additionally require a minimum time gap relative to the last car's duration
@@ -98,7 +124,7 @@ export const GAME_CONFIG = {
     // Example: [true, true, false] disables lane 3 spawning. If shorter, remaining lanes default to true.
     PER_LANE_SPAWN_ENABLED: [],
     // Global multiplier for spawn frequency (1.0 = unchanged, <1.0 = more frequent, >1.0 = less frequent)
-    SPAWN_RATE_MULTIPLIER: 1.0,
+    SPAWN_RATE_MULTIPLIER: 0.7,
     // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
     // keep at most 1 car in the lane queue until it's safe to spawn more.
     NO_OVERLAP_STRICT: true,
