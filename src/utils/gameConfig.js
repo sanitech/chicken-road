@@ -95,7 +95,7 @@ export const GAME_CONFIG = {
     // Minimum allowed speed for cars (after jitter and multipliers)
     MIN_SPEED_MS: 700,
     // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
-    SPEED_MULTIPLIER: 1.1,
+    SPEED_MULTIPLIER: 0.7, // 70% faster globally
   },
 
   // Stochastic traffic configuration (irregular, realistic)
@@ -106,7 +106,7 @@ export const GAME_CONFIG = {
     // Additional symmetric jitter (ms) applied to the sampled delay.
     ARRIVAL_JITTER_MS: 3000,
     // Per-car speed jitter as a fraction (0.1 => ±10%).
-    SPEED_JITTER_PERCENT: 0.2,
+    SPEED_JITTER_PERCENT: 0.4,
     // Minimum normalized progress (0..1) that the last car should reach before spawning another.
     HEADWAY_MIN_PROGRESS: 0.45,
     // Additionally require a minimum time gap relative to the last car's duration
