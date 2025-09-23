@@ -10,17 +10,18 @@ export function TrafficProvider({ laneCount, carSprites, children }) {
   const sprites = useMemo(() => carSprites || [], [carSprites])
 
   useEffect(() => {
-    // Initialize engine once per laneCount/config/sprites change
-    engine.init({ laneCount, cfg: GAME_CONFIG, carSprites: sprites })
-    if (!startedRef.current) {
+    // Initialize engine once when we have a valid laneCount (>0)
+    if (!startedRef.current && typeof laneCount === 'number' && laneCount > 0) {
+      engine.init({ laneCount, cfg: GAME_CONFIG, carSprites: sprites })
       engine.start()
       startedRef.current = true
     }
+
     const unsub = engine.subscribe((snap) => {
       setSnapshot(snap)
     })
     return () => {
-      // Keep engine running across unmounts; only unsubscribe listener
+      // Keep engine running; only remove this listener
       unsub && unsub()
     }
   }, [laneCount, sprites])

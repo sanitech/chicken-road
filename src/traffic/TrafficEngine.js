@@ -45,9 +45,7 @@ export class TrafficEngine {
     for (let lane = 1; lane <= this.laneCount; lane++) {
       const en = perLaneEnabled[lane - 1]
       if (typeof en === 'boolean' && !en) continue
-      // Seed a car immediately if empty
-      this._seedLaneIfEmpty(lane)
-      // Schedule next arrivals
+      // Do NOT seed immediately; schedule the first randomized arrival only
       const initial = Math.random() * (rmax - rmin) + rmin
       const t = setTimeout(() => this._scheduleNext(lane), initial)
       this.timers.set(`init-${lane}-${Date.now()}`, t)

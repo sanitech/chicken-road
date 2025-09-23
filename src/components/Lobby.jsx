@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { useGetUserInfo } from '../utils/getUserinfo'
 import gameApi from '../utils/gameApi'
 import socketGameAPI from '../utils/socketApi'
+import { useAudioManager } from '../hooks/useAudioManager'
+import { useGameState } from '../hooks/useGameState'
+import { useGameLogic } from '../hooks/useGameLogic'
 import { FaCoins, FaCog } from 'react-icons/fa'
 import Switch from 'react-switch'
 import { Howl, Howler } from 'howler'
@@ -190,22 +193,51 @@ function Chicken() {
     difficulty: 0,
   })
 
-  // Lane movement state
-  const [currentLaneIndex, setCurrentLaneIndex] = useState(0)
-  const [movedLanes, setMovedLanes] = useState([0]) // Track all lanes the chicken has moved through
-  const [allLanes, setAllLanes] = useState(() => generateLanesForDifficulty(DIFFICULTY_CONFIGS, 'easy')) // Generate lanes based on difficulty
-  
-  // Jump physics state
-  const [isJumping, setIsJumping] = useState(false)
-  const [jumpProgress, setJumpProgress] = useState(0) // 0 to 1, progress through jump
-  const [jumpStartLane, setJumpStartLane] = useState(0)
-  const [jumpTargetLane, setJumpTargetLane] = useState(0)
-  const [autoFinalJumped, setAutoFinalJumped] = useState(false)
-  
-  // Crash control state
-  // Crash index removed - server handles all crash detection via WebSocket
-  const [gameEnded, setGameEnded] = useState(false) // Track if game has ended due to crash
-  const [isDead, setIsDead] = useState(false) // Track if chicken is dead (crashed)
+  // Use custom hooks for game state and logic
+  const gameStateHook = useGameState()
+  const {
+    currentLaneIndex,
+    movedLanes,
+    allLanes,
+    isJumping,
+    jumpProgress,
+    jumpStartLane,
+    jumpTargetLane,
+    autoFinalJumped,
+    gameEnded,
+    isDead,
+    isGameActive,
+    isRestarting,
+    currentGameId,
+    serverMultiplier,
+    blockedNextLane,
+    isValidatingNext,
+    crashVisual,
+    resetKey,
+    showCashOutAnimation,
+    lastCashOutAmount,
+    setCurrentLaneIndex,
+    setMovedLanes,
+    setAllLanes,
+    setIsJumping,
+    setJumpProgress,
+    setJumpStartLane,
+    setJumpTargetLane,
+    setAutoFinalJumped,
+    setGameEnded,
+    setIsDead,
+    setIsGameActive,
+    setIsRestarting,
+    setCurrentGameId,
+    setServerMultiplier,
+    setBlockedNextLane,
+    setIsValidatingNext,
+    setCrashVisual,
+    setResetKey,
+    setShowCashOutAnimation,
+    setLastCashOutAmount,
+    resetGameState
+  } = gameStateHook
 
   // Fixed lane width in pixels (central config)
   const LANE_WIDTH_PX = GAME_CONFIG.LANE_WIDTH_PX
@@ -223,6 +255,23 @@ function Chicken() {
   }
 
   const [windowSize, setWindowSize] = useState(5) // Number of lanes to show at once
+  const [stableRange, setStableRange] = useState({ start: 0, end: 4 }) // Stable range during jumps
+ 
+  // UI state
+  const [showHowToPlay, setShowHowToPlay] = useState(false)
+  const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [currentDifficulty, setCurrentDifficulty] = useState('easy') // Default to easy mode
+  const [showSettings, setShowSettings] = useState(false) // Settings popup state
+  const [soundEnabled, setSoundEnabled] = useState(true) // Enable sound effects by default
+  const [musicEnabled, setMusicEnabled] = useState(true) // Default play audio enabled
+  const [betAmount, setBetAmount] = useState(4.00) // Bet amount state
+  const [isInputFocused, setIsInputFocused] = useState(false) // Track if input is focused
+
+  // Game creation state
+  const [isCreatingGame, setIsCreatingGame] = useState(false) // Loading state for game creation
+  const [gameError, setGameError] = useState(null) // Game-related errors
+  const restartGuardRef = useRef(false) // prevent double scheduling of restart
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -234,34 +283,18 @@ function Chicken() {
       socketGameAPI.disconnect();
     };
   }, [token]);
-  const [stableRange, setStableRange] = useState({ start: 0, end: 4 }) // Stable range during jumps
- 
-  const [showHowToPlay, setShowHowToPlay] = useState(false)
-  const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
-  const [currentDifficulty, setCurrentDifficulty] = useState('easy') // Default to easy mode
-  const [showSettings, setShowSettings] = useState(false) // Settings popup state
-  const [soundEnabled, setSoundEnabled] = useState(true) // Enable sound effects by default
-  const [musicEnabled, setMusicEnabled] = useState(true) // Default play audio enabled
-  const [isRestarting, setIsRestarting] = useState(false) // Track if restart animation is playing
-  const [betAmount, setBetAmount] = useState(4.00) // Bet amount state
-  const [isInputFocused, setIsInputFocused] = useState(false) // Track if input is focused
-  const [showCashOutAnimation, setShowCashOutAnimation] = useState(false) // Cash out animation state
-  const [lastCashOutAmount, setLastCashOutAmount] = useState(0) // Track last cash out for animation
-  const audioManager = useRef(null) // Reference for Howler.js audio manager
 
-  // Server game state
-  const [currentGameId, setCurrentGameId] = useState(null) // Active game ID from server
-  const [isGameActive, setIsGameActive] = useState(false) // Whether a server game is active
-  const [serverMultiplier, setServerMultiplier] = useState(null) // Current multiplier from server
-  const [isCreatingGame, setIsCreatingGame] = useState(false) // Loading state for game creation
-  const [gameError, setGameError] = useState(null) // Game-related errors
-  const restartGuardRef = useRef(false) // prevent double scheduling of restart
-  const [blockedNextLane, setBlockedNextLane] = useState(false) // Whether the immediate next lane is blocked per server
-  const [isValidatingNext, setIsValidatingNext] = useState(false) // prevent overlapping move validations
-  const [resetKey, setResetKey] = useState(0) // force re-mount Lane to reset cars/animations
-  // Crash visualization signal (lane and nonce) to inject a one-shot car in the crash lane
-  const [crashVisual, setCrashVisual] = useState({ lane: -1, tick: 0 })
+  // Initialize audio manager and game logic hooks
+  const audioManager = useAudioManager(soundEnabled, musicEnabled)
+  const gameLogic = useGameLogic(gameStateHook, audioManager.audioManager)
+
+  // Initialize lanes based on difficulty
+  useEffect(() => {
+    const newLanes = generateLanesForDifficulty(DIFFICULTY_CONFIGS, currentDifficulty)
+    setAllLanes(newLanes)
+  }, [currentDifficulty, setAllLanes])
+
+  // Traffic is managed by TrafficProvider; no direct init here to avoid double-control
 
   // Token handling and user info
   useEffect(() => {
@@ -305,78 +338,19 @@ function Chicken() {
   }, [userInfo])
 
 
-  // Physics-based jump function
-  const startJump = (targetLane) => {
-    if (isJumping) return // Prevent multiple jumps
-    if (isDead || gameEnded) return // Prevent jumping when chicken is dead or game ended
+  // Use game logic hook functions
+  const { startJump, completeJump, handleCrash, moveToNextLane, handleCashOut, resetGame } = gameLogic
 
-    // Play jump audio when starting jump
-    playJumpAudio()
-
-    setIsJumping(true)
-    setJumpStartLane(currentLaneIndex)
-    setJumpTargetLane(targetLane)
-    setJumpProgress(0)
-
-    // Animate the jump
-    const jumpDuration = GAME_CONFIG.JUMP?.DURATION_MS ?? 800 // ms jump duration from config
-    const startTime = Date.now()
-
-    const animateJump = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / jumpDuration, 1)
-
-      // Apply physics-based easing with more realistic acceleration/deceleration
-      // Use easeInOutCubic for more natural movement
-      const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-      const easedProgress = easeInOutCubic(progress)
-
-      setJumpProgress(easedProgress)
-
-      if (progress < 1) {
-        requestAnimationFrame(animateJump)
-      } else {
-        // Jump completed
-        completeJump(targetLane)
-      }
-    }
-
-    requestAnimationFrame(animateJump)
-  }
-
-  // Complete the jump and update state
-  const completeJump = (targetLane) => {
-    // 1) Advance index first so range computations use the new lane
-    setCurrentLaneIndex(targetLane)
-
-    // 2) Update stableRange immediately to the new sliding window to avoid a frame where background resets
+  // Enhanced completeJump that also updates stableRange
+  const completeJumpWithRange = (targetLane) => {
+    // Call the hook's completeJump
+    completeJump(targetLane)
+    
+    // Update stableRange immediately to the new sliding window
     const totalLanes = allLanes.length
     let start = Math.min(targetLane, Math.max(0, totalLanes - windowSize))
     let end = Math.min(totalLanes - 1, start + windowSize - 1)
     setStableRange(prev => (prev.start === start && prev.end === end) ? prev : { start, end })
-
-    // 3) Now end the jump and reset progress
-    setJumpProgress(0)
-    setIsJumping(false)
-
-    // Update moved lanes (guard duplicates and dev-only log)
-    setMovedLanes(prev => {
-      if (prev[prev.length - 1] === targetLane) return prev;
-      const next = [...prev, targetLane];
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Chicken jumped through lanes:', next);
-      }
-      return next;
-    })
-
-    // If reached the last lane, log finished to console
-    if (targetLane >= allLanes.length) {
-      console.log('Finished: reached final side road')
-    } else if (targetLane === allLanes.length - 1) {
-      console.log('Finished: jumping into final lane before side road')
-    }
-
-    // No dynamic multiplier removal - using pre-generated lanes
   }
 
   // Auto-jump to final sidewalk when standing on the LAST multiplier value (e.g., 2.80)
@@ -400,115 +374,27 @@ function Chicken() {
   }, [currentLaneIndex, isJumping, isDead, gameEnded, allLanes, isGameActive, autoFinalJumped])
 
   // Function to move chicken to next lane with server validation
-  const moveToNextLane = async () => {
-    console.log('🎮 moveToNextLane called:', {
-      isDead,
-      gameEnded,
-      isGameActive,
-      currentGameId,
-      currentLaneIndex,
-      isValidatingNext
-    });
-
-    // Don't allow movement if chicken is dead or game has ended
-    if (isDead || gameEnded) {
-      console.log('Cannot move: chicken is dead or game has ended');
-      return;
+  // Wrapper function to call game logic hook with token
+  const moveToNextLaneWithToken = async () => {
+    const tok = token || localStorage.getItem('chicknroad')
+    if (!tok) {
+      setGameError('Please login to play (missing token)')
+      return
     }
-    // Prevent overlapping validations/click spamming
-    if (isValidatingNext || isJumping) {
-      console.log('Already validating or jumping, ignoring GO');
-      return;
-    }
-
-    // For first move in a new game, just start the jump animation
-    if (!isGameActive || !currentGameId) {
-      const nextPosition = currentLaneIndex + 1; // UI lane index to jump to (1..N). 0 is sidewalk.
-      console.log(`Starting local jump to position ${nextPosition} (no server validation needed for first move)`);
-      startJump(nextPosition);
-      return;
-    }
-
-    // For subsequent moves, validate with server
-    // Snapshot current index BEFORE updating state/animation
-    const preIndex = currentLaneIndex;
-    const nextPosition = preIndex + 1;
-    // Allow final jump into the final sidewalk (index == allLanes.length) without server validation
-    if (Array.isArray(allLanes) && nextPosition > allLanes.length - 1) {
-      console.log('Final jump into final sidewalk');
-      startJump(nextPosition);
-      return;
-    }
-    const nextLaneNumber = nextPosition; // keep for logs (UI index)
-    // Server expects the NEXT lane as 0-based index: equals current UI index (preIndex)
-    const serverLaneIndex = preIndex;
-
-    console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextLaneNumber})?`);
-
-    // Validate first; only animate if server allows
-    setIsValidatingNext(true);
-
-    try {
-      // Ensure socket connected, then validate with server via WebSocket (preferred)
-      const moveData = await socketGameAPI.validateMove(currentGameId, serverLaneIndex, token);
-      console.log('🔍 WebSocket move validation:', {
-        clientPosition: nextPosition,
-        serverLaneIndex: serverLaneIndex,
-        canMove: moveData.canMove,
-        gameId: currentGameId,
-        moveData
-      });
-
-      const willCrash = typeof moveData.willCrash === 'boolean' ? moveData.willCrash : !moveData.canMove;
-      if (willCrash) {
-        // Animate the jump to the next lane, then crash after landing (not immediate)
-        setBlockedNextLane(false) // ensure no blocker shows on the crash lane
-        // Signal the lane component to inject a one-shot car in the crash lane for visual impact
-        setCrashVisual({ lane: nextPosition, tick: Date.now() })
-        startJump(nextPosition);
-        const JUMP_DURATION_MS = GAME_CONFIG.JUMP?.DURATION_MS ?? 800;
-        setTimeout(() => {
-          handleCrash(moveData);
-        }, JUMP_DURATION_MS);
-      } else {
-        // Safe to jump; add a short decision delay so it doesn't move instantly
-        const DECISION_DELAY_MS = 150;
-        setTimeout(() => {
-          startJump(nextPosition);
-        }, DECISION_DELAY_MS);
-      }
-    } catch (wsError) {
-      console.error('WebSocket validation failed:', wsError);
-    } finally {
-      setIsValidatingNext(false);
-    }
+    await moveToNextLane(tok)
   }
 
-  // Handle crash when server detects collision
-  const handleCrash = (moveData) => {
-    console.log('🔥 CRASH DETECTED by server!', moveData);
-
-    // Stop all animations and movement
-    setIsJumping(false);
-    setJumpProgress(0);
-
-    // Set death state
-    setIsDead(true);
-    setGameEnded(true);
-    setIsGameActive(false);
-
-    // Play crash audio
-    playCrashAudio();
-
-    // Clear game data
-    setCurrentGameId(null);
-
+  // Enhanced handleCrash that also manages restart guard
+  const handleCrashWithRestart = (moveData) => {
+    // Call the hook's handleCrash
+    handleCrash(moveData)
+    
     // Force auto-restart after crash regardless of AUTO setting
     if (!restartGuardRef.current) {
       restartGuardRef.current = true;
       const delay = (GAME_CONFIG.RESTART?.DELAY_MS ?? 1200);
       setTimeout(() => {
-        resetGame();
+        resetGameWithCleanup();
         restartGuardRef.current = false;
       }, Math.max(0, delay));
     }
@@ -568,12 +454,12 @@ function Chicken() {
 
   // Bet amount functions
   const incrementBet = () => {
-    playButtonClickAudio();
+    audioManager.playButtonClickAudio();
     setBetAmount(prev => parseFloat((prev + 0.50).toFixed(2)))
   }
 
   const decrementBet = () => {
-    playButtonClickAudio();
+    audioManager.playButtonClickAudio();
     setBetAmount(prev => Math.max(0.50, parseFloat((prev - 0.50).toFixed(2))))
   }
 
@@ -671,7 +557,7 @@ function Chicken() {
 
   // Handler for DynamicCar blocked stop (unified audio)
   const handleCarBlockedStop = () => {
-    playCrashAudio()
+    audioManager.playCrashAudio()
   }
 
   // Play button click audio
@@ -691,104 +577,57 @@ function Chicken() {
   }
 
   // Cash out functionality with real backend API
-  const handleCashOut = async () => {
-    if (currentLaneIndex > 0 && !isDead && !gameEnded && isGameActive && currentGameId) {
-      // Play button click audio
-      playButtonClickAudio();
-
-      try {
-        console.log(`Attempting to cash out at lane ${currentLaneIndex}`);
-
-        // Call backend cash out via WebSocket only (no HTTP fallback)
-        const cashOutData = await socketGameAPI.cashOut(currentGameId, currentLaneIndex, token);
-        console.log('WebSocket cash out successful:', cashOutData);
-        console.log('Cash out successful:', cashOutData);
-
-        // Play cashout audio
-        playCashoutAudio();
-
-        // Store cash out amount for animation
-        setLastCashOutAmount(cashOutData.winAmount);
-
-        // Show cash out animation
-        setShowCashOutAnimation(true);
-
-        // Hide animation after 3 seconds
-        setTimeout(() => {
-          setShowCashOutAnimation(false);
-        }, 3000);
-
-        // Reset game state
-        setIsGameActive(false);
-        setCurrentGameId(null);
-        setServerMultiplier(null);
-
+  // Wrapper function to call game logic hook with token
+  const handleCashOutWithToken = async () => {
+    const tok = token || localStorage.getItem('chicknroad')
+    if (!tok) {
+      setGameError('Please login to cash out (missing token)')
+      return
+    }
+    try {
+      const cashOutData = await handleCashOut(tok)
+      if (cashOutData) {
         // Optimistically add winnings to displayed balance; refetch will confirm
         if (typeof cashOutData?.winAmount === 'number' && typeof userInfo?.balance === 'number') {
           setDisplayBalance(prev => (userInfo.balance + cashOutData.winAmount))
         }
-
-        // Reset game after cash out
-        setTimeout(() => {
-          resetGame();
-        }, 1500);
-
-        console.log(`Cashed out: ${cashOutData.winAmount} ETB at ${cashOutData.multiplier}x multiplier`);
 
         // Refresh user info to get updated balance without full page reload
         try {
           await refetch();
         } catch (e) {
           console.warn('User info refresh failed after cash out; continuing without reload.', e);
+        }
       }
-
     } catch (error) {
-        console.error('Cash out failed:', error);
-        setGameError(error.message || 'Failed to cash out');
-
-        // On error, reset game state
-        setIsGameActive(false);
-        setCurrentGameId(null);
-        setServerMultiplier(null);
-      }
+      console.error('Cash out failed:', error);
+      setGameError(error.message || 'Failed to cash out');
     }
   }
 
   // Change difficulty and regenerate lanes
   const changeDifficulty = (newDifficulty) => {
     // Play button click audio
-    playButtonClickAudio();
+    audioManager.playButtonClickAudio();
 
     setCurrentDifficulty(newDifficulty)
     const newLanes = generateLanesForDifficulty(DIFFICULTY_CONFIGS, newDifficulty)
     setAllLanes(newLanes)
     // Reset game when difficulty changes
-    resetGame()
+    resetGameWithCleanup()
     console.log(`Difficulty changed to ${newDifficulty}, ${newLanes.length} lanes generated`)
   }
 
   // Reset game function
-  const resetGame = () => {
+  // Enhanced resetGame that includes additional cleanup
+  const resetGameWithCleanup = () => {
     console.log('Resetting game - chicken back to side road')
-    setCurrentLaneIndex(0) // Back to side road (index 0)
-    setMovedLanes([0])
-    setGameEnded(false)
-    setIsDead(false) // Reset dead state when game is reset
-    setIsJumping(false) // Reset jump state
-    setJumpProgress(0)
-    setIsRestarting(false) // Reset restart animation
-    setAutoFinalJumped(false)
-    setIsGameActive(false)
-    setIsRestarting(true)
+    
+    // Call the hook's resetGame
+    resetGameWithCleanup()
+    
+    // Additional cleanup specific to this component
     setStableRange({ start: 0, end: 4 }) // Reset stable range
-    setBlockedNextLane(false) // clear blocker
-    setCrashVisual({ lane: -1, tick: 0 }) // clear any crash lane visuals
-    setResetKey(prev => prev + 1) // force Lane re-mount to reset cars
-
-    // Clear server game state
-    setCurrentGameId(null)
-    setIsGameActive(false)
-    setServerMultiplier(null)
     setGameError(null)
 
     // Reset global traffic engine to remove any leftover cars/state
@@ -802,14 +641,13 @@ function Chicken() {
       console.warn('Traffic engine reset encountered an issue:', e)
     }
 
-    // Crash index removed: server determines crashes via WebSocket/HTTP responses.
     console.log('Game reset complete - waiting for server to determine crashes')
   }
 
   // Start new game with real backend API
   const startNewGame = async () => {
     // Play button click audio
-    playButtonClickAudio();
+    audioManager.playButtonClickAudio();
 
     // Check if user info is available
     if (!userInfo || !token) {
@@ -890,12 +728,12 @@ function Chicken() {
       restartGuardRef.current = true
       const delay = GAME_CONFIG.RESTART?.DELAY_MS ?? 1200
       if (delay <= 0) {
-        resetGame()
+        resetGameWithCleanup()
         restartGuardRef.current = false
         return
       }
       const t = setTimeout(() => {
-        resetGame()
+        resetGameWithCleanup()
         restartGuardRef.current = false
       }, delay)
       return () => clearTimeout(t)
@@ -907,7 +745,7 @@ function Chicken() {
     if (!(isDead || gameEnded)) return
     const watchdog = setTimeout(() => {
       if (isDead || gameEnded) {
-        resetGame()
+        resetGameWithCleanup()
         restartGuardRef.current = false
       }
     }, Math.max(2000, (GAME_CONFIG.RESTART?.DELAY_MS ?? 1200) + 500))
@@ -1094,7 +932,7 @@ function Chicken() {
                 {/* Settings Button */}
                 <button
                   onClick={() => {
-                    playButtonClickAudio();
+                    audioManager.playButtonClickAudio();
                     setShowSettings(true);
                   }}
                   className="px-4 py-3 rounded-xl flex items-center justify-center text-white transition-all" style={{ backgroundColor: '#2A2A2A' }}>
@@ -1109,7 +947,7 @@ function Chicken() {
               <button
                     onClick={() => {
                       if (currentLaneIndex === 0) {
-                        playButtonClickAudio();
+                        audioManager.playButtonClickAudio();
                         setShowDifficultyDropdown(!showDifficultyDropdown);
                       }
                     }}
@@ -1178,7 +1016,7 @@ function Chicken() {
                   <div className="grid grid-cols-2 gap-3 w-full">
                     {/* Cash Out Button */}
               <button 
-                      onClick={handleCashOut}
+                      onClick={handleCashOutWithToken}
                       className="w-full h-16 font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 bg-yellow-400 text-black shadow-lg shadow-yellow-400/25"
                     >
                       <div className="text-center">
@@ -1191,7 +1029,7 @@ function Chicken() {
 
                     {/* GO Button */}
               <button
-                      onClick={moveToNextLane}
+                      onClick={moveToNextLaneWithToken}
                       disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
                       className={`w-full h-16 font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                         ? 'opacity-50 cursor-not-allowed bg-gray-700'

@@ -168,6 +168,52 @@ class SocketGameAPI {
     });
   }
 
+  // Retry wrapper for validateMove with simple exponential backoff
+  async validateMoveWithRetry(gameId, currentLane, token, options = {}) {
+    const {
+      retries = 3,
+      initialDelayMs = 300,
+      backoffFactor = 2,
+    } = options;
+
+    let attempt = 0;
+    let delay = initialDelayMs;
+    
+    while (true) {
+      try {
+        return await this.validateMove(gameId, currentLane, token);
+      } catch (err) {
+        attempt += 1;
+        if (attempt > retries) throw err;
+        await new Promise((r) => setTimeout(r, Math.max(0, delay)));
+        delay = Math.round(delay * backoffFactor);
+      }
+    }
+  }
+
+  // Retry wrapper for cashOut with exponential backoff on transport/timeouts
+  async cashOutWithRetry(gameId, currentLane, token, options = {}) {
+    const {
+      retries = 3,
+      initialDelayMs = 300,
+      backoffFactor = 2,
+    } = options;
+
+    let attempt = 0;
+    let delay = initialDelayMs;
+    
+    while (true) {
+      try {
+        return await this.cashOut(gameId, currentLane, token);
+      } catch (err) {
+        attempt += 1;
+        if (attempt > retries) throw err;
+        await new Promise((r) => setTimeout(r, Math.max(0, delay)));
+        delay = Math.round(delay * backoffFactor);
+      }
+    }
+  }
+
   // Check connection status
   isSocketConnected() {
     return this.isConnected && this.socket?.connected;

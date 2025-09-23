@@ -6,16 +6,19 @@ import Car from './Car'
 function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop }) {
   const [carState, setCarState] = useState('waiting') // waiting -> moving -> paused -> stopped -> gone
   const wrapperRef = useRef(null)
-  // Control wrapper Y position via state so React doesn't overwrite it on re-render
+  // Control wrapper Y position via ref-backed style for smooth RAF without React re-renders
   const spawnOffset = -(GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX || 0)
-  const [currentTopPx, setCurrentTopPx] = useState(spawnOffset)
+  const currentTopRef = useRef(spawnOffset)
   const notifiedBlockedRef = useRef(false)
   const rafRef = useRef(null)
 
   // Initialize when a NEW car mounts (by id)
   useEffect(() => {
     setCarState('moving')
-    setCurrentTopPx(spawnOffset)
+    currentTopRef.current = spawnOffset
+    if (wrapperRef.current) {
+      wrapperRef.current.style.top = `${spawnOffset}px`
+    }
     // reset one-shot flags
     notifiedBlockedRef.current = false
   }, [carData.id])
@@ -34,8 +37,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 20
       const targetTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
 
-      // Starting top from state (persisted across renders)
-      const startTop = currentTopPx
+      // Starting top from ref (persisted across renders)
+      const startTop = currentTopRef.current
 
       const duration = Math.min(900, Math.max(400, carData.animationDuration * 0.4))
       const startTime = performance.now()
@@ -46,7 +49,10 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         const t = Math.min(1, (now - startTime) / duration)
         const eased = easeOutCubic(t)
         const y = startTop + (targetTop - startTop) * eased
-        setCurrentTopPx(y)
+        currentTopRef.current = y
+        if (wrapperRef.current) {
+          wrapperRef.current.style.top = `${y}px`
+        }
         if (t < 1) {
           rafRef.current = requestAnimationFrame(step)
         } else {
@@ -71,7 +77,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         rafRef.current = null
       }
     }
-  }, [hasBlocker, carData.animationDuration, currentTopPx])
+  }, [hasBlocker, carData.animationDuration])
 
   if (carState === 'waiting' || carState === 'gone') return null
 
@@ -80,12 +86,9 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       ref={wrapperRef}
       className="absolute left-1/2"
       style={{
-        // Use state-controlled top so it persists across re-renders
-        top: `${currentTopPx}px`,
+        top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
-        // Dynamic animation speed based on car data
         '--car-animation-duration': `${carData.animationDuration}ms`,
-        // Ensure cars render above cap/blocker (z-2/3) but below chicken (z-10)
         zIndex: 5
       }}
     >
