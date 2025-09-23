@@ -621,27 +621,12 @@ function Chicken() {
   // Reset game function
   // Enhanced resetGame that includes additional cleanup
   const resetGameWithCleanup = () => {
-    console.log('Resetting game - chicken back to side road')
-    
-    // Call the hook's resetGame
-    resetGameWithCleanup()
-    
-    // Additional cleanup specific to this component
-    setStableRange({ start: 0, end: 4 }) // Reset stable range
+    // Call the core reset (state only)
+    resetGame()
+
+    // Minimal UI cleanup
+    setStableRange({ start: 0, end: 4 })
     setGameError(null)
-
-    // Reset global traffic engine to remove any leftover cars/state
-    try {
-      trafficEngine.stop()
-      trafficEngine.reset()
-      // Re-init with current lane count and sprites so it restarts cleanly
-      trafficEngine.init({ laneCount: allLanes.length, cfg: GAME_CONFIG, carSprites: [car1, car2, car3, car4, car5, car6] })
-      trafficEngine.start()
-    } catch (e) {
-      console.warn('Traffic engine reset encountered an issue:', e)
-    }
-
-    console.log('Game reset complete - waiting for server to determine crashes')
   }
 
   // Start new game with real backend API
