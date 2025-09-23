@@ -23,6 +23,8 @@ import car1 from '../assets/car1.png'
 import car2 from '../assets/car2.png'
 import car3 from '../assets/car3.png'
 import car4 from '../assets/car4.png'
+import car5 from '../assets/car5.png'
+import car6 from '../assets/car6.png'
 import { preloadImages } from '../utils/preloadAssets'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import { TrafficProvider } from '../traffic/TrafficProvider'
@@ -630,6 +632,8 @@ function Chicken() {
       car2,
       car3,
       car4,
+      car5,
+      car6,
       logoImage,
       winNotificationImage,
       deadChickenImage
@@ -792,7 +796,7 @@ function Chicken() {
       trafficEngine.stop()
       trafficEngine.reset()
       // Re-init with current lane count and sprites so it restarts cleanly
-      trafficEngine.init({ laneCount: allLanes.length, cfg: GAME_CONFIG, carSprites: [car1, car2, car3, car4] })
+      trafficEngine.init({ laneCount: allLanes.length, cfg: GAME_CONFIG, carSprites: [car1, car2, car3, car4, car5, car6] })
       trafficEngine.start()
     } catch (e) {
       console.warn('Traffic engine reset encountered an issue:', e)
@@ -969,7 +973,7 @@ function Chicken() {
 
       {/* Full-Screen Game Container */}
       <div ref={gameContainerRef} className="grow relative  w-full h-[58%] bg-gray-700 overflow-hidden">
-        <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4]}>
+        <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4, car5, car6]}>
               <Lane
             key={resetKey}
             remainingMultipliers={allLanes} // render all multipliers
