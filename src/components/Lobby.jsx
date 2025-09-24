@@ -766,7 +766,7 @@ function Chicken() {
         }
       `}</style>
       {/* Mobile-First Game Header */}
-        <header className="px-1 py-2 flex items-center justify-between border-b" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND, borderColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
+        <header className="px-1 flex items-center justify-between border-b" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND, borderColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
         <div className="flex items-center gap-2">
           <img
             src={logoImage}
@@ -869,7 +869,7 @@ function Chicken() {
       {/* Enhanced Controller UI */}
       <div className="p-2 sm:p-4">
         <div className="max-w-7xl mx-auto">
-          <div className="rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
+          <div className="rounded-2xl shadow-2xl p-2 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
             {/* Desktop-only helper text */}
             <div className="hidden lg:block text-center text-sm mb-2" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
               Chance of being shot down
@@ -1020,17 +1020,14 @@ function Chicken() {
                     <button
                       onClick={startNewGame}
                       disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
-                      className={`w-full h-16 lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                      className={`w-full lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
                         }`}
                       style={{
                         backgroundColor: !userInfo || (userInfo.balance < betAmount) || isCreatingGame
                           ? GAME_CONFIG.COLORS.TERTIARY_TEXT
-                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
-                        boxShadow: !userInfo || (userInfo.balance < betAmount) || isCreatingGame
-                          ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}`
-                          : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON
                       }}
                     >
                       {isCreatingGame ? 'Creating...' :

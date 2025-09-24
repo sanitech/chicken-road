@@ -200,7 +200,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                             pointerEvents: 'none'
                                         }}
                                     >
-                                        <img
+                                        {!(globalIndex === globalCurrentIndex) && (
+                                          <img
                                             src={cap1Image}
                                             alt="Lane Cap"
                                             className="mx-auto object-contain"
@@ -208,10 +209,12 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                                 objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION,
                                                 width: `${GAME_CONFIG.CAP.SIZE_PX}px`,
                                                 height: `${GAME_CONFIG.CAP.SIZE_PX}px`,
-                                                opacity: isDestinationLane ? 1 : 0.7,
+                                                // Highlight only when the game has started and there is a real destination
+                                                opacity: (globalCurrentIndex > 0 && isDestinationLane) ? 1 : 0.7,
                                                 transition: 'opacity 150ms ease-in-out'
                                             }}
-                                        />
+                                          />
+                                        )}
                                         {/* Multiplier centered inside cap */}
                                         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 3 }}>
                                             <svg
@@ -222,7 +225,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                                 style={{ display: 'block' }}
                                                 aria-hidden
                                             >
-                                                <text
+                                                {(globalIndex !== globalCurrentIndex) && (
+                                                  <text
                                                     x="50%"
                                                     y="50%"
                                                     textAnchor="middle"
@@ -233,12 +237,13 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                                     strokeLinejoin="round"
                                                     strokeLinecap="round"
                                                     paintOrder="stroke"
-                                                    opacity={isDestinationLane ? "1" : "0.7"}
-                                                    strokeOpacity={isDestinationLane ? "1" : "0.7"}
-                                                    style={{ fontSize: `24px`, fontWeight: 900 }}
+                                                    opacity={(globalCurrentIndex > 0 && isDestinationLane) ? "1" : "0.7"}
+                                                    strokeOpacity={(globalCurrentIndex > 0 && isDestinationLane) ? "1" : "0.7"}
+                                                    style={{ fontSize: `20px`, fontWeight: 700 }}
                                                 >
                                                     {allLanes[globalIndex - 1]?.toFixed(2)}x
-                                                </text>
+                                                  </text>
+                                                )}
                                             </svg>
                                         </div>
                                     </div>
