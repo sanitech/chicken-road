@@ -97,15 +97,12 @@ function Chicken({
           }}
         >
           <div
-            className="flex items-center justify-center"
+            className="flex items-center justify-center h-16 w-16"
             style={{
               backgroundImage: `url(${oddsBottomImage})`,
               backgroundSize: 'contain',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
-              // Scale multiplier badge with chicken size
-              width: `${Math.max(48, parseInt(chickenSize.width) * 0.6)}px`,
-              height: `${Math.max(24, parseInt(chickenSize.height) * 0.3)}px`
             }}
           >
             <span 

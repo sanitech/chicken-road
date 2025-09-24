@@ -1046,7 +1046,6 @@ function Chicken() {
                       className="w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 text-black shadow-lg"
                       style={{
                         backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
-                        boxShadow: `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
                       }}
                     >
                       <div className="text-center">
@@ -1068,10 +1067,7 @@ function Chicken() {
                       style={{
                         backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                           ? GAME_CONFIG.COLORS.TERTIARY_TEXT
-                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
-                        boxShadow: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
-                          ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}`
-                          : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON
                       }}
                     >
                       {isDead || gameEnded ? '💀' : currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}
@@ -1083,11 +1079,6 @@ function Chicken() {
           </div>
         </div>
       </div>
-
-
-
-
-
 
       {/* Settings Popup Modal */}
       {showSettings && (
