@@ -28,6 +28,7 @@ export function TrafficProvider({ laneCount, carSprites, children }) {
 
   const api = useMemo(() => ({
     getCarsMap: () => snapshot.cars || new Map(),
+    getActiveCarsForLane: (laneIndex) => engine.getCarsForLane(laneIndex),
     markCarDone: (laneIndex, carId) => engine.markDone(laneIndex, carId),
     injectCrashCar: (laneIndex, durationMs) => engine.injectCrashCar(laneIndex, durationMs),
     injectBlockedCar: (laneIndex, durationMs) => engine.injectBlockedCar(laneIndex, durationMs),

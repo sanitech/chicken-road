@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react'
+import engine from '../traffic/TrafficEngine'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import socketGameAPI from '../utils/socketApi'
 
@@ -180,11 +181,39 @@ export const useGameLogic = (gameState, audioManager) => {
           handleCrash(moveData);
         }, JUMP_DURATION_MS);
       } else {
-        // Safe to jump; add a short decision delay
-        const DECISION_DELAY_MS = 150;
-        setTimeout(() => {
-          startJump(nextPosition);
-        }, DECISION_DELAY_MS);
+        // Safe to jump. If the destination lane is currently blocked, we already
+        // suppress future spawns. Optionally wait for any existing regular car
+        // in that lane to be near the end before jumping for better visuals.
+        const WAIT_ENABLED = true
+        const MIN_PROGRESS_TO_JUMP = 0.8 // 80% of lane
+        const MAX_WAIT_MS = Math.max(250, (GAME_CONFIG.JUMP?.MAX_WAIT_MS ?? 1200))
+
+        if (WAIT_ENABLED && typeof engine?.getCarsForLane === 'function') {
+          const laneToCheck = nextPosition
+          const startWait = Date.now()
+          const poll = () => {
+            const cars = engine.getCarsForLane(laneToCheck) || []
+            // Consider only non-showcase, non-crash cars
+            const moving = cars.filter(c => !c.isBlockedShowcase && !c.isCrashLane)
+            let ok = true
+            for (const c of moving) {
+              const progress = Math.max(0, Math.min(1, (Date.now() - c.startTime) / (c.animationDuration || 1)))
+              if (progress < MIN_PROGRESS_TO_JUMP) { ok = false; break }
+            }
+            const waited = Date.now() - startWait
+            if (ok || waited >= MAX_WAIT_MS) {
+              startJump(nextPosition)
+            } else {
+              setTimeout(poll, 60)
+            }
+          }
+          // brief decision delay before polling
+          setTimeout(poll, 120)
+        } else {
+          // Fallback: short decision delay
+          const DECISION_DELAY_MS = 150
+          setTimeout(() => startJump(nextPosition), DECISION_DELAY_MS)
+        }
       }
     } catch (wsError) {
       console.error('WebSocket validation failed (after retries):', wsError);

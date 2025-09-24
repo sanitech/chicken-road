@@ -80,8 +80,31 @@ export class TrafficEngine {
 
   // Control whether a lane should suppress future regular spawns (does not remove existing cars)
   setLaneBlocked(laneIndex, isBlocked) {
-    if (isBlocked) this.blockedLanes.add(laneIndex)
-    else this.blockedLanes.delete(laneIndex)
+    if (isBlocked) {
+      this.blockedLanes.add(laneIndex)
+      // Additionally: prevent early-progress regular cars from entering the lane view.
+      // Keep showcase/crash cars; allow cars already near exit to finish naturally.
+      const arr = this.cars.get(laneIndex) || []
+      const now = Date.now()
+      const MIN_PROGRESS_TO_KEEP = 0.8 // let near-exit cars finish
+      const EARLY_PROGRESS_CUTOFF = 0.0 // remove only cars that have not entered at all
+      const adjusted = arr.map(c => {
+        if (c.done) return c
+        if (c.isBlockedShowcase || c.isCrashLane) return c
+        const duration = Math.max(1, c.animationDuration || 1)
+        const progress = Math.max(0, Math.min(1, (now - (c.startTime || now)) / duration))
+        if (progress <= EARLY_PROGRESS_CUTOFF) {
+          // Remove very-early cars so they never appear under a blocker
+          return { ...c, done: true }
+        }
+        // Keep mid/late cars; wait-to-jump logic in useGameLogic handles them
+        return c
+      })
+      this.cars.set(laneIndex, adjusted)
+      this._emit()
+    } else {
+      this.blockedLanes.delete(laneIndex)
+    }
   }
 
   subscribe(cb) {
@@ -103,6 +126,12 @@ export class TrafficEngine {
     const out = new Map()
     this.cars.forEach((arr, lane) => out.set(lane, arr.slice()))
     return { cars: out }
+  }
+
+  // Read-only helper for external logic: get active (not done) cars for a lane
+  getCarsForLane(laneIndex) {
+    const arr = this.cars.get(laneIndex) || []
+    return arr.filter(c => !c.done).map(c => ({ ...c }))
   }
 
   markDone(laneIndex, carId) {
