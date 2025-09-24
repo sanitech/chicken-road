@@ -89,16 +89,11 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const minTop = 0 - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const maxTop = laneHeight - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const targetTop = Math.max(minTop, Math.min(maxTop, rawTarget))
-      // Read actual on-screen position to avoid any snap-back
-      let startTop = currentTopRef.current
-      try {
-        const cs = window.getComputedStyle(el)
-        const parsed = parseFloat(cs.top)
-        if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-          startTop = parsed
-          currentTopRef.current = parsed
-        }
-      } catch {}
+      // Ensure showcase cars start from the same spawn as regular cars
+      // We control via "top" only (CSS motion disabled), so use the spawn offset.
+      let startTop = spawnOffset
+      currentTopRef.current = startTop
+      if (wrapperRef.current) wrapperRef.current.style.top = `${startTop}px`
       // Small deceleration animation (quick but noticeable)
       const configured = GAME_CONFIG.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
       const duration = Math.min(600, Math.max(250, configured))
