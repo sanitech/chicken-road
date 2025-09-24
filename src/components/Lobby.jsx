@@ -483,8 +483,9 @@ function Chicken() {
 
   const handleBetInputChange = (e) => {
     const value = parseFloat(e.target.value)
-    if (!isNaN(value) && value >= 0.50) {
-      setBetAmount(parseFloat(value.toFixed(2)))
+    if (!isNaN(value)) {
+      const clamped = Math.max(0.50, Math.min(200, value))
+      setBetAmount(parseFloat(clamped.toFixed(2)))
     }
   }
 
@@ -791,6 +792,16 @@ function Chicken() {
               </>
             )}
           </div>
+          <button
+            className="p-2 rounded-xl flex items-center justify-center transition-all"
+            style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED, color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}
+            onClick={() => {
+              audioManager.playButtonClickAudio();
+              setShowSettings(true);
+            }}
+          >
+            <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" className="text-lg" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5-1.2-9.4-6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"></path></svg>
+          </button>
         </div>
       </header>
 
@@ -859,74 +870,85 @@ function Chicken() {
       <div className="p-2 sm:p-4">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
-            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 sm:gap-4 lg:gap-6">
+            {/* Desktop-only helper text */}
+            <div className="hidden lg:block text-center text-sm mb-2" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
+              Chance of being shot down
+            </div>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 lg:gap-6">
 
               {/* Left Section: Bet Controls */}
             <div className="flex items-center gap-4">
-              {/* Bet Amount Control */}
-                <div className="flex items-center rounded-xl" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
-                  <button
-                    onMouseDown={() => startHold(decrementBet)}
-                    onTouchStart={() => startHold(decrementBet)}
-                    onMouseUp={endHold}
-                    onMouseLeave={endHold}
-                    onTouchEnd={endHold}
-                    onClick={decrementBet}
-                    disabled={currentLaneIndex > 0}
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-gray-700 active:scale-95'
-                      }`}
-                  >
-                    −
-                  </button>
-                  <div className="flex-1 text-center px-4">
-                    <input
-                      type="number"
-                      step="0.50"
-                      min="0.50"
-                      value={betAmount.toFixed(2)}
-                      onChange={handleBetInputChange}
-                      onFocus={() => setIsInputFocused(true)}
-                      onBlur={() => setIsInputFocused(false)}
-                      disabled={currentLaneIndex > 0}
-                      className={`text-white font-bold text-lg text-center w-full bg-transparent border-none outline-none ${currentLaneIndex > 0
-                        ? 'opacity-50 cursor-not-allowed'
-                        : isInputFocused ? 'bg-gray-700 rounded px-2 py-1' : ''
-                        }`}
-                      style={{
-                        appearance: 'none',
-                        MozAppearance: 'textfield',
-                        WebkitAppearance: 'none'
+              {/* Bet Amount Control using MIN / input / MAX with quick selections */}
+                <div className="flex flex-col gap-2 grow">
+                  <div className="flex items-center rounded-xl px-2" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+                    <button
+                      data-testid="min-bet-button"
+                      onClick={() => {
+                        if (currentLaneIndex > 0) return
+                        setBetAmount(0.5)
                       }}
-                    />
-              </div>
-                  <button
-                    onMouseDown={() => startHold(incrementBet)}
-                    onTouchStart={() => startHold(incrementBet)}
-                    onMouseUp={endHold}
-                    onMouseLeave={endHold}
-                    onTouchEnd={endHold}
-                    onClick={incrementBet}
-                    disabled={currentLaneIndex > 0}
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl font-bold transition-all ${currentLaneIndex > 0
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-gray-700 active:scale-95'
-                      }`}
-                  >
-                    +
-                  </button>
-            </div>
-
-                {/* Settings Button */}
-                <button
-                  onClick={() => {
-                    audioManager.playButtonClickAudio();
-                    setShowSettings(true);
-                  }}
-                  className="px-4 py-3 rounded-xl flex items-center justify-center transition-all" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED, color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
-                  <FaCog className="text-lg" />
-                </button>
+                      disabled={currentLaneIndex > 0}
+                      className={`px-3 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      MIN
+                    </button>
+                    <div className="flex-1 text-center px-2">
+                      <input
+                        data-testid="bet-input"
+                        type="text"
+                        maxLength={10}
+                        placeholder="Amount"
+                        value={betAmount.toFixed(2)}
+                        onChange={handleBetInputChange}
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
+                        disabled={currentLaneIndex > 0}
+                        className={`text-white font-bold text-lg text-center w-full bg-transparent border-none outline-none ${currentLaneIndex > 0
+                          ? 'opacity-50 cursor-not-allowed'
+                          : isInputFocused ? 'bg-gray-700 rounded px-2 py-1' : ''
+                          }`}
+                        style={{
+                          appearance: 'none',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none'
+                        }}
+                      />
+                    </div>
+                    <button
+                      data-testid="max-bet-button"
+                      onClick={() => {
+                        if (currentLaneIndex > 0) return
+                        const balanceMax = typeof userInfo?.balance === 'number' ? Math.floor(userInfo.balance * 100) / 100 : 200
+                        const max = Math.min(200, Math.max(0.5, balanceMax))
+                        setBetAmount(parseFloat(max.toFixed(2)))
+                      }}
+                      disabled={currentLaneIndex > 0}
+                      className={`px-3 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      MAX
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[0.5, 1, 2, 7].map((amt, idx) => (
+                      <button
+                        key={amt}
+                        data-testid={`fast-bet-${idx + 1}`}
+                        onClick={() => {
+                          if (currentLaneIndex > 0) return
+                          setBetAmount(amt)
+                        }}
+                        disabled={currentLaneIndex > 0}
+                        className={`px-3 grow rounded-lg flex items-center gap-1 text-white text-sm font-semibold transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
+                        style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}
+                      >
+                        <span>{amt}</span>
+                        <span style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>birr</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
             </div>
 
               {/* Center Section: Difficulty Selector */}
@@ -941,8 +963,8 @@ function Chicken() {
                       }
                     }}
                     disabled={currentLaneIndex > 0}
-                    className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`} style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
-                    <span className="font-medium text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
+                    className={`w-full flex items-center justify-between rounded-xl px-4 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`} style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+                    <span className="font-semibold text-sm" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
                     <svg width="20" height="20" viewBox="0 0 24 24" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`} style={{ fill: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
                       <path d="M7 10l5 5 5-5z" />
                     </svg>
@@ -957,18 +979,21 @@ function Chicken() {
                             changeDifficulty(key)
                             setShowDifficultyDropdown(false)
                           }}
-                          className={`w-full p-4 text-left  transition-colors ${currentDifficulty === key ? 'opacity-80' : ''}`}
+                          className={`w-full p-2 text-left  transition-colors ${currentDifficulty === key ? 'opacity-80' : ''}`}
                           style={{ backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.MORE_ELEVATED : 'transparent' }}
                         >
-                          <div className="font-medium text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{config.name}</div>
+                          <div className="font-semibold text-sm" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{config.name}</div>
                   </button>
                       ))}
                     </div>
                   )}
               </div>
 
-                {/* Desktop: Inline Pills */}
+                {/* Desktop: Inline Pills with label */}
                 <div className="hidden lg:flex items-center justify-center gap-2">
+                  <div className="font-medium mr-3" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
+                    Difficulty
+                  </div>
                   {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
                   <button
                       key={key}
@@ -990,27 +1015,29 @@ function Chicken() {
               {/* Right Section: Game Control Buttons */}
               <div className="flex items-center gap-4">
                 {currentLaneIndex === 0 && !isJumping ? (
-                  /* Initial Play Button - Before Game Starts */
-                <button
-                    onClick={startNewGame}
-                    disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
-                    className={`w-full lg:w-48 h-16 lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
-                      }`}
-                    style={{
-                      backgroundColor: !userInfo || (userInfo.balance < betAmount) || isCreatingGame 
-                        ? GAME_CONFIG.COLORS.TERTIARY_TEXT 
-                        : GAME_CONFIG.COLORS.PLAY_BUTTON,
-                      boxShadow: !userInfo || (userInfo.balance < betAmount) || isCreatingGame 
-                        ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}` 
-                        : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
-                    }}
-                  >
-                    {isCreatingGame ? 'Creating...' :
-                      !userInfo ? 'Loading...' :
-                        (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
-                </button>
+                  /* Initial Play Button - Before Game Starts (structured wrapper without external classes) */
+                  <div className="w-full lg:w-48">
+                    <button
+                      onClick={startNewGame}
+                      disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
+                      className={`w-full h-16 lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
+                        }`}
+                      style={{
+                        backgroundColor: !userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                          ? GAME_CONFIG.COLORS.TERTIARY_TEXT
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
+                        boxShadow: !userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                          ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_LIGHT}`
+                          : `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
+                      }}
+                    >
+                      {isCreatingGame ? 'Creating...' :
+                        !userInfo ? 'Loading...' :
+                          (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
+                    </button>
+                  </div> 
                 ) : (
                   /* Dual Button Layout - During Game */
                   <div className="grid grid-cols-2 gap-3 w-full">
