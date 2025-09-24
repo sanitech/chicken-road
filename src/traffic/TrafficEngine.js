@@ -21,6 +21,7 @@ export class TrafficEngine {
     this.subscribers = new Set()
     this.noOverlapStrict = false
     this.blockedLanes = new Set() // lanes where regular spawns are suppressed
+    this.blockerByLane = new Map() // Map<laneIndex, carId> of the active blocker car
   }
 
   init({ laneCount, cfg, carSprites }) {
@@ -29,6 +30,7 @@ export class TrafficEngine {
     this.carSprites = carSprites || []
     this.noOverlapStrict = !!(cfg?.TRAFFIC?.NO_OVERLAP_STRICT)
     this.blockedLanes.clear()
+    this.blockerByLane.clear()
 
     // Initialize lanes
     for (let lane = 1; lane <= laneCount; lane++) {
@@ -75,6 +77,8 @@ export class TrafficEngine {
     for (let lane = 1; lane <= this.laneCount; lane++) {
       this.cars.set(lane, [])
     }
+    this.blockedLanes.clear()
+    this.blockerByLane.clear()
     this._emit()
   }
 
@@ -82,28 +86,29 @@ export class TrafficEngine {
   setLaneBlocked(laneIndex, isBlocked) {
     if (isBlocked) {
       this.blockedLanes.add(laneIndex)
-      // Additionally: prevent early-progress regular cars from entering the lane view.
-      // Keep showcase/crash cars; allow cars already near exit to finish naturally.
+      // Additionally: remove regular cars that are still in the invisible spawn area
+      // Since SPAWN_TOP_OFFSET_PX is 400px, cars in the first ~30% of their journey are invisible
+      // This allows us to safely remove them without visual glitches when blocking occurs
       const arr = this.cars.get(laneIndex) || []
       const now = Date.now()
-      const MIN_PROGRESS_TO_KEEP = 0.8 // let near-exit cars finish
-      const EARLY_PROGRESS_CUTOFF = 0.0 // remove only cars that have not entered at all
+      const SPAWN_AREA_PROGRESS_CUTOFF = 0.3 // Remove cars still in spawn area (first 30% of journey)
       const adjusted = arr.map(c => {
         if (c.done) return c
         if (c.isBlockedShowcase || c.isCrashLane) return c
         const duration = Math.max(1, c.animationDuration || 1)
         const progress = Math.max(0, Math.min(1, (now - (c.startTime || now)) / duration))
-        if (progress <= EARLY_PROGRESS_CUTOFF) {
-          // Remove very-early cars so they never appear under a blocker
+        if (progress <= SPAWN_AREA_PROGRESS_CUTOFF) {
+          // Remove cars still in the invisible spawn area (behind header)
           return { ...c, done: true }
         }
-        // Keep mid/late cars; wait-to-jump logic in useGameLogic handles them
+        // Keep cars that have entered the visible lane area
         return c
       })
       this.cars.set(laneIndex, adjusted)
       this._emit()
     } else {
       this.blockedLanes.delete(laneIndex)
+      this.blockerByLane.delete(laneIndex)
     }
   }
 
@@ -144,15 +149,48 @@ export class TrafficEngine {
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
-    const carData = {
-      id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
-      isCrashLane: true,
-      animationDuration: Math.max(300, durationMs),
-      startTime: now,
-      laneIndex,
-      spriteSrc: this._randomSprite(),
+    
+    // Try to promote an existing regular car that's in the visible lane area
+    let promoted = false
+    const VISIBLE_AREA_PROGRESS_CUTOFF = 0.3 // Cars in first 30% are still in spawn area (invisible)
+    
+    for (let i = 0; i < pruned.length; i++) {
+      const c = pruned[i]
+      if (!c.isCrashLane && !c.isBlockedShowcase) {
+        const duration = Math.max(1, c.animationDuration || 1)
+        const progress = Math.max(0, Math.min(1, (now - (c.startTime || now)) / duration))
+        
+        if (progress > VISIBLE_AREA_PROGRESS_CUTOFF) {
+          // Car is in visible area - promote it to crash car
+          pruned[i] = {
+            ...c,
+            isCrashLane: true,
+            animationDuration: Math.max(300, durationMs),
+            promotedToCrash: true,
+          }
+          promoted = true
+          break
+        } else {
+          // Car is still in invisible spawn area - remove it
+          pruned[i] = { ...c, done: true }
+        }
+      }
     }
-    this.cars.set(laneIndex, [...pruned, carData])
+    
+    // If no visible car to promote, spawn a new crash car
+    if (!promoted) {
+      const carData = {
+        id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
+        isCrashLane: true,
+        animationDuration: Math.max(300, durationMs),
+        startTime: now,
+        laneIndex,
+        spriteSrc: this._randomSprite(),
+      }
+      pruned.push(carData)
+    }
+    
+    this.cars.set(laneIndex, pruned)
     this._emit()
   }
 
@@ -276,6 +314,8 @@ export class TrafficEngine {
   }
   // Public API: Inject a blocked showcase car that stops at the stop point
   injectBlockedCar(laneIndex, durationMs = 800) {
+    // Skip if a blocker is already present for this lane (via promotion or prior inject)
+    if (this.blockerByLane.has(laneIndex)) return
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
@@ -289,6 +329,8 @@ export class TrafficEngine {
       spriteSrc: this._randomSprite(),
     }
     this.cars.set(laneIndex, [...pruned, carData])
+    // Record this as the active blocker
+    this.blockerByLane.set(laneIndex, carData.id)
     this._emit()
   }
 
@@ -296,6 +338,7 @@ export class TrafficEngine {
   maybeSpawnBlockedShowcase(laneIndex) {
     const p = this.cfg?.TRAFFIC?.BLOCKED_SHOWCASE?.PROBABILITY_PER_BLOCK ?? 0
     if (p <= 0) return
+    if (this.blockerByLane.has(laneIndex)) return
     if (Math.random() < p) {
       this.injectBlockedCar(laneIndex)
     }

@@ -29,7 +29,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         currentTopRef.current = parsed
       }
     } catch {}
-    const endTop = laneHeight + (GAME_CONFIG.CAR.SIZE_PX || 100)
+    const endTop = laneHeight + (GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX || 200)
     const duration = 350
     const startTime = performance.now()
     const easeIn = t => t * t
@@ -60,6 +60,51 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     notifiedBlockedRef.current = false
   }, [carData.id])
 
+  // Regular moving cars: animate from spawn to exit offset
+  useEffect(() => {
+    if (!carData.isBlockedShowcase && !carData.isCrashLane && carState === 'moving' && !hasBlocker) {
+      const el = wrapperRef.current
+      if (!el) return
+      const laneEl = el.parentElement
+      if (!laneEl) return
+      const laneHeight = laneEl.clientHeight
+      const exitOffset = GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX || 200
+      const endTop = laneHeight + exitOffset
+      const startTop = currentTopRef.current
+      const duration = carData.animationDuration || 3000
+      const startTime = performance.now()
+      
+      const step = (now) => {
+        const t = Math.min(1, (now - startTime) / duration)
+        const y = startTop + (endTop - startTop) * t
+        currentTopRef.current = y
+        if (wrapperRef.current) wrapperRef.current.style.top = `${y}px`
+        if (t < 1) {
+          rafRef.current = requestAnimationFrame(step)
+        } else {
+          setCarState('gone')
+          try { if (typeof onAnimationComplete === 'function') onAnimationComplete() } catch {}
+        }
+      }
+      rafRef.current = requestAnimationFrame(step)
+    }
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [carData.isBlockedShowcase, carState, hasBlocker, carData.animationDuration])
+
+  // Crash cars: accelerate out quickly from current position
+  useEffect(() => {
+    if (carData.isCrashLane && carState === 'moving') {
+      // Use the existing accelerateOut function for crash cars
+      accelerateOut()
+    }
+  }, [carData.isCrashLane, carState])
+
   // Moving cars: ignore blocker and keep their native movement (no accelerate-out)
   // (No-op effect retained for cleanup symmetry)
   useEffect(() => {
@@ -89,11 +134,26 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const minTop = 0 - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const maxTop = laneHeight - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const targetTop = Math.max(minTop, Math.min(maxTop, rawTarget))
-      // Ensure showcase cars start from the same spawn as regular cars
-      // We control via "top" only (CSS motion disabled), so use the spawn offset.
+      // Determine startTop:
+      // - For promoted cars, continue from the current on-screen top to avoid snapping.
+      // - For freshly injected showcase cars, start from the configured spawn offset.
       let startTop = spawnOffset
+      if (carData.promotedFromRegular) {
+        // Try to read computed style; fallback to ref value
+        try {
+          const cs = window.getComputedStyle(el)
+          const parsed = parseFloat(cs.top)
+          if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+            startTop = parsed
+          } else if (Number.isFinite(currentTopRef.current)) {
+            startTop = currentTopRef.current
+          }
+        } catch {}
+      } else {
+        // Fresh showcase: start from spawn offset
+        if (wrapperRef.current) wrapperRef.current.style.top = `${startTop}px`
+      }
       currentTopRef.current = startTop
-      if (wrapperRef.current) wrapperRef.current.style.top = `${startTop}px`
       // Small deceleration animation (quick but noticeable)
       const configured = GAME_CONFIG.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
       const duration = Math.min(600, Math.max(250, configured))
@@ -142,17 +202,19 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
         '--car-animation-duration': `${carData.animationDuration}ms`,
+        '--car-start-offset': `${GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX}px`,
+        '--car-end-offset': `${GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX}px`,
         zIndex: carData.isCrashLane ? 20 : 5
       }}
     >
       <Car
-        isAnimating={!carData.isBlockedShowcase && carState === 'moving'}
+        isAnimating={false} // Disable CSS animation, we handle movement manually
         isContinuous={false} // Single-run so cars finish naturally and are not swapped mid-way
         onAnimationComplete={onAnimationComplete} // Bubble completion to parent to mark car as done
         customSpeed={carData.animationDuration}
         isBlocked={carState === 'paused'}
         isPaused={carState === 'paused'}
-        disableCssMotion={carData.isBlockedShowcase}
+        disableCssMotion={true} // Always disable CSS motion, use manual positioning
         spriteSrc={carData.spriteSrc}
       />
     </div>

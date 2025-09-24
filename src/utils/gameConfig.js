@@ -77,7 +77,10 @@ export const GAME_CONFIG = {
     STOP_TOP_PERCENT: 8, // stop point for blocked cars inside lane
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
-    SPAWN_TOP_OFFSET_PX: 150,
+    SPAWN_TOP_OFFSET_PX: 400,
+    // Exit visual offset (px): cars continue this many pixels below the lane area
+    // before disappearing, so they appear to exit below the visible area
+    EXIT_TOP_OFFSET_PX: 200,
   },
 
   // Parallax/scroll movement between lanes
