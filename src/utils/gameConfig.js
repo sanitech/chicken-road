@@ -145,4 +145,9 @@ export const GAME_CONFIG = {
     AUTO: true,
     DELAY_MS: 1500, // 1.5 second delay before auto-restart when chicken dies
   },
+
+  // Crash car configuration
+  CRASH: {
+    DURATION_MS: 1200, // How fast crash cars accelerate out of the lane
+  },
 };

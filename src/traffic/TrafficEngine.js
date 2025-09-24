@@ -145,7 +145,9 @@ export class TrafficEngine {
     this._emit()
   }
 
-  injectCrashCar(laneIndex, durationMs = 900) {
+  injectCrashCar(laneIndex, durationMs = null) {
+    const defaultDuration = this.cfg?.CRASH?.DURATION_MS ?? 900
+    const finalDuration = durationMs ?? defaultDuration
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
@@ -165,7 +167,7 @@ export class TrafficEngine {
           pruned[i] = {
             ...c,
             isCrashLane: true,
-            animationDuration: Math.max(300, durationMs),
+            animationDuration: Math.max(300, finalDuration),
             promotedToCrash: true,
           }
           promoted = true
@@ -182,7 +184,7 @@ export class TrafficEngine {
       const carData = {
         id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
         isCrashLane: true,
-        animationDuration: Math.max(300, durationMs),
+        animationDuration: Math.max(300, finalDuration),
         startTime: now,
         laneIndex,
         spriteSrc: this._randomSprite(),
