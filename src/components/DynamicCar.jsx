@@ -71,6 +71,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     }
   }, [hasBlocker])
 
+  // Removed safety-cull: regular cars no longer spawn while a lane is blocked
+
   // (Legacy paused-cleared handler removed)
 
   // Blocked showcase cars: small deceleration to STOP_TOP_PERCENT, then pause

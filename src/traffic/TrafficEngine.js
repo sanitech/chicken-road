@@ -20,6 +20,7 @@ export class TrafficEngine {
     this.timers = new Map() // Map<string, number>
     this.subscribers = new Set()
     this.noOverlapStrict = false
+    this.blockedLanes = new Set() // lanes where regular spawns are suppressed
   }
 
   init({ laneCount, cfg, carSprites }) {
@@ -27,6 +28,7 @@ export class TrafficEngine {
     this.laneCount = laneCount
     this.carSprites = carSprites || []
     this.noOverlapStrict = !!(cfg?.TRAFFIC?.NO_OVERLAP_STRICT)
+    this.blockedLanes.clear()
 
     // Initialize lanes
     for (let lane = 1; lane <= laneCount; lane++) {
@@ -66,6 +68,20 @@ export class TrafficEngine {
   reset() {
     this.stop()
     this.cars = new Map()
+  }
+
+  // Clear all cars from all lanes without stopping timers (used on game restart)
+  clearAllCars() {
+    for (let lane = 1; lane <= this.laneCount; lane++) {
+      this.cars.set(lane, [])
+    }
+    this._emit()
+  }
+
+  // Control whether a lane should suppress future regular spawns (does not remove existing cars)
+  setLaneBlocked(laneIndex, isBlocked) {
+    if (isBlocked) this.blockedLanes.add(laneIndex)
+    else this.blockedLanes.delete(laneIndex)
   }
 
   subscribe(cb) {
@@ -204,6 +220,13 @@ export class TrafficEngine {
     }
 
     if (pruned.length >= maxCarsVisible) {
+      this._reschedule(lane)
+      this.cars.set(lane, pruned)
+      return
+    }
+
+    // If lane is currently blocked, suppress spawning new regular cars
+    if (this.blockedLanes.has(lane)) {
       this._reschedule(lane)
       this.cars.set(lane, pruned)
       return

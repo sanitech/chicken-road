@@ -20,6 +20,30 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     const carsMap = traffic.getCarsMap()
     const markCarDone = (laneIndex, carId) => traffic.markCarDone(laneIndex, carId)
 
+  // On lane mount (which re-mounts on game reset via key), clear any lingering cars
+  useEffect(() => {
+    // Reset one-shot landing guard to allow showcase spawns again after restart
+    Lane._landingOnce = new Set()
+    try { traffic.clearAllCars() } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Inform engine to suppress/resume spawns for ALL lanes based on blocker/crash state
+  useEffect(() => {
+    const referenceIndex = isJumping ? jumpStartLane : globalCurrentIndex
+    const totalLanes = remainingMultipliers.length // lanes indexed 1..totalLanes
+    for (let globalIndex = 1; globalIndex <= totalLanes; globalIndex++) {
+      const isCompleted = globalIndex < referenceIndex
+      const isCurrent = globalIndex === referenceIndex
+      const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
+      const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
+      const isCrashLane = (globalIndex === crashVisualLane)
+      const computed = !isCrashLane && (baseBlocked || isBlockedByServer)
+      try { traffic.setLaneBlocked(globalIndex, !!computed) } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, blockedNextLane, crashVisualLane])
+
     // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
     useEffect(() => {
         if (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) {
@@ -112,16 +136,15 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 style={{
                     background: GAME_CONFIG.COLORS.ASPHALT,
                     filter: isJumping ? `blur(${jumpProgress * 1}px)` : 'none',
-                    opacity: 0.9,
+                    opacity: 1,
                     left: 0,
                     top: 0,
                     bottom: 0,
                     width: `${SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}px`,
                     ...mainBackgroundOffset,
                     transition: 'none',
-                    // Raise entire lanes strip above chicken only during crash visual,
-                    // so the crash car can render over the chicken.
-                    zIndex: (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) ? 12 : 2
+                    // Keep lanes below chicken; crash cars themselves render above via their own z-index
+                    zIndex: 2
                 }}
             >
                 {Array.from({ length: remainingMultipliers.length + 1 }).map((_, index) => {
@@ -236,8 +259,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 />
                             ))}
 
-                            {/* Blocker Image visible when lane is base blocked, reservation pause, or server says next lane is blocked */}
-                            {(globalIndex > 0 && computedHasBlocker) && (
+                            {/* Blocker Image: do NOT render if a crash visual is active on this lane */}
+                            {(globalIndex > 0 && computedHasBlocker && !(crashVisualLane === globalIndex)) && (
                                 <div className="absolute left-0 right-0 h-8 flex items-center justify-center animate-fade-in"
                                      style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
                                     <img
