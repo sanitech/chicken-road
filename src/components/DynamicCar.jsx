@@ -89,25 +89,38 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       const minTop = 0 - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const maxTop = laneHeight - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
       const targetTop = Math.max(minTop, Math.min(maxTop, rawTarget))
+      // Read actual on-screen position to avoid any snap-back
+      let startTop = currentTopRef.current
+      try {
+        const cs = window.getComputedStyle(el)
+        const parsed = parseFloat(cs.top)
+        if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+          startTop = parsed
+          currentTopRef.current = parsed
+        }
+      } catch {}
       // Small deceleration animation (quick but noticeable)
-      const startTop = currentTopRef.current
       const configured = GAME_CONFIG.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
       const duration = Math.min(600, Math.max(250, configured))
       const startTime = performance.now()
       const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
       if (wrapperRef.current) wrapperRef.current.style.willChange = 'top'
+      const direction = targetTop >= startTop ? 1 : -1
       const step = (now) => {
         const t = Math.min(1, (now - startTime) / duration)
         const eased = easeOutCubic(t)
-        const y = startTop + (targetTop - startTop) * eased
-        const yClamped = Math.max(minTop, Math.min(maxTop, y))
+        const yRaw = startTop + (targetTop - startTop) * eased
+        // Prevent crossing the target to avoid visible snap-back
+        const yBounded = direction > 0 ? Math.min(yRaw, targetTop) : Math.max(yRaw, targetTop)
+        const yClamped = Math.max(minTop, Math.min(maxTop, yBounded))
         currentTopRef.current = yClamped
         if (wrapperRef.current) wrapperRef.current.style.top = `${yClamped}px`
         if (t < 1) {
           rafRef.current = requestAnimationFrame(step)
         } else {
-          currentTopRef.current = targetTop
-          if (wrapperRef.current) wrapperRef.current.style.top = `${targetTop}px`
+          // Do NOT snap to exact target; keep the last bounded position to avoid jolt
+          currentTopRef.current = yClamped
+          if (wrapperRef.current) wrapperRef.current.style.top = `${yClamped}px`
           if (wrapperRef.current) wrapperRef.current.style.willChange = ''
           setCarState('paused')
           try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
