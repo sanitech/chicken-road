@@ -74,7 +74,7 @@ export const GAME_CONFIG = {
   CAR: {
     // Size configuration for car images
     SIZE_PX: 140,
-    STOP_TOP_PERCENT: 15, // stop point for blocked cars inside lane
+    STOP_TOP_PERCENT: 10, // stop point for blocked cars inside lane
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
     SPAWN_TOP_OFFSET_PX: 150,
