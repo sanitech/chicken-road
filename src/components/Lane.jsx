@@ -231,7 +231,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                                     y="50%"
                                                     textAnchor="middle"
                                                     dominantBaseline="middle"
-                                                    fill="#fff"
+                                                    fill={GAME_CONFIG.COLORS.BRIGHT_TEXT}
                                                     stroke="#000"
                                                     strokeWidth="3"
                                                     strokeLinejoin="round"
