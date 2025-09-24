@@ -952,7 +952,8 @@ function Chicken() {
             </div>
 
               {/* Center Section: Difficulty Selector */}
-              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative ${currentLaneIndex > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+              {(!isCreatingGame && !isGameActive) && (
+              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative`}>
                 {/* Mobile: Dropdown */}
                 <div className="lg:hidden">
               <button
@@ -1009,8 +1010,9 @@ function Chicken() {
                       {config.name}
                   </button>
                   ))}
-              </div>
-            </div>
+                </div>
+             </div>
+             )}
 
               {/* Right Section: Game Control Buttons */}
               <div className="flex items-center gap-4">
@@ -1041,7 +1043,7 @@ function Chicken() {
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
-                      className="w-full h-16 font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 text-black shadow-lg"
+                      className="w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 text-black shadow-lg"
                       style={{
                         backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
                         boxShadow: `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}`
@@ -1059,7 +1061,7 @@ function Chicken() {
               <button
                       onClick={moveToNextLaneWithToken}
                       disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
-                      className={`w-full h-16 font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
+                      className={`w-full h-[100px] font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
                         }`}
