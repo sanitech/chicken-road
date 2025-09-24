@@ -157,6 +157,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         customSpeed={carData.animationDuration}
         isBlocked={carState === 'paused'}
         isPaused={carState === 'paused'}
+        disableCssMotion={carData.isBlockedShowcase}
         spriteSrc={carData.spriteSrc}
       />
     </div>
