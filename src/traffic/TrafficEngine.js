@@ -222,6 +222,32 @@ export class TrafficEngine {
 
     this._reschedule(lane)
   }
+  // Public API: Inject a blocked showcase car that stops at the stop point
+  injectBlockedCar(laneIndex, durationMs = 800) {
+    const now = Date.now()
+    const arr = this.cars.get(laneIndex) || []
+    const pruned = arr.filter(c => !c.done)
+    const carData = {
+      id: `car-blocked-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
+      isCrashLane: false,
+      isBlockedShowcase: true,
+      animationDuration: Math.max(200, durationMs),
+      startTime: now,
+      laneIndex: laneIndex,
+      spriteSrc: this._randomSprite(),
+    }
+    this.cars.set(laneIndex, [...pruned, carData])
+    this._emit()
+  }
+
+  // Helper: should we spawn a blocked showcase car for this lane?
+  maybeSpawnBlockedShowcase(laneIndex) {
+    const p = this.cfg?.TRAFFIC?.BLOCKED_SHOWCASE?.PROBABILITY_PER_BLOCK ?? 0
+    if (p <= 0) return
+    if (Math.random() < p) {
+      this.injectBlockedCar(laneIndex)
+    }
+  }
 
   _reschedule(lane) {
     const delay = Math.max(

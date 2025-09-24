@@ -19,7 +19,16 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     const laneEl = el.parentElement
     if (!laneEl) return
     const laneHeight = laneEl.clientHeight
-    const startTop = currentTopRef.current
+    // Read the CURRENT on-screen top so we don't jump from spawn
+    let startTop = currentTopRef.current
+    try {
+      const cs = window.getComputedStyle(el)
+      const parsed = parseFloat(cs.top)
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        startTop = parsed
+        currentTopRef.current = parsed
+      }
+    } catch {}
     const endTop = laneHeight + (GAME_CONFIG.CAR.SIZE_PX || 100)
     const duration = 350
     const startTime = performance.now()
@@ -51,60 +60,55 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     notifiedBlockedRef.current = false
   }, [carData.id])
 
-  // Handle blocker deceleration without resetting position on non-id changes
+  // Moving cars: ignore blocker and keep their native movement (no accelerate-out)
+  // (No-op effect retained for cleanup symmetry)
   useEffect(() => {
-    if (hasBlocker && carState !== 'gone') {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [hasBlocker])
+
+  // (Legacy paused-cleared handler removed)
+
+  // Blocked showcase cars: small deceleration to STOP_TOP_PERCENT, then pause
+  useEffect(() => {
+    if (carData.isBlockedShowcase && carState === 'moving') {
       const el = wrapperRef.current
       if (!el) return
-      // Find the lane column (absolute parent) to compute heights
       const laneEl = el.parentElement
       if (!laneEl) return
       const laneHeight = laneEl.clientHeight
-
-      // Target: STOP_TOP_PERCENT of the lane height (e.g., 20%)
-      const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 20
-      const targetTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
-
-      // If we've already passed the stop point, accelerate out instead of snapping back
-      if (currentTopRef.current >= targetTop) {
-        // Already past blocker—leave quickly and mark as gone
-        setCarState('gone')
-        accelerateOut()
-        return
-      }
-
-      // Starting top from ref (persisted across renders)
+      const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 35
+      // Compute target stop position and clamp within lane bounds
+      const rawTarget = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
+      const minTop = 0 - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
+      const maxTop = laneHeight - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
+      const targetTop = Math.max(minTop, Math.min(maxTop, rawTarget))
+      // Small deceleration animation (quick but noticeable)
       const startTop = currentTopRef.current
-
-      const duration = Math.min(900, Math.max(400, carData.animationDuration * 0.4))
+      const configured = GAME_CONFIG.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
+      const duration = Math.min(600, Math.max(250, configured))
       const startTime = performance.now()
-
       const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
-
-      // Trigger blocked sound/feedback at the BEGINNING of deceleration (more realistic)
-      if (!notifiedBlockedRef.current) {
-        notifiedBlockedRef.current = true
-        try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'decel-start' }) } catch {}
-      }
-
+      if (wrapperRef.current) wrapperRef.current.style.willChange = 'top'
       const step = (now) => {
         const t = Math.min(1, (now - startTime) / duration)
         const eased = easeOutCubic(t)
         const y = startTop + (targetTop - startTop) * eased
-        currentTopRef.current = y
-        if (wrapperRef.current) {
-          wrapperRef.current.style.top = `${y}px`
-        }
+        const yClamped = Math.max(minTop, Math.min(maxTop, y))
+        currentTopRef.current = yClamped
+        if (wrapperRef.current) wrapperRef.current.style.top = `${yClamped}px`
         if (t < 1) {
           rafRef.current = requestAnimationFrame(step)
         } else {
-          // Reached stop point under blocker
+          currentTopRef.current = targetTop
+          if (wrapperRef.current) wrapperRef.current.style.top = `${targetTop}px`
+          if (wrapperRef.current) wrapperRef.current.style.willChange = ''
           setCarState('paused')
-          // Optional: a separate event for reaching full stop
-          // try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
-
-          // If not reservation-controlled, optionally remove after some time
-          // Paused cars remain until finished; do not auto-remove here.
+          try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
         }
       }
       rafRef.current = requestAnimationFrame(step)
@@ -116,15 +120,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         rafRef.current = null
       }
     }
-  }, [hasBlocker, carData.animationDuration])
-
-  // When blocker clears while paused, prefer accelerating out to avoid blocking chicken
-  useEffect(() => {
-    if (!hasBlocker && carState === 'paused') {
-      accelerateOut()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasBlocker])
+  }, [carData.isBlockedShowcase, carState])
 
   if (carState === 'waiting' || carState === 'gone') return null
 
@@ -136,11 +132,11 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
         '--car-animation-duration': `${carData.animationDuration}ms`,
-        zIndex: carData.isCrashLane ? 15 : 5
+        zIndex: carData.isCrashLane ? 20 : 5
       }}
     >
       <Car
-        isAnimating={!hasBlocker && carState === 'moving'}
+        isAnimating={!carData.isBlockedShowcase && carState === 'moving'}
         isContinuous={false} // Single-run so cars finish naturally and are not swapped mid-way
         onAnimationComplete={onAnimationComplete} // Bubble completion to parent to mark car as done
         customSpeed={carData.animationDuration}

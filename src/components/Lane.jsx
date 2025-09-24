@@ -119,7 +119,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     width: `${SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}px`,
                     ...mainBackgroundOffset,
                     transition: 'none',
-                    zIndex: 2
+                    // Raise entire lanes strip above chicken only during crash visual,
+                    // so the crash car can render over the chicken.
+                    zIndex: (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) ? 12 : 2
                 }}
             >
                 {Array.from({ length: remainingMultipliers.length + 1 }).map((_, index) => {
@@ -225,7 +227,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 <DynamicCar
                                     key={carData.id}
                                     carData={carData}
-                                    hasBlocker={computedHasBlocker}
+                                    hasBlocker={computedHasBlocker && !carData.isBlockedShowcase}
                                     onBlockedStop={onCarBlockedStop}
                                     onAnimationComplete={() => {
                                         // Mark car as done so cleanup can prune it
@@ -248,6 +250,19 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                         }}
                                     />
                                 </div>
+                            )}
+                            {/* Optional: trigger a blocked showcase car with configured probability when the chicken LANDS on this lane and it's blocked */}
+                            {globalIndex > 0 && !isJumping && isCurrent && computedHasBlocker && typeof traffic.maybeSpawnBlockedShowcase === 'function' && (
+                                (() => {
+                                    // ONE-SHOT: attempt probabilistic injection only once per lane landing
+                                    if (!Lane._landingOnce) Lane._landingOnce = new Set()
+                                    const key = `land-block-${globalIndex}-${globalCurrentIndex}`
+                                    if (!Lane._landingOnce.has(key)) {
+                                        Lane._landingOnce.add(key)
+                                        try { traffic.maybeSpawnBlockedShowcase(globalIndex) } catch {}
+                                    }
+                                    return null
+                                })()
                             )}
 
                             {/* Lane Divider Lines - Realistic Road Markings for each lane (excluding sideroad) */}

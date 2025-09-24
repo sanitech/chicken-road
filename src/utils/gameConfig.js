@@ -74,7 +74,7 @@ export const GAME_CONFIG = {
   CAR: {
     // Size configuration for car images
     SIZE_PX: 140,
-    STOP_TOP_PERCENT: 15, // slightly above blocker/cap
+    STOP_TOP_PERCENT: 35, // stop point for blocked cars inside lane
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
     SPAWN_TOP_OFFSET_PX: 150,
@@ -128,6 +128,13 @@ export const GAME_CONFIG = {
     // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
     // keep at most 1 car in the lane queue until it's safe to spawn more.
     NO_OVERLAP_STRICT: true,
+    // Independent blocked showcase cars configuration
+    BLOCKED_SHOWCASE: {
+      // Probability (0..1) to spawn a blocked showcase car when a lane becomes blocked
+      PROBABILITY_PER_BLOCK: 0.4,
+      // Animation duration for showcase car to reach stop point
+      DECEL_DURATION_MS: 700,
+    },
   },
 
   // Game restart tuning
