@@ -1043,7 +1043,7 @@ function Chicken() {
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
-                      className="w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 hover:opacity-90 active:scale-95 text-black shadow-lg"
+                      className={`w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 active:scale-95 text-black shadow-lg ${isValidatingNext || isJumping ? 'opacity-90' : 'hover:opacity-90'}`}
                       style={{
                         backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
                       }}
@@ -1062,7 +1062,7 @@ function Chicken() {
                       disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
                       className={`w-full h-[100px] font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
                         ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
+                        : `${isValidatingNext || isJumping ? 'opacity-90' : 'hover:opacity-90'} active:scale-95 text-white shadow-lg`
                         }`}
                       style={{
                         backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
