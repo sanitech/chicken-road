@@ -133,6 +133,26 @@ export class TrafficEngine {
     return { cars: out }
   }
 
+  // --- Unified car state helpers ---
+  // States: 'regular' | 'blocked' | 'crash'
+
+  _transitionCarState(car, newState, options = {}) {
+    const updated = { ...car, state: newState }
+    if (options.animationDuration != null) {
+      updated.animationDuration = Math.max(1, options.animationDuration)
+    }
+    if (options.startTime != null) {
+      updated.startTime = options.startTime
+    }
+    return updated
+  }
+
+  _computeProgress(car, nowTs = Date.now()) {
+    const duration = Math.max(1, car.animationDuration || 1)
+    const started = car.startTime || nowTs
+    return Math.max(0, Math.min(1, (nowTs - started) / duration))
+  }
+
   // Read-only helper for external logic: get active (not done) cars for a lane
   getCarsForLane(laneIndex) {
     const arr = this.cars.get(laneIndex) || []
@@ -151,25 +171,21 @@ export class TrafficEngine {
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
-    
+
     // Try to promote an existing regular car that's in the visible lane area
     let promoted = false
     const VISIBLE_AREA_PROGRESS_CUTOFF = 0.3 // Cars in first 30% are still in spawn area (invisible)
-    
+
     for (let i = 0; i < pruned.length; i++) {
       const c = pruned[i]
-      if (!c.isCrashLane && !c.isBlockedShowcase) {
-        const duration = Math.max(1, c.animationDuration || 1)
-        const progress = Math.max(0, Math.min(1, (now - (c.startTime || now)) / duration))
-        
+      if (c.state !== 'crash' && c.state !== 'blocked') {
+        const progress = this._computeProgress(c, now)
         if (progress > VISIBLE_AREA_PROGRESS_CUTOFF) {
-          // Car is in visible area - promote it to crash car
-          pruned[i] = {
-            ...c,
-            isCrashLane: true,
+          // Promote to crash
+          pruned[i] = this._transitionCarState(c, 'crash', {
             animationDuration: Math.max(300, finalDuration),
-            promotedToCrash: true,
-          }
+          })
+          pruned[i].promotedToCrash = true
           promoted = true
           break
         } else {
@@ -178,20 +194,20 @@ export class TrafficEngine {
         }
       }
     }
-    
+
     // If no visible car to promote, spawn a new crash car
     if (!promoted) {
-      const carData = {
+      const carData = this._transitionCarState({
         id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
-        isCrashLane: true,
+        state: 'crash',
         animationDuration: Math.max(300, finalDuration),
         startTime: now,
         laneIndex,
         spriteSrc: this._randomSprite(),
-      }
+      }, 'crash')
       pruned.push(carData)
     }
-    
+
     this.cars.set(laneIndex, pruned)
     this._emit()
   }
@@ -208,6 +224,18 @@ export class TrafficEngine {
     const base = arr[idx] || cfg?.CAR_SPEED?.TRAFFIC_BASE_INTERVAL_MS || 2200
     const rateMul = cfg?.TRAFFIC?.SPAWN_RATE_MULTIPLIER ?? 1.0
     return Math.max(1, base * rateMul)
+  }
+
+  _getStopTopPercent() {
+    return this.cfg?.CAR?.STOP_TOP_PERCENT ?? 8
+  }
+
+  _getSpawnOffsetPx() {
+    return this.cfg?.CAR?.SPAWN_TOP_OFFSET_PX ?? 400
+  }
+
+  _getBlockedDecelDurationMs() {
+    return this.cfg?.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
   }
 
   _getSpeedForLane(lane) {
@@ -245,14 +273,14 @@ export class TrafficEngine {
     const pruned = arr.filter(c => !c.done)
     if (pruned.length === 0) {
       const now = Date.now()
-      const carData = {
+      const carData = this._transitionCarState({
         id: `car-seed-${lane}-${now}-${Math.floor(Math.random() * 1000)}`,
-        isCrashLane: false,
+        state: 'regular',
         animationDuration: this._getSpeedForLane(lane),
         startTime: now,
         laneIndex: lane,
         spriteSrc: this._randomSprite(),
-      }
+      }, 'regular')
       this.cars.set(lane, [carData])
     }
   }
@@ -301,38 +329,72 @@ export class TrafficEngine {
       return
     }
 
-    const carData = {
+    const carData = this._transitionCarState({
       id: `car-${lane}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      isCrashLane: false,
+      state: 'regular',
       animationDuration: this._getSpeedForLane(lane),
       startTime: Date.now(),
       laneIndex: lane,
       spriteSrc: this._randomSprite(),
-    }
+    }, 'regular')
     this.cars.set(lane, [...pruned, carData])
     this._emit()
 
     this._reschedule(lane)
   }
   // Public API: Inject a blocked showcase car that stops at the stop point
-  injectBlockedCar(laneIndex, durationMs = 800) {
+  injectBlockedCar(laneIndex, durationMs = null) {
     // Skip if a blocker is already present for this lane (via promotion or prior inject)
     if (this.blockerByLane.has(laneIndex)) return
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
-    const carData = {
-      id: `car-blocked-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
-      isCrashLane: false,
-      isBlockedShowcase: true,
-      animationDuration: Math.max(200, durationMs),
-      startTime: now,
-      laneIndex: laneIndex,
-      spriteSrc: this._randomSprite(),
+    const stopTopPercent = this._getStopTopPercent()
+    const decelMs = Math.max(200, durationMs ?? this._getBlockedDecelDurationMs())
+
+    // Try to promote a visible regular car to blocked so it decelerates to stopTopPercent
+    let promoted = false
+    const nowTs = now
+    for (let i = 0; i < pruned.length; i++) {
+      const c = pruned[i]
+      if (c.state === 'regular') {
+        const progress = this._computeProgress(c, nowTs)
+        // Consider visible if past spawn (first ~30%)
+        if (progress > 0.3) {
+          const updated = this._transitionCarState(c, 'blocked', {
+            animationDuration: decelMs,
+            startTime: nowTs,
+          })
+          updated.stopTopPercent = stopTopPercent
+          updated.spawnOffsetPx = this._getSpawnOffsetPx()
+          updated.decelDurationMs = decelMs
+          pruned[i] = updated
+          promoted = true
+          break
+        }
+      }
     }
-    this.cars.set(laneIndex, [...pruned, carData])
+
+    // If not promoted, spawn a showcase blocked car with explicit stop parameters
+    if (!promoted) {
+      const carData = this._transitionCarState({
+        id: `car-blocked-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
+        state: 'blocked',
+        animationDuration: decelMs,
+        startTime: now,
+        laneIndex: laneIndex,
+        spriteSrc: this._randomSprite(),
+        stopTopPercent,
+        spawnOffsetPx: this._getSpawnOffsetPx(),
+        decelDurationMs: decelMs,
+      }, 'blocked')
+      pruned.push(carData)
+    }
+
+    this.cars.set(laneIndex, pruned)
     // Record this as the active blocker
-    this.blockerByLane.set(laneIndex, carData.id)
+    const activeId = (promoted ? pruned.find(c => c.state === 'blocked')?.id : pruned[pruned.length - 1]?.id)
+    if (activeId) this.blockerByLane.set(laneIndex, activeId)
     this._emit()
   }
 
@@ -344,6 +406,13 @@ export class TrafficEngine {
     if (Math.random() < p) {
       this.injectBlockedCar(laneIndex)
     }
+  }
+
+  // Ensure a blocked car is present and planned to stop at the configured percent.
+  // This is deterministic and bypasses probability.
+  ensureBlockedShowcase(laneIndex) {
+    if (this.blockerByLane.has(laneIndex)) return
+    this.injectBlockedCar(laneIndex)
   }
 
   _reschedule(lane) {

@@ -93,50 +93,50 @@ export const GAME_CONFIG = {
 
   // Car generation and movement tuning
   CAR_SPEED: {
-    LANE_SPEED_PATTERN_MS: [2800, 2600, 2400, 2200, 2000],
-    TRAFFIC_BASE_INTERVAL_MS: 2500,
+    LANE_SPEED_PATTERN_MS: [2200, 2100, 2000, 1900, 1800],
+    TRAFFIC_BASE_INTERVAL_MS: 2200,
     // Minimum allowed speed for cars (after jitter and multipliers)
     MIN_SPEED_MS: 700,
     // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
-    SPEED_MULTIPLIER: 0.8, // 70% faster globally
+    SPEED_MULTIPLIER: 0.75, // slightly faster globally
   },
 
   // Stochastic traffic configuration (irregular, realistic)
   TRAFFIC: {
     // Mean spawn interval per lane (ms). If array is shorter than lanes, last value repeats.
     // Acts as the parameter for exponential inter-arrival sampling.
-    MEAN_INTERVAL_MS_BY_LANE: [2800, 3200, 3600, 4000, 4400],
+    MEAN_INTERVAL_MS_BY_LANE: [1800, 2000, 2200, 2400, 2600],
     // Additional symmetric jitter (ms) applied to the sampled delay.
-    ARRIVAL_JITTER_MS: 3000,
+    ARRIVAL_JITTER_MS: 2200,
     // Per-car speed jitter as a fraction (0.1 => ±10%).
     SPEED_JITTER_PERCENT: 0.4,
     // Minimum normalized progress (0..1) that the last car should reach before spawning another.
-    HEADWAY_MIN_PROGRESS: 0.45,
+    HEADWAY_MIN_PROGRESS: 0.30,
     // Additionally require a minimum time gap relative to the last car's duration
     // Example: 0.35 means wait at least 35% of the last car's travel time
-    HEADWAY_MIN_TIME_FRACTION: 0.40,
+    HEADWAY_MIN_TIME_FRACTION: 0.25,
     // Maximum number of cars to actively render per lane for performance.
-    MAX_CARS_PER_LANE_VISIBLE: 3,
+    MAX_CARS_PER_LANE_VISIBLE: 5,
     // Absolute minimum delay between spawns (ms), after jitter and randomness
-    MIN_DELAY_MS: 1800,
+    MIN_DELAY_MS: 900,
     // Initial randomized offset (ms) for first spawn per lane: [min, max]
-    INITIAL_OFFSET_RANGE_MS: [600, 1400],
+    INITIAL_OFFSET_RANGE_MS: [200, 300],
     // Cleanup cadence for pruning finished cars (ms)
     CLEANUP_INTERVAL_MS: 1500,
     // Optional per-lane toggle to enable/disable spawning; indexes map to traffic lanes 1..N
     // Example: [true, true, false] disables lane 3 spawning. If shorter, remaining lanes default to true.
     PER_LANE_SPAWN_ENABLED: [],
     // Global multiplier for spawn frequency (1.0 = unchanged, <1.0 = more frequent, >1.0 = less frequent)
-    SPAWN_RATE_MULTIPLIER: 0.7,
+    SPAWN_RATE_MULTIPLIER: 0.6,
     // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
     // keep at most 1 car in the lane queue until it's safe to spawn more.
-    NO_OVERLAP_STRICT: true,
+    NO_OVERLAP_STRICT: false,
     // Independent blocked showcase cars configuration
     BLOCKED_SHOWCASE: {
       // Probability (0..1) to spawn a blocked showcase car when a lane becomes blocked
-      PROBABILITY_PER_BLOCK: 0.4,
+      PROBABILITY_PER_BLOCK: 0.8,
       // Animation duration for showcase car to reach stop point
-      DECEL_DURATION_MS: 700,
+      DECEL_DURATION_MS: 800,
     },
   },
 
