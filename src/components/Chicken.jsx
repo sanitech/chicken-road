@@ -1,9 +1,7 @@
 import React from 'react'
-import chickenImage from '../assets/chiken.png'
 import deadChickenImage from '../assets/chickendead.png'
 import oddsBottomImage from '../assets/oddsbottom.png'
-import spritesImage from '../assets/sprites.png'
-import SpriteAnimator from './SpriteAnimator'
+import chickenGif from '../assets/chichen.gif'
 import './Chicken.css'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
@@ -39,15 +37,6 @@ function Chicken({
 
   const chickenSize = getChickenSize()
 
-  // Scale SpriteAnimator to match requested chicken size (approximate)
-  // Using active content size similar to vite-project sample. Adjust if your sheet differs.
-  const COLUMNS = 4
-  const ROWS = 6
-  const CONTENT_WIDTH = 390
-  const CONTENT_HEIGHT = 660
-  const approxFrameWidth = CONTENT_WIDTH / COLUMNS
-  const scale = Math.max(0.1, parseInt(chickenSize.width) / approxFrameWidth)
-
   return (
     <div className="relative flex items-center justify-center" style={chickenSize}>
       {/* Dead state: show static dead chicken image */}
@@ -65,26 +54,16 @@ function Chicken({
           className={`${className}`}
         />
       ) : (
-        <SpriteAnimator
-          imageUrl={spritesImage}
-          columns={COLUMNS}
-          rows={ROWS}
-          // Choose sprite column by state: 0 = jump/active, 1 = idle/walk baseline
-          columnIndex={isJumping ? 0 : 1}
-          fps={Math.max(1, fps)}
-          pixelated
-          contentWidth={CONTENT_WIDTH}
-          contentHeight={CONTENT_HEIGHT}
-          scale={scale}
-          // Preserve original delay/pause behavior for idle state similar to vite example
-          {...(!isJumping ? {
-            perRowYOffset: [-4, -2, -4, -4, -4, -4],
-            restEveryLoops: 2,
-            restDurationMs: 300,
-            restAt: 'last'
-          } : {})}
-          // Provide subtle per-row Y-offsets to stabilize baseline if needed (optional)
-          // perRowYOffset={[0, -2, 0, 0, 0, 0]}
+        <img
+          src={chickenGif}
+          alt="Chicken"
+          className={`${className}`}
+          style={{
+            width: chickenSize.width,
+            height: chickenSize.height,
+            objectFit: 'contain',
+            imageRendering: 'auto'
+          }}
         />
       )}
 

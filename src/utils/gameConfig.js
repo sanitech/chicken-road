@@ -34,7 +34,7 @@ export const GAME_CONFIG = {
   },
 
   // Chicken
-  CHICKEN_SIZE_PX: 90,         // Default chicken size (width = height)
+  CHICKEN_SIZE_PX: 120,         // Default chicken size (width = height)
   // Jump animation controls
   JUMP: {
     DURATION_MS: 700,          // total time of a jump
@@ -48,7 +48,7 @@ export const GAME_CONFIG = {
   CHICKEN_X_MODE: 'fixed_px',
   CHICKEN_FIXED_X_PX: 70,      // Used only when CHICKEN_X_MODE === 'fixed_px'
   // Vertical placement baseline for the chicken (percentage of container height)
-  CHICKEN_TOP_PERCENT: 60,
+  CHICKEN_TOP_PERCENT: 70,
 
   // Car/blocker visuals
 
@@ -65,7 +65,7 @@ export const GAME_CONFIG = {
 
   BLOCKER: {
     // Size configuration for blocker images
-    SIZE_PX: 120,
+    SIZE_PX: 150,
     // Prefer TOP_PERCENT; if omitted, code will fallback to CAR_BLOCKER_BOTTOM_PERCENT
     TOP_PERCENT: 40, // slightly above cap
   },

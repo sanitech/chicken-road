@@ -59,6 +59,29 @@ class SocketGameAPI {
     });
   }
 
+  // Create a new game via WebSocket
+  async createGame(gameData, token) {
+    await this.ensureConnected(token);
+    return new Promise((resolve, reject) => {
+      const onResult = (result) => {
+        this.socket.off('createGameResult', onResult);
+        if (result?.success) {
+          resolve(result);
+        } else {
+          reject(new Error(result?.error || 'Failed to create game'));
+        }
+      };
+
+      this.socket.on('createGameResult', onResult);
+      this.socket.emit('createGame', { ...gameData, token });
+
+      setTimeout(() => {
+        this.socket.off('createGameResult', onResult);
+        reject(new Error('Create game timeout'));
+      }, 7000);
+    });
+  }
+
   // Disconnect WebSocket
   disconnect() {
     if (this.socket) {

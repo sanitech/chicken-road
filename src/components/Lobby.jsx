@@ -656,8 +656,8 @@ function Chicken() {
 
       console.log(`Creating new game - Bet: ${betAmount.toFixed(2)} ETB, Difficulty: ${currentDifficulty}`);
 
-      // Create game via backend API
-      const gameData = await gameApi.createGame({
+      // Create game via WebSocket for speed
+      const gameData = await socketGameAPI.createGame({
         clientSeed: gameApi.generateClientSeed(),
         difficulty: currentDifficulty,
         betAmount: betAmount,
