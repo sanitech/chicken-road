@@ -326,13 +326,14 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
             {/* Chicken position indicator - show on all lanes including final sidewalk */}
             {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
-                <div
-                    className="absolute"
-                    style={{
-                        ...getChickenPosition(),
-                        zIndex: 10 // Always on top
-                    }}
-                >
+            <div
+                className="absolute"
+                style={{
+                    ...getChickenPosition(),
+                    // Ensure cars layer above chicken after death
+                    zIndex: isDead ? 1 : 10
+                }}
+            >
                     <Chicken
                         isDead={isDead}
                         currentMultiplier={globalCurrentIndex > 0 ? allLanes[globalCurrentIndex - 1] : null}
