@@ -331,7 +331,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                 style={{
                     ...getChickenPosition(),
                     // Ensure cars layer above chicken after death
-                    zIndex: isDead ? 1 : 10
+                    zIndex:  10
                 }}
             >
                     <Chicken
