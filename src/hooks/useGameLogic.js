@@ -86,9 +86,9 @@ export const useGameLogic = (gameState, audioManager) => {
     gameState.setGameEnded(true);
     gameState.setIsGameActive(false);
 
-    // Play crash audio
+    // Play chicken-over audio (distinct from car crash/blocker stop)
     if (audioManager.current) {
-      audioManager.current.playCrash()
+      audioManager.current.playChickenOver()
     }
 
     // Clear game data
