@@ -42,11 +42,12 @@ class SocketGameAPI {
     this.socket.on('moveResult', (result) => {
       console.log('📥 Move result received:', result);
       
-      // Find and call the appropriate callback
-      const callback = this.moveCallbacks.get(result.currentLane);
+      // Callbacks are keyed by the SERVER lane index we sent
+      const serverLane = typeof result.currentLane === 'number' ? result.currentLane : NaN;
+      const callback = this.moveCallbacks.get(serverLane);
       if (callback) {
         callback(result);
-        this.moveCallbacks.delete(result.currentLane);
+        this.moveCallbacks.delete(serverLane);
       }
     });
 
@@ -130,29 +131,33 @@ class SocketGameAPI {
     await this.ensureConnected(token);
     return new Promise((resolve, reject) => {
 
-      // Prevent concurrent validations for the same lane to avoid callback overwrite
-      if (this.moveCallbacks.has(currentLane)) {
+      // Translate client lane (side road = 0, first lane = 1) to server zero-based (first lane = 0)
+      // Side road becomes -1 so that next = 0 on server for the first move
+      const serverLane = (typeof currentLane === 'number') ? (currentLane - 1) : NaN;
+
+      // Prevent concurrent validations for the same server lane to avoid callback overwrite
+      if (this.moveCallbacks.has(serverLane)) {
         reject(new Error('Move validation already in progress for this lane'));
         return;
       }
 
       // Store callback for this move. Always resolve with server payload; gameplay code
       // decides based on result.canMove. Only reject on transport/timeouts.
-      this.moveCallbacks.set(currentLane, (result) => {
+      this.moveCallbacks.set(serverLane, (result) => {
         resolve(result);
       });
 
       // Send move validation request with token
       this.socket.emit('validateMove', {
         gameId,
-        currentLane,
+        currentLane: serverLane,
         token
       });
 
       // Timeout after 5 seconds
       setTimeout(() => {
-        if (this.moveCallbacks.has(currentLane)) {
-          this.moveCallbacks.delete(currentLane);
+        if (this.moveCallbacks.has(serverLane)) {
+          this.moveCallbacks.delete(serverLane);
           reject(new Error('Move validation timeout'));
         }
       }, 5000);
@@ -179,7 +184,8 @@ class SocketGameAPI {
       // Send cash out request with token
       this.socket.emit('cashOut', {
         gameId,
-        currentLane,
+        // Translate to server zero-based lanes
+        currentLane: (typeof currentLane === 'number') ? (currentLane - 1) : currentLane,
         token
       });
 
