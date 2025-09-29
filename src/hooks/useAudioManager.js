@@ -2,7 +2,8 @@ import { useRef, useEffect, useCallback } from 'react'
 import { Howl, Howler } from 'howler'
 import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
 import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
-import crashAudio from '../assets/audio/chick.ffd1f39b.mp3'
+import crashAudio from '../assets/audio/crash.6d250f25.mp3'
+import chickenOverAudio from '../assets/audio/chick.ffd1f39b.mp3'
 import buttonClickAudio from '../assets/audio/buttonClick.mp3'
 import jumpAudio from '../assets/audio/jump.mp3'
 
@@ -123,6 +124,14 @@ class GameAudioManager {
       onerror: (id, error) => console.log('Jump sound error:', error)
     })
 
+    this.chickenOverSound = new Howl({
+      src: [chickenOverAudio],
+      volume: 0.6,
+      onload: () => console.log('Chicken over sound loaded'),
+      onplay: () => console.log('Chicken over sound played'),
+      onerror: (id, error) => console.log('Chicken over sound error:', error)
+    })
+
     this.soundEnabled = true
     this.musicEnabled = true
   }
@@ -160,6 +169,12 @@ class GameAudioManager {
   playJump() {
     if (this.soundEnabled) {
       this.jumpSound.play()
+    }
+  }
+
+  playChickenOver() {
+    if (this.soundEnabled) {
+      this.chickenOverSound.play()
     }
   }
 
