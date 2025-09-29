@@ -30,7 +30,9 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       }
     } catch {}
     const endTop = laneHeight + (GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX || 200)
-    const duration = 350
+    // Use crash duration from car data (engine) or fall back to config
+    const configuredCrash = (carData && carData.animationDuration) || (GAME_CONFIG?.CRASH?.DURATION_MS ?? 900)
+    const duration = Math.max(300, configuredCrash)
     const startTime = performance.now()
     const easeIn = t => t * t
     const step = (now) => {

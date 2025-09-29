@@ -2,9 +2,9 @@ import { useRef, useEffect, useCallback } from 'react'
 import { Howl, Howler } from 'howler'
 import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
 import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
-import crashAudio from '../assets/audio/crash.6d250f25.mp3'
+import crashAudio from '../assets/audio/chick.ffd1f39b.mp3'
 import buttonClickAudio from '../assets/audio/buttonClick.mp3'
-import jumpAudio from '../assets/audio/chick.ffd1f39b.mp3'
+import jumpAudio from '../assets/audio/jump.mp3'
 
 /**
  * Custom hook for audio management using Howler.js

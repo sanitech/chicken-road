@@ -98,7 +98,7 @@ export const GAME_CONFIG = {
     // Minimum allowed speed for cars (after jitter and multipliers)
     MIN_SPEED_MS: 700,
     // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
-    SPEED_MULTIPLIER: 0.8, // 70% faster globally
+    SPEED_MULTIPLIER: 0.85, // 15% slower globally
   },
 
   // Stochastic traffic configuration (irregular, realistic)
@@ -109,7 +109,7 @@ export const GAME_CONFIG = {
     // Additional symmetric jitter (ms) applied to the sampled delay.
     ARRIVAL_JITTER_MS: 3000,
     // Per-car speed jitter as a fraction (0.1 => ±10%).
-    SPEED_JITTER_PERCENT: 0.4,
+    SPEED_JITTER_PERCENT: 0.6,
     // Minimum normalized progress (0..1) that the last car should reach before spawning another.
     HEADWAY_MIN_PROGRESS: 0.45,
     // Additionally require a minimum time gap relative to the last car's duration
@@ -136,7 +136,7 @@ export const GAME_CONFIG = {
       // Probability (0..1) to spawn a blocked showcase car when a lane becomes blocked
       PROBABILITY_PER_BLOCK: 0.4,
       // Animation duration for showcase car to reach stop point
-      DECEL_DURATION_MS: 700,
+      DECEL_DURATION_MS: 600,
     },
   },
 
@@ -148,6 +148,6 @@ export const GAME_CONFIG = {
 
   // Crash car configuration
   CRASH: {
-    DURATION_MS: 1200, // How fast crash cars accelerate out of the lane
+    DURATION_MS: 1000, // How fast crash cars accelerate out of the lane (higher = slower)
   },
 };

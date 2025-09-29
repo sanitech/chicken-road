@@ -47,8 +47,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
     useEffect(() => {
         if (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) {
-            // Inject a fast car to coincide with crash animation; duration roughly matches jump
-            traffic.injectCrashCar(crashVisualLane, 900)
+            // Inject a crash car; use engine's default duration from config
+            traffic.injectCrashCar(crashVisualLane)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crashVisualTick])
