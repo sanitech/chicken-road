@@ -2,6 +2,7 @@ import React from 'react'
 import deadChickenImage from '../assets/chickendead.png'
 import oddsBottomImage from '../assets/oddsbottom.png'
 import chickenGif from '../assets/chichen.gif'
+import chickenJumpGif from '../assets/chickenJump.gif'
 import './Chicken.css'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
@@ -55,7 +56,7 @@ function Chicken({
         />
       ) : (
         <img
-          src={chickenGif}
+          src={isJumping ? chickenJumpGif : chickenGif}
           alt="Chicken"
           className={`${className}`}
           style={{
