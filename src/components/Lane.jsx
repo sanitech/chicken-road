@@ -163,6 +163,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
                     // Never show a blocker on the crash lane (visual car will handle the effect)
                     const isCrashLane = (globalIndex === crashVisualLane)
+                    // STRICT: Never show blocker on crash lanes - crash car handles the visual
                     const computedHasBlocker = !isCrashLane && (baseBlocked || isBlockedByServer)
                     // Destination lane is where the chicken will land: during jump it's the jumpTargetLane,
                     // otherwise it's the immediate next lane from the current position
@@ -266,8 +267,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 />
                             ))}
 
-                            {/* Blocker Image: do NOT render if a crash visual is active on this lane */}
-                            {(globalIndex > 0 && computedHasBlocker && !(crashVisualLane === globalIndex)) && (
+                            {/* Blocker Image: NEVER render on crash lanes - crash car provides the visual */}
+                            {(globalIndex > 0 && computedHasBlocker && !isCrashLane) && (
                                 <div className="absolute left-0 right-0 h-8 flex items-center justify-center animate-fade-in"
                                      style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
                                     <img
@@ -282,7 +283,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 </div>
                             )}
                             {/* Optional: trigger a blocked showcase car with configured probability when the chicken LANDS on this lane and it's blocked */}
-                            {globalIndex > 0 && !isJumping && isCurrent && computedHasBlocker && typeof traffic.maybeSpawnBlockedShowcase === 'function' && (
+                            {/* NEVER spawn showcase blocker on crash lanes - crash car handles the visual */}
+                            {globalIndex > 0 && !isJumping && isCurrent && computedHasBlocker && !isCrashLane && typeof traffic.maybeSpawnBlockedShowcase === 'function' && (
                                 (() => {
                                     // ONE-SHOT: attempt probabilistic injection only once per lane landing
                                     // This is reset on game restart via useEffect above
@@ -290,7 +292,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                     const key = `land-block-${globalIndex}-${globalCurrentIndex}`
                                     if (!Lane._landingOnce.has(key)) {
                                         Lane._landingOnce.add(key)
-                                        console.log(`[Lane] Attempting showcase blocker spawn for lane ${globalIndex}`)
+                                        console.log(`[Lane] Attempting showcase blocker spawn for lane ${globalIndex} (not crash lane)`)
                                         try { 
                                             traffic.maybeSpawnBlockedShowcase(globalIndex)
                                         } catch (e) {
