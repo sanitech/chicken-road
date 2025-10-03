@@ -87,24 +87,13 @@ export class TrafficEngine {
   setLaneBlocked(laneIndex, isBlocked) {
     if (isBlocked) {
       this.blockedLanes.add(laneIndex)
-      const arr = this.cars.get(laneIndex) || []
-      
-      // NEW RULE: Remove ALL regular cars immediately (regardless of progress)
-      // This prevents any overlap with showcase blockers or crash cars
-      const adjusted = arr.map(c => {
-        if (c.done) return c
-        if (c.isBlockedShowcase || c.isCrashLane) return c // Keep special cars
-        
-        // Mark ALL regular cars as done to ensure one car per lane
-        console.log(`[TrafficEngine] Removing regular car ${c.id} from blocked lane ${laneIndex}`)
-        return { ...c, done: true }
-      })
-      
-      this.cars.set(laneIndex, adjusted)
-      this._emit()
+      // DO NOT remove existing cars - let them finish their animation naturally
+      // The blocking only prevents NEW spawns via _scheduleNext checks
+      console.log(`[TrafficEngine] Lane ${laneIndex} blocked - no new spawns, existing cars will finish naturally`)
     } else {
       this.blockedLanes.delete(laneIndex)
       this.blockerByLane.delete(laneIndex)
+      console.log(`[TrafficEngine] Lane ${laneIndex} unblocked`)
     }
   }
 
@@ -148,65 +137,21 @@ export class TrafficEngine {
     const arr = this.cars.get(laneIndex) || []
     const pruned = arr.filter(c => !c.done)
     
-    // IMPROVED LOGIC: Try to promote visible regular car, otherwise spawn new crash car
-    let visibleCar = null
-    const VISIBLE_AREA_PROGRESS_CUTOFF = 0.2 // Lower threshold for better visibility (was 0.3)
+    // CLEAN APPROACH: By this point, the lane should be empty (we waited)
+    // Just spawn a new crash car without clearing anything
+    console.log(`[TrafficEngine] Injecting crash car in lane ${laneIndex}, current car count: ${pruned.length}`)
     
-    // Find ANY visible regular car (not just first one)
-    for (const c of pruned) {
-      if (!c.isCrashLane && !c.isBlockedShowcase) {
-        const duration = Math.max(1, c.animationDuration || 1)
-        const progress = Math.max(0, Math.min(1, (now - (c.startTime || now)) / duration))
-        
-        if (progress > VISIBLE_AREA_PROGRESS_CUTOFF) {
-          visibleCar = c
-          console.log(`[TrafficEngine] Found visible car ${c.id} at ${(progress * 100).toFixed(1)}% in lane ${laneIndex}, promoting to crash car`)
-          break
-        }
-      }
+    const crashCar = {
+      id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
+      isCrashLane: true,
+      animationDuration: Math.max(300, finalDuration),
+      startTime: now,
+      laneIndex,
+      spriteSrc: this._randomSprite()
     }
     
-    if (visibleCar) {
-      // PROMOTE existing visible car to crash car + remove all other regular cars
-      const updated = pruned.map(c => {
-        if (c.id === visibleCar.id) {
-          return {
-            ...c,
-            isCrashLane: true,
-            animationDuration: Math.max(300, finalDuration),
-            promotedToCrash: true
-          }
-        }
-        // Remove all other regular cars to avoid overlap
-        if (!c.isBlockedShowcase && !c.isCrashLane && c.id !== visibleCar.id) {
-          console.log(`[TrafficEngine] Removing other regular car ${c.id} to prevent overlap`)
-          return { ...c, done: true }
-        }
-        return c
-      })
-      this.cars.set(laneIndex, updated)
-    } else {
-      // NO visible car: Clear lane completely, then spawn new crash car
-      console.log(`[TrafficEngine] No visible car in lane ${laneIndex}, spawning new crash car`)
-      const cleared = pruned.map(c => {
-        if (!c.isBlockedShowcase && !c.isCrashLane) {
-          return { ...c, done: true }
-        }
-        return c
-      }).filter(c => !c.done)
-      
-      const crashCar = {
-        id: `car-crash-${laneIndex}-${now}-${Math.floor(Math.random() * 1000)}`,
-        isCrashLane: true,
-        animationDuration: Math.max(300, finalDuration),
-        startTime: now,
-        laneIndex,
-        spriteSrc: this._randomSprite()
-      }
-      
-      this.cars.set(laneIndex, [...cleared, crashCar])
-    }
-    
+    // Keep existing cars (should be none, but if any exist let them finish naturally)
+    this.cars.set(laneIndex, [...pruned, crashCar])
     this._emit()
   }
 

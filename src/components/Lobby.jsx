@@ -1056,9 +1056,11 @@ function Chicken() {
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
-                      className={`w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 active:scale-95 text-black shadow-lg ${isValidatingNext || isJumping ? 'opacity-90' : 'hover:opacity-90'}`}
+                      disabled={isValidatingNext || isJumping}
+                      className="w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 active:scale-95 text-black shadow-lg hover:opacity-90"
                       style={{
                         backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
+                        opacity: isValidatingNext || isJumping ? 0.7 : 1
                       }}
                     >
                       <div className="text-center">
@@ -1073,14 +1075,12 @@ function Chicken() {
               <button
                       onClick={moveToNextLaneWithToken}
                       disabled={currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded}
-                      className={`w-full h-[100px] font-bold rounded-xl text-2xl transition-all duration-200 ${currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
-                        ? 'opacity-50 cursor-not-allowed'
-                        : `${isValidatingNext || isJumping ? 'opacity-90' : 'hover:opacity-90'} active:scale-95 text-white shadow-lg`
-                        }`}
+                      className={`w-full h-[100px] font-bold rounded-xl text-2xl transition-all duration-200 active:scale-95 text-white shadow-lg hover:opacity-90 ${currentLaneIndex >= allLanes.length || isDead || gameEnded ? 'cursor-not-allowed' : ''}`}
                       style={{
-                        backgroundColor: currentLaneIndex >= allLanes.length || isJumping || isDead || gameEnded
+                        backgroundColor: currentLaneIndex >= allLanes.length || isDead || gameEnded
                           ? GAME_CONFIG.COLORS.TERTIARY_TEXT
-                          : GAME_CONFIG.COLORS.PLAY_BUTTON
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
+                        opacity: (isValidatingNext || isJumping) && currentLaneIndex < allLanes.length && !isDead && !gameEnded ? 0.6 : (currentLaneIndex >= allLanes.length || isDead || gameEnded ? 0.5 : 1)
                       }}
                     >
                       {isDead || gameEnded ? '💀' : currentLaneIndex >= allLanes.length ? 'MAX' : 'GO'}

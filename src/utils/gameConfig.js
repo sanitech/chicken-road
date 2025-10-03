@@ -150,4 +150,16 @@ export const GAME_CONFIG = {
   CRASH: {
     DURATION_MS: 1000, // How fast crash cars accelerate out of the lane (higher = slower)
   },
+
+  // Jump validation - wait for lane to be empty before jumping
+  JUMP_VALIDATION: {
+    // How often to check if destination lane is empty (milliseconds)
+    // 50ms = sweet spot (36 checks within MIN_DELAY_MS, imperceptible to humans)
+    POLL_INTERVAL_MS: 50,
+    // Maximum time to wait for lane to clear before forcing jump (milliseconds)
+    MAX_WAIT_MS: 10000,
+    // Minimum car progress (0.0-1.0) before chicken can jump safely
+    // 0.5 = 50% - car is halfway through, safe to jump
+    MIN_CAR_PROGRESS_TO_JUMP: 0.6,
+  },
 };
