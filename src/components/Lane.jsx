@@ -23,7 +23,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
   // On lane mount (which re-mounts on game reset via key), clear any lingering cars
   useEffect(() => {
     // Reset one-shot landing guard to allow showcase spawns again after restart
+    // This is critical to prevent ghost cars across game sessions
     Lane._landingOnce = new Set()
+    console.log('[Lane] Resetting one-shot landing guard and clearing all cars')
     try { traffic.clearAllCars() } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -283,11 +285,17 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             {globalIndex > 0 && !isJumping && isCurrent && computedHasBlocker && typeof traffic.maybeSpawnBlockedShowcase === 'function' && (
                                 (() => {
                                     // ONE-SHOT: attempt probabilistic injection only once per lane landing
+                                    // This is reset on game restart via useEffect above
                                     if (!Lane._landingOnce) Lane._landingOnce = new Set()
                                     const key = `land-block-${globalIndex}-${globalCurrentIndex}`
                                     if (!Lane._landingOnce.has(key)) {
                                         Lane._landingOnce.add(key)
-                                        try { traffic.maybeSpawnBlockedShowcase(globalIndex) } catch {}
+                                        console.log(`[Lane] Attempting showcase blocker spawn for lane ${globalIndex}`)
+                                        try { 
+                                            traffic.maybeSpawnBlockedShowcase(globalIndex)
+                                        } catch (e) {
+                                            console.error('[Lane] Error spawning showcase blocker:', e)
+                                        }
                                     }
                                     return null
                                 })()

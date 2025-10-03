@@ -11,9 +11,17 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
   const currentTopRef = useRef(spawnOffset)
   const notifiedBlockedRef = useRef(false)
   const rafRef = useRef(null)
+  const accelerateOutCalledRef = useRef(false) // Prevent double-call
 
   // Helper: accelerate car out of the lane quickly from its current top
   const accelerateOut = () => {
+    // Prevent double-call race condition
+    if (accelerateOutCalledRef.current) {
+      console.log(`[DynamicCar] accelerateOut already called for car ${carData.id}, skipping`)
+      return
+    }
+    accelerateOutCalledRef.current = true
+    
     const el = wrapperRef.current
     if (!el) return
     const laneEl = el.parentElement
@@ -60,6 +68,8 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     }
     // reset one-shot flags
     notifiedBlockedRef.current = false
+    accelerateOutCalledRef.current = false
+    console.log(`[DynamicCar] Initialized car ${carData.id} in lane ${carData.laneIndex}`)
   }, [carData.id])
 
   // Regular moving cars: animate from spawn to exit offset

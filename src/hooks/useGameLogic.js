@@ -181,33 +181,56 @@ export const useGameLogic = (gameState, audioManager) => {
           handleCrash(moveData);
         }, JUMP_DURATION_MS);
       } else {
-        // Safe to jump. If the destination lane is currently blocked, we already
-        // suppress future spawns. Optionally wait for any existing regular car
-        // in that lane to be near the end before jumping for better visuals.
+        // Safe to jump. Wait for any existing regular cars to clear the lane
+        // for smooth visual experience and prevent overlap bugs.
         const WAIT_ENABLED = true
-        const MIN_PROGRESS_TO_JUMP = 0.8 // 80% of lane
-        const MAX_WAIT_MS = Math.max(250, (GAME_CONFIG.JUMP?.MAX_WAIT_MS ?? 1200))
+        const MIN_PROGRESS_TO_JUMP = 0.85 // 85% of lane (increased from 80%)
+        const MAX_WAIT_MS = Math.max(250, (GAME_CONFIG.JUMP?.MAX_WAIT_MS ?? 2000)) // Increased from 1200ms
 
         if (WAIT_ENABLED && typeof engine?.getCarsForLane === 'function') {
           const laneToCheck = nextPosition
           const startWait = Date.now()
+          
           const poll = () => {
             const cars = engine.getCarsForLane(laneToCheck) || []
             // Consider only non-showcase, non-crash cars
-            const moving = cars.filter(c => !c.isBlockedShowcase && !c.isCrashLane)
-            let ok = true
+            const moving = cars.filter(c => !c.isBlockedShowcase && !c.isCrashLane && !c.done)
+            
+            // Check if ALL cars are past the threshold
+            let canJump = true
+            let slowestProgress = 1.0
+            
             for (const c of moving) {
-              const progress = Math.max(0, Math.min(1, (Date.now() - c.startTime) / (c.animationDuration || 1)))
-              if (progress < MIN_PROGRESS_TO_JUMP) { ok = false; break }
+              const duration = Math.max(1, c.animationDuration || 1)
+              const progress = Math.max(0, Math.min(1, (Date.now() - c.startTime) / duration))
+              
+              if (progress < MIN_PROGRESS_TO_JUMP) {
+                canJump = false
+                slowestProgress = Math.min(slowestProgress, progress)
+              }
             }
+            
             const waited = Date.now() - startWait
-            if (ok || waited >= MAX_WAIT_MS) {
+            
+            if (canJump) {
+              // Safe to jump, all cars clear
+              console.log(`[useGameLogic] Lane ${laneToCheck} clear, starting jump`)
               startJump(nextPosition)
+            } else if (waited >= MAX_WAIT_MS) {
+              // Timeout: forcefully clear lane before jumping to prevent glitches
+              console.warn(`[useGameLogic] Timeout waiting for lane ${laneToCheck} (slowest car at ${(slowestProgress * 100).toFixed(1)}%), force-clearing`)
+              if (typeof engine?.setLaneBlocked === 'function') {
+                engine.setLaneBlocked(laneToCheck, true) // This removes all regular cars
+              }
+              // Brief delay for state update before jumping
+              setTimeout(() => startJump(nextPosition), 50)
             } else {
+              // Keep polling
               setTimeout(poll, 60)
             }
           }
-          // brief decision delay before polling
+          
+          // Brief decision delay before polling
           setTimeout(poll, 120)
         } else {
           // Fallback: short decision delay
