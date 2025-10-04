@@ -837,6 +837,7 @@ function Chicken() {
                 jumpTargetLane={jumpTargetLane}
             isRestarting={isRestarting}
             blockedNextLane={blockedNextLane}
+            isValidatingNext={isValidatingNext}
             onCarBlockedStop={handleCarBlockedStop}
             crashVisualLane={crashVisual.lane}
             crashVisualTick={crashVisual.tick}
@@ -965,8 +966,8 @@ function Chicken() {
             </div>
 
               {/* Center Section: Difficulty Selector */}
-              {(!isCreatingGame && !isGameActive) && (
-              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative`}>
+              {currentLaneIndex === 0 && (
+              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative`} style={{ opacity: (isJumping || isCreatingGame) ? 0.7 : 1 }}>
                 {/* Mobile: Dropdown */}
                 <div className="lg:hidden">
               <button
@@ -976,15 +977,15 @@ function Chicken() {
                         setShowDifficultyDropdown(!showDifficultyDropdown);
                       }
                     }}
-                    disabled={currentLaneIndex > 0}
-                    className={`w-full flex items-center justify-between rounded-xl px-4 text-left ${currentLaneIndex > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`} style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+                    disabled={currentLaneIndex > 0 || isJumping || isCreatingGame}
+                    className={`w-full flex items-center justify-between rounded-xl px-4 text-left ${(currentLaneIndex > 0 || isJumping || isCreatingGame) ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`} style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
                     <span className="font-semibold text-sm" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{DIFFICULTY_CONFIGS[currentDifficulty].name}</span>
                     <svg width="20" height="20" viewBox="0 0 24 24" className={`transform transition-transform ${showDifficultyDropdown && currentLaneIndex === 0 ? 'rotate-180' : ''}`} style={{ fill: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
                       <path d="M7 10l5 5 5-5z" />
                     </svg>
               </button>
 
-                  {showDifficultyDropdown && currentLaneIndex === 0 && (
+                  {showDifficultyDropdown && currentLaneIndex === 0 && !isJumping && !isCreatingGame && (
                     <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden z-50  shadow-2xl" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
                       {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
                   <button
@@ -1012,8 +1013,8 @@ function Chicken() {
                   <button
                       key={key}
                       onClick={() => changeDifficulty(key)}
-                      disabled={currentLaneIndex > 0}
-                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={currentLaneIndex > 0 || isJumping || isCreatingGame}
+                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${(currentLaneIndex > 0 || isJumping || isCreatingGame) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       style={{
                         backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.ELEVATED,
                         color: GAME_CONFIG.COLORS.BRIGHT_TEXT,
@@ -1029,23 +1030,25 @@ function Chicken() {
 
               {/* Right Section: Game Control Buttons */}
               <div className="flex items-center gap-4">
-                {currentLaneIndex === 0 && !isJumping ? (
+                {currentLaneIndex === 0 ? (
                   /* Initial Play Button - Before Game Starts (structured wrapper without external classes) */
                   <div className="w-full lg:w-48">
                     <button
                       onClick={startNewGame}
-                      disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame}
-                      className={`w-full lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${!userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                      disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame || isJumping}
+                      className={`w-full lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${(!userInfo || (userInfo.balance < betAmount))
                         ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:opacity-90 active:scale-95 text-white shadow-lg'
+                        : 'active:scale-95 text-white shadow-lg'
                         }`}
                       style={{
-                        backgroundColor: !userInfo || (userInfo.balance < betAmount) || isCreatingGame
+                        backgroundColor: (!userInfo || (userInfo.balance < betAmount))
                           ? GAME_CONFIG.COLORS.TERTIARY_TEXT
-                          : GAME_CONFIG.COLORS.PLAY_BUTTON
+                          : GAME_CONFIG.COLORS.PLAY_BUTTON,
+                        opacity: (isCreatingGame || isJumping) ? 0.7 : 1,
+                        cursor: (isCreatingGame || isJumping) ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      {isCreatingGame ? 'Creating...' :
+                      {isCreatingGame ? 'Creating...' : isJumping ? 'Play' :
                         !userInfo ? 'Loading...' :
                           (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
                     </button>

@@ -193,7 +193,10 @@ export class TrafficEngine {
     const jitterPct = cfg?.TRAFFIC?.SPEED_JITTER_PERCENT ?? 0
     const jitterFactor = 1 + ((Math.random() * 2 - 1) * jitterPct)
     const minSpeed = cfg?.CAR_SPEED?.MIN_SPEED_MS ?? 600
-    return Math.max(minSpeed, Math.round(base * jitterFactor))
+    const maxSpeed = cfg?.CAR_SPEED?.MAX_SPEED_MS ?? Infinity
+    const raw = Math.round(base * jitterFactor)
+    // Clamp to avoid too-fast or too-slow extremes
+    return Math.min(maxSpeed, Math.max(minSpeed, raw))
   }
 
   _expRand(mean) {

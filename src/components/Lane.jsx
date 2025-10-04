@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo, useEffect, useState } from 'react'
 import cap1Image from '../assets/cap1.png'
 import blockerImage from '../assets/blocker.png'
 import sideRoadImage from '../assets/sideroad.png'
@@ -12,7 +12,7 @@ import car4 from '../assets/car4.png'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import { useTraffic } from '../traffic/TrafficProvider'
 
-function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false, onCarBlockedStop = () => {}, crashVisualLane = -1, crashVisualTick = 0 }) {
+function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDisplayStart, allLanes, isDead = false, gameEnded = false, isJumping = false, jumpProgress = 0, jumpStartLane = 0, jumpTargetLane = 0, isRestarting = false, blockedNextLane = false, isValidatingNext = false, onCarBlockedStop = () => {}, crashVisualLane = -1, crashVisualTick = 0 }) {
     // Removed legacy carAnimationState; DynamicCar manages its own animation lifecycle.
 
     // Traffic via global engine context (independent of Lane re-renders)
@@ -164,7 +164,10 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     // Never show a blocker on the crash lane (visual car will handle the effect)
                     const isCrashLane = (globalIndex === crashVisualLane)
                     // STRICT: Never show blocker on crash lanes - crash car handles the visual
-                    const computedHasBlocker = !isCrashLane && (baseBlocked || isBlockedByServer)
+                    // Don't show blocker while still validating (waiting for crash decision from server)
+                    // or during very early jump before crash visual is set
+                    const isTransientBlock = isBlockedByServer && (isValidatingNext || jumpProgress < 0.05)
+                    const computedHasBlocker = !isCrashLane && !isTransientBlock && (baseBlocked || isBlockedByServer)
                     // Destination lane is where the chicken will land: during jump it's the jumpTargetLane,
                     // otherwise it's the immediate next lane from the current position
                     const isDestinationLane = isJumping ? (globalIndex === jumpTargetLane) : (globalIndex === globalCurrentIndex + 1)

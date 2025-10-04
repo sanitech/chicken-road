@@ -40,7 +40,6 @@ export const GAME_CONFIG = {
   JUMP: {
     DURATION_MS: 350,          // total time of a jump
     MAX_LIFT_PX: 15,           // peak vertical lift during jump
-    EASING: 'cubic',           // reserved for future easing selection
   },
   // Chicken horizontal placement mode when at start and during jumps
   // 'boundary'  => align at sidewalk/lane-1 boundary (uses LANE_WIDTH_PX)
@@ -78,7 +77,7 @@ export const GAME_CONFIG = {
     STOP_TOP_PERCENT: 8, // stop point for blocked cars inside lane
     // Spawn visual offset (px): cars start this many pixels above the lane area
     // so they appear to come in from above (behind the header)
-    SPAWN_TOP_OFFSET_PX: 400,
+    SPAWN_TOP_OFFSET_PX: 350,
     // Exit visual offset (px): cars continue this many pixels below the lane area
     // before disappearing, so they appear to exit below the visible area
     EXIT_TOP_OFFSET_PX: 200,
@@ -92,52 +91,81 @@ export const GAME_CONFIG = {
     STEP_PX: 120,
   },
 
-  // Car generation and movement tuning
+  // Car speed model (how fast each car travels from spawn to exit)
   CAR_SPEED: {
-    LANE_SPEED_PATTERN_MS: [2800, 2600, 2400, 2200, 2000],
+    // Base duration per lane (ms) for a car to travel its path, before jitter/multipliers.
+    // Smaller number => faster cars.
+    // Index mapping examples:
+    //   index 0 => lane 1 (closest road lane)
+    //   index 1 => lane 2
+    //   index 2 => lane 3 ...
+    // If there are more lanes than entries, the last value repeats for all remaining lanes.
+    LANE_SPEED_PATTERN_MS: [2600, 2800, 3000, 3200, 3400],
+    // Fallback base interval used only if MEAN_INTERVAL_MS_BY_LANE is missing for a lane in Traffic.
+    // You can remove or ignore this; TrafficEngine also has a hardcoded fallback.
     TRAFFIC_BASE_INTERVAL_MS: 2500,
-    // Minimum allowed speed for cars (after jitter and multipliers)
-    MIN_SPEED_MS: 700,
-    // Global multiplier applied to per-lane base speeds (1.0 = unchanged, <1.0 = faster, >1.0 = slower)
-    SPEED_MULTIPLIER: 0.85, // 15% slower globally
+    // Clamp: never let a car be faster than this duration (ms) after all modifiers.
+    MIN_SPEED_MS: 900,
+    // Clamp: never let a car be slower than this duration (ms) after all modifiers.
+    // Example: 5000 => cap travel duration at 5s max to avoid excessive waiting.
+    MAX_SPEED_MS: 4000,
+    // Global knob to slow down or speed up ALL lanes at once.
+    // 1.0 = unchanged, <1.0 = faster (shorter durations), >1.0 = slower (longer durations)
+    // Example: 1.15 => all cars take 15% longer to travel (appear slower)
+    //          0.85 => all cars take 15% less time (appear faster)
+    SPEED_MULTIPLIER: 0.8,
   },
 
-  // Stochastic traffic configuration (irregular, realistic)
+  // Traffic spawning model (when new cars appear)
   TRAFFIC: {
-    // Mean spawn interval per lane (ms). If array is shorter than lanes, last value repeats.
-    // Acts as the parameter for exponential inter-arrival sampling.
-    MEAN_INTERVAL_MS_BY_LANE: [2800, 3200, 3600, 4000, 4400],
-    // Additional symmetric jitter (ms) applied to the sampled delay.
-    ARRIVAL_JITTER_MS: 3000,
-    // Per-car speed jitter as a fraction (0.1 => ±10%).
+    // Per-lane average spawn interval (ms). Shorter => more cars (denser traffic).
+    // Exponential sampling is used, so this is the mean of a random distribution.
+    // Index mapping examples:
+    //   [m0, m1, m2, m3, m4]
+    //    m0 => lane 1, m1 => lane 2, ...
+    // Lanes beyond the list use the last value (m4).
+    // Tip: Equal steps (e.g., +400ms per lane) create a smooth gradient of density.
+    MEAN_INTERVAL_MS_BY_LANE: [3400, 3800, 4200, 4600, 5000],
+    // Adds random noise to spawn timing (ms). Larger => more irregular spacing.
+    // Example: 1500 => each spawn delay is shifted by up to ~±1.5s randomness.
+    // Keep small for calmer traffic; increase to avoid patterns.
+    ARRIVAL_JITTER_MS: 1500,
+    // Random jitter applied to each car's speed (duration).
+    // 0.2 => ±20% range around the lane's base duration after multipliers.
+    // Example: base 3000ms with 0.2 => samples roughly in [2400..3600]ms.
     SPEED_JITTER_PERCENT: 0.6,
-    // Minimum normalized progress (0..1) that the last car should reach before spawning another.
-    HEADWAY_MIN_PROGRESS: 0.45,
-    // Additionally require a minimum time gap relative to the last car's duration
-    // Example: 0.35 means wait at least 35% of the last car's travel time
-    HEADWAY_MIN_TIME_FRACTION: 0.40,
-    // Maximum number of cars to actively render per lane for performance.
-    MAX_CARS_PER_LANE_VISIBLE: 3,
-    // Absolute minimum delay between spawns (ms), after jitter and randomness
-    MIN_DELAY_MS: 1800,
-    // Initial randomized offset (ms) for first spawn per lane: [min, max]
-    INITIAL_OFFSET_RANGE_MS: [600, 1400],
-    // Cleanup cadence for pruning finished cars (ms)
+    // Do not spawn a new car until the last car reaches this fraction of its journey (0..1).
+    // Higher => larger gaps, safer crossings. Example: 0.75 => wait until 75% progressed.
+    HEADWAY_MIN_PROGRESS: 0.60,
+    // Also require a minimum time gap relative to the last car's duration (0..1 fraction).
+    // Example: 0.50 => at least 50% of the last car's travel time must elapse before spawning next.
+    // Works together with HEADWAY_MIN_PROGRESS; both must be satisfied.
+    HEADWAY_MIN_TIME_FRACTION: 0.50,
+    // Hard cap for how many active cars are allowed per lane at once (perf and readability).
+    MAX_CARS_PER_LANE_VISIBLE: 2,
+    // Never spawn faster than this absolute floor (ms), regardless of randomness.
+    // Example: with MIN_DELAY_MS = 2200, even if the mean and jitter suggest 1500ms,
+    // we will wait at least 2200ms before the next spawn.
+    MIN_DELAY_MS: 2200,
+    // First spawn per lane starts after a random delay within this range (ms).
+    // Example: [800, 1600] => the very first spawn per lane happens 0.8–1.6s after start.
+    // This prevents all lanes from spawning simultaneously after a reset.
+    INITIAL_OFFSET_RANGE_MS: [800, 1600],
+    // How often the engine prunes finished cars (ms). Purely performance/cleanup.
     CLEANUP_INTERVAL_MS: 1500,
-    // Optional per-lane toggle to enable/disable spawning; indexes map to traffic lanes 1..N
-    // Example: [true, true, false] disables lane 3 spawning. If shorter, remaining lanes default to true.
+    // Optional per-lane enable/disable toggles (index 0 => lane 1).
+    // Example: [true, true, false] disables spawning in lane 3; omitted lanes default to enabled.
     PER_LANE_SPAWN_ENABLED: [],
-    // Global multiplier for spawn frequency (1.0 = unchanged, <1.0 = more frequent, >1.0 = less frequent)
-    SPAWN_RATE_MULTIPLIER: 0.7,
-    // If true, enforce no-overlap strictly: when a lane is blocked or spacing isn't met,
-    // keep at most 1 car in the lane queue until it's safe to spawn more.
+    // Global knob to scale spawn frequency across all lanes.
+    // 1.0 = unchanged, <1.0 = more frequent (denser), >1.0 = less frequent (sparser)
+    // Example: 1.2 => all lanes spawn ~20% less often; 0.8 => ~20% more often.
+    SPAWN_RATE_MULTIPLIER: 1.2,
+    // When true, keep at most one car queued if spacing is not safe or lane is blocked (prevents overlap).
     NO_OVERLAP_STRICT: true,
-    // Independent blocked showcase cars configuration
+    // Configuration for the visual "blocker" car that stops in a lane when blocked.
     BLOCKED_SHOWCASE: {
-      // Probability (0..1) to spawn a blocked showcase car when a lane becomes blocked
+      // Probability (0..1) to spawn a blocker when a lane becomes blocked.
       PROBABILITY_PER_BLOCK: 0.5,
-      // Animation duration for showcase car to reach stop point
-      DECEL_DURATION_MS: 600,
     },
   },
 
@@ -149,7 +177,7 @@ export const GAME_CONFIG = {
 
   // Crash car configuration
   CRASH: {
-    DURATION_MS: 1000, // How fast crash cars accelerate out of the lane (higher = slower)
+    DURATION_MS: 1200, // How fast crash cars accelerate out of the lane (higher = slower)
   },
 
   // Jump validation - wait for lane to be empty before jumping

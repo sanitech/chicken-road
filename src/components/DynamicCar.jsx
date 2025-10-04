@@ -69,7 +69,6 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     // reset one-shot flags
     notifiedBlockedRef.current = false
     accelerateOutCalledRef.current = false
-    console.log(`[DynamicCar] Initialized car ${carData.id} in lane ${carData.laneIndex}`)
   }, [carData.id])
 
   // Regular moving cars AND blocked showcase cars: animate from spawn to destination
@@ -165,9 +164,6 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       style={{
         top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
-        '--car-animation-duration': `${carData.animationDuration}ms`,
-        '--car-start-offset': `${GAME_CONFIG.CAR.SPAWN_TOP_OFFSET_PX}px`,
-        '--car-end-offset': `${GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX}px`,
         zIndex: carData.isCrashLane ? 20 : 5
       }}
     >
