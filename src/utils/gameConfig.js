@@ -37,7 +37,7 @@ export const GAME_CONFIG = {
   CHICKEN_SIZE_PX: 120,         // Default chicken size (width = height)
   // Jump animation controls
   JUMP: {
-    DURATION_MS: 700,          // total time of a jump
+    DURATION_MS: 350,          // total time of a jump
     MAX_LIFT_PX: 15,           // peak vertical lift during jump
     EASING: 'cubic',           // reserved for future easing selection
   },
