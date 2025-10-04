@@ -288,10 +288,11 @@ export const useGameLogic = (gameState, audioManager) => {
           gameState.setCrashVisual({ lane: destinationLane, tick: Date.now() })
           startJump(destinationLane)
           
-          const JUMP_DURATION_MS = GAME_CONFIG.JUMP?.DURATION_MS ?? 800
+          // Wait for jump to complete AND crash car to reach chicken before showing dead sprite
+          const IMPACT_DELAY_MS = GAME_CONFIG.CRASH?.IMPACT_DELAY_MS ?? 800
           setTimeout(() => {
             handleCrash(moveData)
-          }, JUMP_DURATION_MS)
+          }, IMPACT_DELAY_MS)
         } else {
           // Safe lane: just jump
           console.log(`[useGameLogic] SAFE: Jumping to lane ${destinationLane}`)
