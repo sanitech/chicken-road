@@ -13,33 +13,17 @@ function Chicken({
   className = "object-contain drop-shadow-md",
   isJumping = false,
   animationFrame = 0,
-  fps = 4,
-  size = "auto" // auto, small, medium, large, or custom number
+  fps = 4
 }) {
-  // Get responsive chicken size
-  const getChickenSize = () => {
-    if (typeof size === 'number') {
-      return { width: `${size}px`, height: `${size}px` }
-    }
-
-    switch (size) {
-      case 'small':
-        return { width: '100px', height: '100px' }
-      case 'medium':
-        return { width: '200px', height: '200px' }
-      case 'large':
-        return { width: '300px', height: '300px' }
-      case 'auto':
-      default:
-        // Fixed size based on central config
-        return { width: `${GAME_CONFIG.CHICKEN_SIZE_PX}px`, height: `${GAME_CONFIG.CHICKEN_SIZE_PX}px` }
-    }
-  }
-
-  const chickenSize = getChickenSize()
+  // Chicken dimensions from config
+  const chickenWidth = GAME_CONFIG.CHICKEN_WIDTH_PX
+  const chickenHeight = GAME_CONFIG.CHICKEN_HEIGHT_PX
 
   return (
-    <div className="relative flex items-center justify-center" style={chickenSize}>
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: `${chickenWidth}px`, height: `${chickenHeight}px` }}
+    >
       {/* Dead state: show static dead chicken image */}
       {isDead ? (
         <div
@@ -48,7 +32,8 @@ function Chicken({
             backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            ...chickenSize,
+            width: `${chickenWidth}px`,
+            height: `${chickenHeight}px`,
             imageRendering: 'auto',
             display: 'block'
           }}
@@ -60,8 +45,8 @@ function Chicken({
           alt="Chicken"
           className={`${className}`}
           style={{
-            width: chickenSize.width,
-            height: chickenSize.height,
+            width: `${chickenWidth}px`,
+            height: `${chickenHeight}px`,
             objectFit: 'contain',
             imageRendering: 'auto'
           }}
@@ -73,7 +58,7 @@ function Chicken({
         <div 
           className="absolute left-1/2 transform -translate-x-1/2"
           style={{
-            top: `${parseInt(chickenSize.height) + 4}px` // Position below chicken with 4px gap
+            top: `${chickenHeight + 4}px` // Position below chicken with 4px gap
           }}
         >
           <div
@@ -88,7 +73,7 @@ function Chicken({
             <span 
               className="text-white font-bold"
               style={{
-                fontSize: `${Math.max(10, parseInt(chickenSize.width) * 0.15)}px` // Scale text with chicken
+                fontSize: `${Math.max(10, chickenWidth * 0.15)}px` // Scale text with chicken
               }}
             >
               {currentMultiplier.toFixed(2)}x

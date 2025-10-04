@@ -3,8 +3,8 @@
 
 export const GAME_CONFIG = {
   // Lane sizing
-  LANE_WIDTH_PX: 140,           // Fixed width for each traffic lane (lane 1+)
-  SIDEWALK_WIDTH_PX: 140,       // Width for the sidewalk (lane index 0)
+  LANE_WIDTH_PX: 120,           // Fixed width for each traffic lane (lane 1+)
+  SIDEWALK_WIDTH_PX: 120,       // Width for the sidewalk (lane index 0)
   FINAL_SIDEWALK_WIDTH_PX: 400, // Width for the final sidewalk (lane index 0)
 
   // Color scheme
@@ -34,7 +34,8 @@ export const GAME_CONFIG = {
   },
 
   // Chicken
-  CHICKEN_SIZE_PX: 120,         // Default chicken size (width = height)
+  CHICKEN_WIDTH_PX: 100,        // Chicken image natural width
+  CHICKEN_HEIGHT_PX: 100,       // Chicken image natural height
   // Jump animation controls
   JUMP: {
     DURATION_MS: 350,          // total time of a jump
@@ -88,7 +89,7 @@ export const GAME_CONFIG = {
     // Distance (in pixels) to move the lanes strip per lane of progress.
     // By default, keep in sync with LANE_WIDTH_PX. You can set a custom value
     // (e.g., smaller than lane width) for a tighter parallax effect.
-    STEP_PX: 140,
+    STEP_PX: 120,
   },
 
   // Car generation and movement tuning
