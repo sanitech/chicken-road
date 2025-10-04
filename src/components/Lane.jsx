@@ -270,7 +270,11 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                             {/* Blocker Image: NEVER render on crash lanes - crash car provides the visual */}
                             {(globalIndex > 0 && computedHasBlocker && !isCrashLane) && (
                                 <div className="absolute left-0 right-0 h-8 flex items-center justify-center animate-fade-in"
-                                     style={{ top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, transform: 'translateY(-50%)', zIndex: 3 }}>
+                                     style={{ 
+                                         top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, 
+                                         marginTop: '-1rem', /* Center vertically without transform */
+                                         zIndex: 3 
+                                     }}>
                                     <img
                                         src={blockerImage}
                                         alt="Blocker"
