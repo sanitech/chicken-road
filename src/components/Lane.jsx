@@ -180,7 +180,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                 <img
                                     src={sideRoadImage}
                                     alt="Side Road"
-                                    className="w-full h-full object-cover"
+                                    className="w-full object-cover"
                                     style={{
                                         objectPosition: 'bottom center',
                                         zIndex: 1
