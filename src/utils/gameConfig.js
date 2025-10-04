@@ -155,7 +155,7 @@ export const GAME_CONFIG = {
   JUMP_VALIDATION: {
     // How often to check if destination lane is empty (milliseconds)
     // 50ms = sweet spot (36 checks within MIN_DELAY_MS, imperceptible to humans)
-    POLL_INTERVAL_MS: 50,
+    POLL_INTERVAL_MS: 20,
     // Maximum time to wait for lane to clear before forcing jump (milliseconds)
     MAX_WAIT_MS: 10000,
     // Minimum car progress (0.0-1.0) before chicken can jump safely
