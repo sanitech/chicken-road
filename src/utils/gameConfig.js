@@ -160,6 +160,6 @@ export const GAME_CONFIG = {
     MAX_WAIT_MS: 10000,
     // Minimum car progress (0.0-1.0) before chicken can jump safely
     // 0.5 = 50% - car is halfway through, safe to jump
-    MIN_CAR_PROGRESS_TO_JUMP: 0.6,
+    MIN_CAR_PROGRESS_TO_JUMP: 0.8,
   },
 };
