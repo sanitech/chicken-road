@@ -134,7 +134,7 @@ export const GAME_CONFIG = {
     // Independent blocked showcase cars configuration
     BLOCKED_SHOWCASE: {
       // Probability (0..1) to spawn a blocked showcase car when a lane becomes blocked
-      PROBABILITY_PER_BLOCK: 0.4,
+      PROBABILITY_PER_BLOCK: 0.5,
       // Animation duration for showcase car to reach stop point
       DECEL_DURATION_MS: 600,
     },
