@@ -275,9 +275,6 @@ export const useGameLogic = (gameState, audioManager) => {
           
           const JUMP_DURATION_MS = GAME_CONFIG.JUMP?.DURATION_MS ?? 800
           setTimeout(() => {
-            if (typeof engine?.injectCrashCar === 'function') {
-              engine.injectCrashCar(destinationLane)
-            }
             handleCrash(moveData)
           }, JUMP_DURATION_MS)
         } else {
