@@ -246,18 +246,33 @@ export const useGameLogic = (gameState, audioManager) => {
           console.log(`[useGameLogic] Lane ${destinationLane} is empty, jumping now`)
           performJump(willCrash)
         } else {
-          // Cars exist - wait for them to reach 80% before jumping
-          const car = realCars[0]
-          const now = Date.now()
-          const elapsed = now - car.startTime
-          const duration = car.animationDuration || 2000
-          const progress = Math.min(1, elapsed / duration)
-          
-          const MIN_PROGRESS = GAME_CONFIG.JUMP_VALIDATION?.MIN_CAR_PROGRESS_TO_JUMP ?? 0.5
-          if (progress >= MIN_PROGRESS) {
-            performJump(willCrash)
-          } else {
+          if (willCrash) {
+            // CRASH LANE: Wait for car to finish completely (100%) before injecting crash car
+            // This prevents overlap: existing car finishes → lane empty → crash car spawns → hits chicken
+            const car = realCars[0]
+            const now = Date.now()
+            const elapsed = now - car.startTime
+            const duration = car.animationDuration || 2000
+            const progress = Math.min(1, elapsed / duration)
+            
+            console.log(`[useGameLogic] CRASH lane ${destinationLane} has car at ${(progress * 100).toFixed(1)}%, waiting for 100% completion...`)
             setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+          } else {
+            // SAFE LANE: Wait for car to reach MIN_PROGRESS threshold, then jump
+            const car = realCars[0]
+            const now = Date.now()
+            const elapsed = now - car.startTime
+            const duration = car.animationDuration || 2000
+            const progress = Math.min(1, elapsed / duration)
+            
+            const MIN_PROGRESS = GAME_CONFIG.JUMP_VALIDATION?.MIN_CAR_PROGRESS_TO_JUMP ?? 0.5
+            if (progress >= MIN_PROGRESS) {
+              console.log(`[useGameLogic] SAFE lane ${destinationLane} car at ${(progress * 100).toFixed(1)}%, jumping now`)
+              performJump(willCrash)
+            } else {
+              console.log(`[useGameLogic] SAFE lane ${destinationLane} car at ${(progress * 100).toFixed(1)}%, waiting for ${(MIN_PROGRESS * 100).toFixed(0)}%`)
+              setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+            }
           }
         }
       }

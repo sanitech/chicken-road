@@ -72,30 +72,68 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     console.log(`[DynamicCar] Initialized car ${carData.id} in lane ${carData.laneIndex}`)
   }, [carData.id])
 
-  // Regular moving cars: animate from spawn to exit offset
+  // Regular moving cars AND blocked showcase cars: animate from spawn to destination
   useEffect(() => {
-    if (!carData.isBlockedShowcase && !carData.isCrashLane && carState === 'moving' && !hasBlocker) {
+    if (!carData.isCrashLane && carState === 'moving' && !hasBlocker) {
       const el = wrapperRef.current
       if (!el) return
       const laneEl = el.parentElement
       if (!laneEl) return
       const laneHeight = laneEl.clientHeight
-      const exitOffset = GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX || 200
-      const endTop = laneHeight + exitOffset
       const startTop = currentTopRef.current
-      const duration = carData.animationDuration || 3000
+      
+      // Determine destination based on car type
+      let endTop
+      let duration
+      let isStoppingCar = false
+      
+      if (carData.isBlockedShowcase) {
+        // Blocked showcase: stop at configured position
+        const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 8
+        endTop = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
+        // Use same duration as regular cars for natural speed
+        duration = carData.animationDuration || 2500
+        isStoppingCar = true
+      } else {
+        // Regular car: exit below viewport
+        const exitOffset = GAME_CONFIG.CAR.EXIT_TOP_OFFSET_PX || 200
+        endTop = laneHeight + exitOffset
+        duration = carData.animationDuration || 3000
+      }
+      
       const startTime = performance.now()
       
       const step = (now) => {
         const t = Math.min(1, (now - startTime) / duration)
-        const y = startTop + (endTop - startTop) * t
+        let y = startTop + (endTop - startTop) * t
+        
+        // CRITICAL: Clamp position to never overshoot the target
+        // This ensures blocking cars stop exactly at the blocker position
+        if (isStoppingCar) {
+          // For stopping cars, ensure we never go past the stop position
+          if (startTop < endTop) {
+            y = Math.min(y, endTop) // Moving down, don't overshoot
+          } else {
+            y = Math.max(y, endTop) // Moving up, don't overshoot
+          }
+        }
+        
         currentTopRef.current = y
         if (wrapperRef.current) wrapperRef.current.style.top = `${y}px`
+        
         if (t < 1) {
           rafRef.current = requestAnimationFrame(step)
         } else {
-          setCarState('gone')
-          try { if (typeof onAnimationComplete === 'function') onAnimationComplete() } catch {}
+          // On final frame, explicitly set to exact target position
+          if (isStoppingCar) {
+            currentTopRef.current = endTop
+            if (wrapperRef.current) wrapperRef.current.style.top = `${endTop}px`
+            setCarState('paused')
+            try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
+          } else {
+            setCarState('gone')
+            try { if (typeof onAnimationComplete === 'function') onAnimationComplete() } catch {}
+          }
         }
       }
       rafRef.current = requestAnimationFrame(step)
@@ -107,7 +145,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         rafRef.current = null
       }
     }
-  }, [carData.isBlockedShowcase, carState, hasBlocker, carData.animationDuration])
+  }, [carData.isBlockedShowcase, carState, hasBlocker, carData.animationDuration, carData.isCrashLane])
 
   // Crash cars: accelerate out quickly from current position
   useEffect(() => {
@@ -117,92 +155,6 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     }
   }, [carData.isCrashLane, carState])
 
-  // Moving cars: ignore blocker and keep their native movement (no accelerate-out)
-  // (No-op effect retained for cleanup symmetry)
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [hasBlocker])
-
-  // Removed safety-cull: regular cars no longer spawn while a lane is blocked
-
-  // (Legacy paused-cleared handler removed)
-
-  // Blocked showcase cars: small deceleration to STOP_TOP_PERCENT, then pause
-  useEffect(() => {
-    if (carData.isBlockedShowcase && carState === 'moving') {
-      const el = wrapperRef.current
-      if (!el) return
-      const laneEl = el.parentElement
-      if (!laneEl) return
-      const laneHeight = laneEl.clientHeight
-      const stopTopPercent = GAME_CONFIG.CAR?.STOP_TOP_PERCENT ?? 35
-      // Compute target stop position and clamp within lane bounds
-      const rawTarget = (laneHeight * (stopTopPercent / 100)) - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
-      const minTop = 0 - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
-      const maxTop = laneHeight - (GAME_CONFIG.CAR.SIZE_PX * 0.5)
-      const targetTop = Math.max(minTop, Math.min(maxTop, rawTarget))
-      // Determine startTop:
-      // - For promoted cars, continue from the current on-screen top to avoid snapping.
-      // - For freshly injected showcase cars, start from the configured spawn offset.
-      let startTop = spawnOffset
-      if (carData.promotedFromRegular) {
-        // Try to read computed style; fallback to ref value
-        try {
-          const cs = window.getComputedStyle(el)
-          const parsed = parseFloat(cs.top)
-          if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-            startTop = parsed
-          } else if (Number.isFinite(currentTopRef.current)) {
-            startTop = currentTopRef.current
-          }
-        } catch {}
-      } else {
-        // Fresh showcase: start from spawn offset
-        if (wrapperRef.current) wrapperRef.current.style.top = `${startTop}px`
-      }
-      currentTopRef.current = startTop
-      // Small deceleration animation (quick but noticeable)
-      const configured = GAME_CONFIG.TRAFFIC?.BLOCKED_SHOWCASE?.DECEL_DURATION_MS ?? 700
-      const duration = Math.min(600, Math.max(250, configured))
-      const startTime = performance.now()
-      const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
-      if (wrapperRef.current) wrapperRef.current.style.willChange = 'top'
-      const direction = targetTop >= startTop ? 1 : -1
-      const step = (now) => {
-        const t = Math.min(1, (now - startTime) / duration)
-        const eased = easeOutCubic(t)
-        const yRaw = startTop + (targetTop - startTop) * eased
-        // Prevent crossing the target to avoid visible snap-back
-        const yBounded = direction > 0 ? Math.min(yRaw, targetTop) : Math.max(yRaw, targetTop)
-        const yClamped = Math.max(minTop, Math.min(maxTop, yBounded))
-        currentTopRef.current = yClamped
-        if (wrapperRef.current) wrapperRef.current.style.top = `${yClamped}px`
-        if (t < 1) {
-          rafRef.current = requestAnimationFrame(step)
-        } else {
-          // Do NOT snap to exact target; keep the last bounded position to avoid jolt
-          currentTopRef.current = yClamped
-          if (wrapperRef.current) wrapperRef.current.style.top = `${yClamped}px`
-          if (wrapperRef.current) wrapperRef.current.style.willChange = ''
-          setCarState('paused')
-          try { if (typeof onBlockedStop === 'function') onBlockedStop({ ...carData, phase: 'stop' }) } catch {}
-        }
-      }
-      rafRef.current = requestAnimationFrame(step)
-    }
-
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [carData.isBlockedShowcase, carState])
 
   if (carState === 'waiting' || carState === 'gone') return null
 

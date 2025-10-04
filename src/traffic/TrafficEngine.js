@@ -83,17 +83,31 @@ export class TrafficEngine {
   }
 
   // Control whether a lane should suppress future regular spawns
-  // STRICT RULE: Remove ALL regular cars when blocking to prevent overlaps
+  // STRICT RULE: Cancel pending timers to prevent race conditions
   setLaneBlocked(laneIndex, isBlocked) {
     if (isBlocked) {
       this.blockedLanes.add(laneIndex)
+      
+      // Cancel all pending spawn timers for this lane to prevent race conditions
+      // This stops any scheduled _scheduleNext() calls from firing
+      this.timers.forEach((timerId, key) => {
+        if (key.startsWith(`lane-${laneIndex}-`)) {
+          clearTimeout(timerId)
+          this.timers.delete(key)
+        }
+      })
+      
       // DO NOT remove existing cars - let them finish their animation naturally
-      // The blocking only prevents NEW spawns via _scheduleNext checks
-      console.log(`[TrafficEngine] Lane ${laneIndex} blocked - no new spawns, existing cars will finish naturally`)
+      // The blocking only prevents NEW spawns
+      console.log(`[TrafficEngine] Lane ${laneIndex} blocked - canceled pending timers, existing cars will finish naturally`)
     } else {
       this.blockedLanes.delete(laneIndex)
       this.blockerByLane.delete(laneIndex)
-      console.log(`[TrafficEngine] Lane ${laneIndex} unblocked`)
+      
+      // Restart spawn cycle for this lane after unblocking
+      this._reschedule(laneIndex)
+      
+      console.log(`[TrafficEngine] Lane ${laneIndex} unblocked - resumed spawning`)
     }
   }
 
