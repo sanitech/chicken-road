@@ -81,8 +81,6 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             return Math.max(0, Math.min(freezeLanes, lane))
         }
 
-        const computeOffsetForLane = (lane) => laneWidthPx * clampFreezeLane(lane)
-
         // Handle restart animation - smooth transition back to configured X position
         if (isRestarting) {
             return {
@@ -103,10 +101,19 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             }
         }
 
-        // During jump: upward projection controlled from GAME_CONFIG
+        // During jump: projectile-style arc with landing dip
+        const clampedProgress = Math.max(0, Math.min(1, jumpProgress))
         const maxLiftPx = GAME_CONFIG.JUMP?.MAX_LIFT_PX ?? 50
-        const lift = Math.sin(jumpProgress * Math.PI) * maxLiftPx
-        const verticalOffset = -lift // negative to move up
+        const landingDipPx = GAME_CONFIG.JUMP?.LANDING_DIP_PX ?? 10
+
+        const projectileCurve = 4 * clampedProgress * (1 - clampedProgress)
+        const lift = projectileCurve * maxLiftPx
+
+        const landingPhaseRaw = (clampedProgress - 0.7) / 0.3
+        const landingPhase = Math.max(0, Math.min(1, landingPhaseRaw))
+        const landingOffset = Math.sin(landingPhase * Math.PI) * landingDipPx
+
+        const verticalOffset = -lift + landingOffset
 
         const easedHorizontalProgress = jumpProgress < 0.5
             ? 2 * jumpProgress * jumpProgress

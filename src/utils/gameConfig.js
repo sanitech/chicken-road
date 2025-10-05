@@ -9,6 +9,8 @@ const SCREEN_PRESETS = {
     FINAL_SIDEWALK_WIDTH_PX: 400,
     PARALLAX_STEP_PX: 120,
     PARALLAX_FREEZE_LANES: 0,
+    JUMP_MAX_LIFT_PX: 50,
+    JUMP_LANDING_DIP_PX: 10,
     CHICKEN_WIDTH_PX: 100,
     CHICKEN_HEIGHT_PX: 100,
     CHICKEN_FIXED_X_PX: 70,
@@ -25,6 +27,8 @@ const SCREEN_PRESETS = {
     FINAL_SIDEWALK_WIDTH_PX: 500, // +25% wider final area
     PARALLAX_STEP_PX: 160,        // +33% larger parallax displacement
     PARALLAX_FREEZE_LANES: 2,     // Hold background until after lane 2
+    JUMP_MAX_LIFT_PX: 55,
+    JUMP_LANDING_DIP_PX: 16,
     CHICKEN_WIDTH_PX: 130,        // +30% larger chicken
     CHICKEN_HEIGHT_PX: 130,       // +30% larger chicken
     CHICKEN_FIXED_X_PX: 90,       // +28% adjusted position
@@ -103,7 +107,8 @@ export const GAME_CONFIG = {
   // Jump animation controls
   JUMP: {
     DURATION_MS: 350,          // total time of a jump
-    MAX_LIFT_PX: 15,           // peak vertical lift during jump
+    MAX_LIFT_PX: SCREEN.JUMP_MAX_LIFT_PX ?? 35,           // peak vertical lift during jump
+    LANDING_DIP_PX: SCREEN.JUMP_LANDING_DIP_PX ?? 10,
   },
   // Chicken horizontal placement mode when at start and during jumps
   // 'boundary'  => align at sidewalk/lane-1 boundary (uses LANE_WIDTH_PX)
