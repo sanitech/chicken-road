@@ -33,12 +33,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
   // Inform engine to suppress/resume spawns for ALL lanes based on blocker/crash state
   useEffect(() => {
-    const referenceIndex = isJumping ? jumpStartLane : globalCurrentIndex
     const totalLanes = remainingMultipliers.length // lanes indexed 1..totalLanes
+    const currentIndex = globalCurrentIndex
+    const jumpSpanStart = Math.min(jumpStartLane, jumpTargetLane)
+    const jumpSpanEnd = Math.max(jumpStartLane, jumpTargetLane)
+
     for (let globalIndex = 1; globalIndex <= totalLanes; globalIndex++) {
-      const isCompleted = globalIndex < referenceIndex
-      const isCurrent = globalIndex === referenceIndex
-      const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
+      const isCompleted = globalIndex < currentIndex
+      const isCurrent = globalIndex === currentIndex
+      const isWithinJumpSpan = isJumping && globalIndex >= jumpSpanStart && globalIndex <= jumpSpanEnd
+      const baseBlocked = (globalIndex > 0) && (isCompleted || isCurrent || isWithinJumpSpan)
       const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
       // CRITICAL: Block next lane during validation (before jump starts) to prevent race conditions
       const isValidatingNextLane = (globalIndex === globalCurrentIndex + 1) && isValidatingNext
@@ -47,7 +51,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
       try { traffic.setLaneBlocked(globalIndex, !!computed) } catch {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, blockedNextLane, crashVisualLane, isValidatingNext])
+  }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, jumpTargetLane, blockedNextLane, crashVisualLane, isValidatingNext])
 
     // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
     useEffect(() => {
