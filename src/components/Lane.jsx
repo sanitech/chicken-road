@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import cap1Image from '../assets/cap1.png'
+import cap2Image from '../assets/cap2.png'
 import blockerImage from '../assets/blocker.png'
 import sideRoadImage from '../assets/sideroad.png'
 import finalSideRoadImage from '../assets/final.png'
@@ -244,17 +245,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                             pointerEvents: 'none'
                                         }}
                                     >
-                                        {!(globalIndex === globalCurrentIndex) && (
+                                        {globalIndex !== globalCurrentIndex && (
                                           <img
-                                            src={cap1Image}
-                                            alt="Lane Cap"
+                                            src={globalIndex < globalCurrentIndex ? cap2Image : cap1Image}
+                                            alt={globalIndex < globalCurrentIndex ? 'Completed Lane Cap' : 'Lane Cap'}
                                             className="mx-auto object-contain"
                                             style={{ 
                                                 objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION,
                                                 width: `${GAME_CONFIG.CAP.SIZE_PX}px`,
                                                 height: `${GAME_CONFIG.CAP.SIZE_PX}px`,
-                                                // Highlight only when the game has started and there is a real destination
-                                                opacity: (globalCurrentIndex > 0 && isDestinationLane) ? 1 : 0.7,
+                                                opacity: globalIndex < globalCurrentIndex ? 0.9 : (globalCurrentIndex > 0 && isDestinationLane ? 1 : 0.7),
                                                 transition: 'opacity 150ms ease-in-out'
                                             }}
                                           />
