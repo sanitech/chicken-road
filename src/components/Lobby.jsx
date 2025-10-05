@@ -883,18 +883,15 @@ function Chicken() {
       {/* Enhanced Controller UI */}
       <div className="p-2 sm:p-4">
         <div className="max-w-7xl mx-auto">
-          <div className="rounded-2xl shadow-2xl p-2 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
+          <div className="rounded-2xl shadow-2xl p-2 sm:p-4 lg:p-6" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
             {/* Desktop-only helper text */}
-            <div className="hidden lg:block text-center text-sm mb-2" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
-              Chance of being shot down
-            </div>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 lg:gap-6">
 
               {/* Left Section: Bet Controls */}
             <div className="flex items-center gap-4">
               {/* Bet Amount Control using MIN / input / MAX with quick selections */}
                 <div className="flex flex-col gap-2 grow">
-                  <div className="flex items-center rounded-xl px-2" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
+                  <div className="flex items-center rounded-xl px-2" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
                     <button
                       data-testid="min-bet-button"
                       onClick={() => {
@@ -903,7 +900,6 @@ function Chicken() {
                       }}
                       disabled={currentLaneIndex > 0}
                       className={`px-3 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
-                      style={{ backgroundColor: 'transparent' }}
                     >
                       MIN
                     </button>
@@ -954,8 +950,8 @@ function Chicken() {
                           setBetAmount(amt)
                         }}
                         disabled={currentLaneIndex > 0}
-                        className={`px-3 grow rounded-lg flex items-center gap-1 text-white text-sm font-semibold transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
-                        style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}
+                        className={`px-3 grow rounded-lg flex items-center gap-1 text-white text-sm font-semibold p-2 transition-all ${currentLaneIndex > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 active:scale-95'}`}
+                        style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}
                       >
                         <span>{amt}</span>
                         <span style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>birr</span>
@@ -966,8 +962,13 @@ function Chicken() {
             </div>
 
               {/* Center Section: Difficulty Selector */}
-              {currentLaneIndex === 0 && (
-              <div className={`flex-1 transition-opacity duration-300 difficulty-selector relative`} style={{ opacity: (isJumping || isCreatingGame) ? 0.7 : 1 }}>
+              <div
+                className={`flex-1 transition-opacity duration-300 difficulty-selector relative`}
+                style={{
+                  opacity: (currentLaneIndex > 0 || isJumping || isCreatingGame) ? 0.6 : 1,
+                  pointerEvents: currentLaneIndex > 0 ? 'none' : 'auto'
+                }}
+              >
                 {/* Mobile: Dropdown */}
                 <div className="lg:hidden">
               <button
@@ -995,7 +996,7 @@ function Chicken() {
                             setShowDifficultyDropdown(false)
                           }}
                           className={`w-full p-2 text-left  transition-colors ${currentDifficulty === key ? 'opacity-80' : ''}`}
-                          style={{ backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.MORE_ELEVATED : 'transparent' }}
+                          style={{ backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.ELEVATED : 'transparent' }}
                         >
                           <div className="font-semibold text-sm" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{config.name}</div>
                   </button>
@@ -1005,28 +1006,28 @@ function Chicken() {
               </div>
 
                 {/* Desktop: Inline Pills with label */}
-                <div className="hidden lg:flex items-center justify-center gap-2">
-                  <div className="font-medium mr-3" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
+                <div className="hidden lg:flex flex-col items-start justify-center gap-2">
+                  <div className="font-medium mr-3" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
                     Difficulty
                   </div>
+                <div className="flex gap-2">  
                   {Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => (
                   <button
                       key={key}
                       onClick={() => changeDifficulty(key)}
                       disabled={currentLaneIndex > 0 || isJumping || isCreatingGame}
-                      className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap font-medium text-base ${(currentLaneIndex > 0 || isJumping || isCreatingGame) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`px-6 py-3 shadow-lg rounded-xl transition-all whitespace-nowrap font-medium text-base ${(currentLaneIndex > 0 || isJumping || isCreatingGame) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       style={{
                         backgroundColor: currentDifficulty === key ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.ELEVATED,
                         color: GAME_CONFIG.COLORS.BRIGHT_TEXT,
-                        boxShadow: currentDifficulty === key ? `0 4px 6px -1px ${GAME_CONFIG.COLORS.SHADOW_MEDIUM}` : 'none'
                       }}
                     >
                       {config.name}
                   </button>
                   ))}
                 </div>
+                </div>
              </div>
-             )}
 
               {/* Right Section: Game Control Buttons */}
               <div className="flex items-center gap-4">
@@ -1036,7 +1037,7 @@ function Chicken() {
                     <button
                       onClick={startNewGame}
                       disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame || isJumping}
-                      className={`w-full lg:h-16 font-bold px-8 rounded-xl text-xl transition-all duration-200 ${(!userInfo || (userInfo.balance < betAmount))
+                      className={`w-full h-[100px] font-bold px-8 rounded-xl text-xl transition-all duration-200 ${(!userInfo || (userInfo.balance < betAmount))
                         ? 'opacity-50 cursor-not-allowed'
                         : 'active:scale-95 text-white shadow-lg'
                         }`}
@@ -1055,7 +1056,7 @@ function Chicken() {
                   </div> 
                 ) : (
                   /* Dual Button Layout - During Game */
-                  <div className="grid grid-cols-2 gap-3 w-full">
+                  <div className="grid grid-cols-2 gap-3 w-full lg:w-64">
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
