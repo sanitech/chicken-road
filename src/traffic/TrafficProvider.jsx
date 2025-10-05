@@ -35,6 +35,7 @@ export function TrafficProvider({ laneCount, carSprites, children }) {
     maybeSpawnBlockedShowcase: (laneIndex) => engine.maybeSpawnBlockedShowcase(laneIndex),
     clearAllCars: () => engine.clearAllCars(),
     setLaneBlocked: (laneIndex, isBlocked) => engine.setLaneBlocked(laneIndex, isBlocked),
+    boostCarSpeed: (laneIndex, carId) => engine.boostCarSpeed(laneIndex, carId),
   }), [snapshot])
 
   return (

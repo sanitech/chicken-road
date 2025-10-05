@@ -136,11 +136,7 @@ export const useGameLogic = (gameState, audioManager) => {
       // Set validating state to keep buttons at 90% opacity
       gameState.setIsValidatingNext(true)
       
-      // Block the first lane immediately to prevent new spawns
-      if (typeof engine?.setLaneBlocked === 'function') {
-        engine.setLaneBlocked(nextPosition, true)
-      }
-      
+      // Lane.jsx effect will block the lane automatically when isValidatingNext becomes true
       // Wait for lane to be empty before jumping (same logic as other lanes)
       const POLL_INTERVAL = GAME_CONFIG.JUMP_VALIDATION?.POLL_INTERVAL_MS ?? 100
       
@@ -160,20 +156,24 @@ export const useGameLogic = (gameState, audioManager) => {
           startJump(nextPosition)
         } else {
           const car = realCars[0]
+          
+          // Calculate car progress to decide if we should boost
           const now = Date.now()
           const elapsed = now - car.startTime
           const duration = car.animationDuration || 2000
           const progress = Math.min(1, elapsed / duration)
           
-          const MIN_PROGRESS = GAME_CONFIG.JUMP_VALIDATION?.MIN_CAR_PROGRESS_TO_JUMP ?? 0.5
-          if (progress >= MIN_PROGRESS) {
-            console.log(`[useGameLogic] First lane ${nextPosition} car at ${(progress * 100).toFixed(1)}% (>=${(MIN_PROGRESS * 100).toFixed(0)}%), jumping now`)
-            gameState.setIsValidatingNext(false)
-            startJump(nextPosition)
-          } else {
-            console.log(`[useGameLogic] First lane ${nextPosition} has car at ${(progress * 100).toFixed(1)}%, waiting for ${(MIN_PROGRESS * 100).toFixed(0)}%`)
-            setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+          // BOOST LOGIC: Only boost slow cars, skip if already close to exit
+          const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
+          if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
+            console.log(`[useGameLogic] First move: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+            engine.boostCarSpeed(nextPosition, car.id)
+          } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
+            console.log(`[useGameLogic] First move: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
           }
+          
+          // Keep polling - the car will complete and be removed from lane
+          setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
         }
       }
       
@@ -223,10 +223,8 @@ export const useGameLogic = (gameState, audioManager) => {
       // 2. Wait for ANY visible cars to finish NATURALLY (no clearing!)
       // 3. Jump only when lane is 100% empty
       
-      console.log(`[useGameLogic] GO clicked for lane ${destinationLane}, blocking spawns`)
-      if (typeof engine?.setLaneBlocked === 'function') {
-        engine.setLaneBlocked(destinationLane, true)
-      }
+      console.log(`[useGameLogic] GO clicked for lane ${destinationLane}, waiting for lane to be empty`)
+      // Lane.jsx effect will block the lane automatically when isValidatingNext becomes true
       
       // Recursive function: check if lane is empty, if not wait
       const POLL_INTERVAL = GAME_CONFIG.JUMP_VALIDATION?.POLL_INTERVAL_MS ?? 100
@@ -247,32 +245,47 @@ export const useGameLogic = (gameState, audioManager) => {
           performJump(willCrash)
         } else {
           if (willCrash) {
-            // CRASH LANE: Wait for car to finish completely (100%) before injecting crash car
-            // This prevents overlap: existing car finishes → lane empty → crash car spawns → hits chicken
+            // CRASH LANE: Boost car to exit quickly, then wait for complete exit before crash car spawns
             const car = realCars[0]
+            
+            // Calculate car progress to decide if we should boost
             const now = Date.now()
             const elapsed = now - car.startTime
             const duration = car.animationDuration || 2000
             const progress = Math.min(1, elapsed / duration)
             
-            console.log(`[useGameLogic] CRASH lane ${destinationLane} has car at ${(progress * 100).toFixed(1)}%, waiting for 100% completion...`)
+            // BOOST LOGIC: Only boost slow cars, skip if already close to exit
+            const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
+            if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
+              console.log(`[useGameLogic] CRASH lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+              engine.boostCarSpeed(destinationLane, car.id)
+            } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
+              console.log(`[useGameLogic] CRASH lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
+            }
+            
+            // Keep polling until lane is empty
             setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
           } else {
-            // SAFE LANE: Wait for car to reach MIN_PROGRESS threshold, then jump
+            // SAFE LANE: Boost car to exit quickly if needed
             const car = realCars[0]
+            
+            // Calculate car progress to decide if we should boost
             const now = Date.now()
             const elapsed = now - car.startTime
             const duration = car.animationDuration || 2000
             const progress = Math.min(1, elapsed / duration)
             
-            const MIN_PROGRESS = GAME_CONFIG.JUMP_VALIDATION?.MIN_CAR_PROGRESS_TO_JUMP ?? 0.5
-            if (progress >= MIN_PROGRESS) {
-              console.log(`[useGameLogic] SAFE lane ${destinationLane} car at ${(progress * 100).toFixed(1)}%, jumping now`)
-              performJump(willCrash)
-            } else {
-              console.log(`[useGameLogic] SAFE lane ${destinationLane} car at ${(progress * 100).toFixed(1)}%, waiting for ${(MIN_PROGRESS * 100).toFixed(0)}%`)
-              setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+            // BOOST LOGIC: Only boost slow cars, skip if already close to exit
+            const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
+            if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
+              console.log(`[useGameLogic] SAFE lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+              engine.boostCarSpeed(destinationLane, car.id)
+            } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
+              console.log(`[useGameLogic] SAFE lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
             }
+            
+            // Keep polling - the car will complete and be removed from lane
+            setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
           }
         }
       }

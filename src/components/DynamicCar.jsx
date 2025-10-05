@@ -42,10 +42,12 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
     const configuredCrash = (carData && carData.animationDuration) || (GAME_CONFIG?.CRASH?.DURATION_MS ?? 900)
     const duration = Math.max(300, configuredCrash)
     const startTime = performance.now()
+    // Use easeIn for crash cars, linear for boosted cars (constant speed)
     const easeIn = t => t * t
+    const easing = carData.shouldAccelerateOut ? (t => t) : easeIn // Linear for boost, easeIn for crash
     const step = (now) => {
       const t = Math.min(1, (now - startTime) / duration)
-      const eased = easeIn(t)
+      const eased = easing(t)
       const y = startTop + (endTop - startTop) * eased
       currentTopRef.current = y
       if (wrapperRef.current) wrapperRef.current.style.top = `${y}px`
@@ -73,7 +75,9 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
 
   // Regular moving cars AND blocked showcase cars: animate from spawn to destination
   useEffect(() => {
-    if (!carData.isCrashLane && carState === 'moving' && !hasBlocker) {
+    // Regular cars always keep moving; showcase cars stop at STOP_TOP_PERCENT based on isBlockedShowcase
+    // Skip if this car should use accelerateOut instead (crash or boosted cars)
+    if (!carData.isCrashLane && !carData.shouldAccelerateOut && carState === 'moving') {
       const el = wrapperRef.current
       if (!el) return
       const laneEl = el.parentElement
@@ -144,15 +148,15 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
         rafRef.current = null
       }
     }
-  }, [carData.isBlockedShowcase, carState, hasBlocker, carData.animationDuration, carData.isCrashLane])
+  }, [carData.isBlockedShowcase, carState, carData.animationDuration, carData.isCrashLane, carData.shouldAccelerateOut, carData.boostTime])
 
-  // Crash cars: accelerate out quickly from current position
+  // Crash cars and boosted cars: accelerate out quickly from current position
   useEffect(() => {
-    if (carData.isCrashLane && carState === 'moving') {
-      // Use the existing accelerateOut function for crash cars
+    if ((carData.isCrashLane || carData.shouldAccelerateOut) && carState === 'moving') {
+      // Use accelerateOut for crash cars and boosted cars
       accelerateOut()
     }
-  }, [carData.isCrashLane, carState])
+  }, [carData.isCrashLane, carData.shouldAccelerateOut, carState])
 
 
   if (carState === 'waiting' || carState === 'gone') return null

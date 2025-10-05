@@ -39,12 +39,14 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
       const isCurrent = globalIndex === referenceIndex
       const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
       const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
+      // CRITICAL: Block next lane during validation (before jump starts) to prevent race conditions
+      const isValidatingNextLane = (globalIndex === globalCurrentIndex + 1) && isValidatingNext
       const isCrashLane = (globalIndex === crashVisualLane)
-      const computed = !isCrashLane && (baseBlocked || isBlockedByServer)
+      const computed = !isCrashLane && (baseBlocked || isBlockedByServer || isValidatingNextLane)
       try { traffic.setLaneBlocked(globalIndex, !!computed) } catch {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, blockedNextLane, crashVisualLane])
+  }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, blockedNextLane, crashVisualLane, isValidatingNext])
 
     // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
     useEffect(() => {
@@ -157,7 +159,7 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     const isCurrent = globalIndex === referenceIndex
                     // const isFuture = globalIndex > referenceIndex // not used
 
-                    // Compute hasBlocker for this lane (prevents cars entering/stops cars)
+                    // Compute hasBlocker for this lane (prevents NEW spawns and shows blocker image)
                     const baseBlocked = ((isCompleted && globalIndex > 0) || (isCurrent && globalIndex > 0))
                     // Only show server blocker for the next lane once the jump has actually started
                     const isBlockedByServer = (globalIndex === globalCurrentIndex + 1) && isJumping && !!blockedNextLane
@@ -167,6 +169,8 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                     // Don't show blocker while still validating (waiting for crash decision from server)
                     // or during very early jump before crash visual is set
                     const isTransientBlock = isBlockedByServer && (isValidatingNext || jumpProgress < 0.05)
+                    // Note: hasBlocker only controls blocker IMAGE visibility and spawn suppression
+                    // Regular cars keep moving; only blocked showcase cars stop at their configured position
                     const computedHasBlocker = !isCrashLane && !isTransientBlock && (baseBlocked || isBlockedByServer)
                     // Destination lane is where the chicken will land: during jump it's the jumpTargetLane,
                     // otherwise it's the immediate next lane from the current position

@@ -144,6 +144,30 @@ export class TrafficEngine {
     this._emit()
   }
 
+  // Boost a car's speed by making it accelerate out like a crash car
+  // Uses configured boost duration for visible speed increase
+  boostCarSpeed(laneIndex, carId) {
+    const arr = this.cars.get(laneIndex) || []
+    const car = arr.find(c => c.id === carId && !c.done)
+    if (!car) return
+
+    const now = Date.now()
+    const elapsed = now - car.startTime
+    const oldDuration = car.animationDuration
+    const progress = Math.min(1, elapsed / oldDuration)
+    
+    // Use configured boost duration (like crash cars)
+    const boostDuration = this.cfg?.JUMP_VALIDATION?.BOOST_DURATION_MS ?? 800
+    
+    console.log(`[TrafficEngine] Boosting car ${carId} in lane ${laneIndex} at ${Math.round(progress * 100)}%, will accelerate out in ${boostDuration}ms`)
+    
+    // Mark car to accelerate out with boost duration
+    this.cars.set(laneIndex, arr.map(c => 
+      c.id === carId ? { ...c, shouldAccelerateOut: true, animationDuration: boostDuration, boostTime: now } : c
+    ))
+    this._emit()
+  }
+
   injectCrashCar(laneIndex, durationMs = null) {
     const defaultDuration = this.cfg?.CRASH?.DURATION_MS ?? 900
     const finalDuration = durationMs ?? defaultDuration
@@ -335,6 +359,12 @@ export class TrafficEngine {
   }
 
   _reschedule(lane) {
+    // CRITICAL: Don't reschedule if lane is blocked - prevents race conditions
+    if (this.blockedLanes.has(lane)) {
+      console.log(`[TrafficEngine] Lane ${lane} is blocked, skipping reschedule`)
+      return
+    }
+    
     const delay = Math.max(
       this.cfg?.TRAFFIC?.MIN_DELAY_MS ?? 150,
       this._expRand(this._getMeanInterval(lane)) + (Math.random() * 2 - 1) * (this.cfg?.TRAFFIC?.ARRIVAL_JITTER_MS ?? 0)
