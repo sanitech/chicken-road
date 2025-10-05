@@ -247,7 +247,7 @@ export const GAME_CONFIG = {
 
   // Crash car configuration
   CRASH: {
-    DURATION_MS: 1200, // How fast crash cars accelerate out of the lane (higher = slower)
+    DURATION_MS: 900, // How fast crash cars accelerate out of the lane (higher = slower)
     // Delay after jump before showing dead chicken sprite (ms)
     // Should be: JUMP.DURATION_MS + time for crash car to reach chicken position
     // Example: 350ms jump + 450ms car travel = 800ms total
