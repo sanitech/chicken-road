@@ -59,20 +59,29 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
     // Calculate chicken position - starts from side road
     const getChickenPosition = () => {
-        // Chicken position based on current lane
-        const isAtStart = globalCurrentIndex === 0
+        const freezeLanes = GAME_CONFIG.PARALLAX?.FREEZE_LANES ?? 0
+        const laneWidthPx = GAME_CONFIG.LANE_WIDTH_PX ?? 0
 
-        // Helper: compute chicken left value based on config
-        const getConfiguredLeft = () => {
-            if (GAME_CONFIG.CHICKEN_X_MODE === 'fixed_px') {
-                return `${GAME_CONFIG.CHICKEN_FIXED_X_PX}px`
+        // Helper: compute chicken left value based on config with optional px offset
+        const getConfiguredLeft = (offsetPx = 0) => {
+            const mode = GAME_CONFIG.CHICKEN_X_MODE
+            if (mode === 'fixed_px') {
+                return `${(GAME_CONFIG.CHICKEN_FIXED_X_PX ?? 0) + offsetPx}px`
             }
-            if (GAME_CONFIG.CHICKEN_X_MODE === 'percent') {
+            if (mode === 'percent') {
                 return `${GAME_CONFIG.CHICKEN_LEFT_PERCENT}%`
             }
             // 'boundary' -> align with sidewalk/lane-1 seam in px
-            return `${LANE_WIDTH_PX}px`
+            const boundaryBase = GAME_CONFIG.LANE_WIDTH_PX ?? 0
+            return `${boundaryBase + offsetPx}px`
         }
+
+        const clampFreezeLane = (lane) => {
+            if (typeof lane !== 'number') return 0
+            return Math.max(0, Math.min(freezeLanes, lane))
+        }
+
+        const computeOffsetForLane = (lane) => laneWidthPx * clampFreezeLane(lane)
 
         // Handle restart animation - smooth transition back to configured X position
         if (isRestarting) {
@@ -85,8 +94,10 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         }
 
         if (!isJumping) {
+            const clampedCurrentLane = clampFreezeLane(globalCurrentIndex)
+            const offsetPx = laneWidthPx * clampedCurrentLane
             return {
-                left: getConfiguredLeft(),
+                left: getConfiguredLeft(offsetPx),
                 top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
                 transform: 'translate(-50%, -50%)'
             }
@@ -97,8 +108,16 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
         const lift = Math.sin(jumpProgress * Math.PI) * maxLiftPx
         const verticalOffset = -lift // negative to move up
 
+        const easedHorizontalProgress = jumpProgress < 0.5
+            ? 2 * jumpProgress * jumpProgress
+            : 1 - Math.pow(-2 * jumpProgress + 2, 2) / 2
+        const clampedStart = clampFreezeLane(jumpStartLane)
+        const clampedTarget = clampFreezeLane(jumpTargetLane)
+        const horizontalLanePosition = clampedStart + (clampedTarget - clampedStart) * easedHorizontalProgress
+        const offsetPx = laneWidthPx * horizontalLanePosition
+
         return {
-            left: getConfiguredLeft(),
+            left: getConfiguredLeft(offsetPx),
             top: `${GAME_CONFIG.CHICKEN_TOP_PERCENT}%`,
             transform: `translate(-50%, calc(-50% + ${verticalOffset}px))`,
             transition: 'none',
@@ -110,13 +129,21 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
     // Memoized background offset (parallax)
     const mainBackgroundOffset = useMemo(() => {
-        const currentWithinWindow = Math.max(0, Math.min(remainingMultipliers.length, globalCurrentIndex - globalDisplayStart))
+        const freezeLanes = GAME_CONFIG.PARALLAX?.FREEZE_LANES ?? 0
+        const baselineIndex = globalCurrentIndex - globalDisplayStart
+        const clampedBaseline = Math.max(0, Math.min(remainingMultipliers.length, baselineIndex))
+        const parallaxEligibleIndex = Math.max(0, clampedBaseline - freezeLanes)
+
         const easedProgress = isJumping
             ? (jumpProgress < 0.5
                 ? 2 * jumpProgress * jumpProgress
                 : 1 - Math.pow(-2 * jumpProgress + 2, 2) / 2)
             : 0
-        const virtualIndex = currentWithinWindow + easedProgress
+
+        const shouldAnimateParallax = (globalCurrentIndex >= freezeLanes)
+        const effectiveProgress = shouldAnimateParallax ? easedProgress : 0
+        const virtualIndex = parallaxEligibleIndex + effectiveProgress
+
         const offsetPx = -(virtualIndex * GAME_CONFIG.PARALLAX.STEP_PX)
         const totalPx = Math.round(offsetPx)
         return {
