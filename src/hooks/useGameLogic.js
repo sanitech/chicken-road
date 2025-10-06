@@ -13,7 +13,7 @@ export const useGameLogic = (gameState, audioManager) => {
   // Physics-based jump function
   const startJump = useCallback((targetLane) => {
     if (gameState.isJumping) return
-    if (gameState.isDead || gameState.gameEnded) return
+    if (gameState.isDead || gameState.gameEnded || gameState.isRestarting) return
 
     // Play jump audio
     if (audioManager.current) {
@@ -117,7 +117,7 @@ export const useGameLogic = (gameState, audioManager) => {
     });
 
     // Don't allow movement if chicken is dead or game has ended
-    if (gameState.isDead || gameState.gameEnded) {
+    if (gameState.isDead || gameState.gameEnded || gameState.isRestarting) {
       console.log('Cannot move: chicken is dead or game has ended');
       return;
     }
