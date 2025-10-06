@@ -11,14 +11,18 @@ import Switch from 'react-switch'
 import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
 import deadChickenImage from '../assets/chickendead.png'
+import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
+import finalSideRoadImage from '../assets/final.png'
 import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
 import cashoutAudio from '../assets/audio/cashout.a30989e2.mp3'
 import crashAudio from '../assets/audio/crash.6d250f25.mp3'
 import chickenOverAudio from '../assets/audio/chick.ffd1f39b.mp3'
 import buttonClickAudio from '../assets/audio/buttonClick.mp3'
 import jumpAudio from '../assets/audio/jump.mp3'
-import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import Lane from './Lane'
+import SettingsModal from './SettingsModal'
+import MobileMenu from './MobileMenu'
+import CashOutAnimation from './CashOutAnimation'
 import cap1Image from '../assets/cap1.png'
 import cap2Image from '../assets/cap2.png'
 import blockerImage from '../assets/blocker.png'
@@ -527,6 +531,7 @@ function Chicken() {
       cap2Image,
       blockerImage,
       sideRoadImage,
+      finalSideRoadImage,
       car1,
       car2,
       car3,
@@ -831,18 +836,7 @@ function Chicken() {
           </div>
           )}
 
-        {/* Cash Out Success Animation with Win Notification Image */}
-        {showCashOutAnimation && (
-          <div className="absolute z-30" style={{ top: '20%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-            <div className="relative">
-              <img src={winNotificationImage} alt="Win Notification" className="w-96 h-40" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <div className="font-black text-lg px-6" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>WIN!</div>
-          <div className="font-bold text-2xl drop-shadow-lg mt-7" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{lastCashOutAmount.toFixed(2)} ETB</div>
-              </div>
-              </div>
-            </div>
-          )}
+        <CashOutAnimation show={showCashOutAnimation} amount={lastCashOutAmount} />
       </div>
 
 
@@ -1064,253 +1058,27 @@ function Chicken() {
         </div>
       </div>
 
-      {/* Settings Popup Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl" style={{ backgroundColor: GAME_CONFIG.COLORS.BACKGROUND }}>
-            {/* Profile header */}
-            <div className="px-8 pt-8 pb-6 text-center">
-              <div className="mx-auto w-20 h-20 rounded-full overflow-hidden ring-2 ring-gray-600 mb-4">
-                <img src={`https://i.pravatar.cc/160?u=${userInfo?.username || 'player'}`} alt="avatar" className="w-full h-full object-cover" />
-              </div>
-              <div className="text-2xl font-semibold" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>{userInfo?.username || 'Player'}</div>
-            </div>
+      <SettingsModal
+        show={showSettings}
+        onClose={() => setShowSettings(false)}
+        userInfo={userInfo}
+        musicEnabled={musicEnabled}
+        setMusicEnabled={setMusicEnabled}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        audioManager={audioManager}
+      />
 
-            <div className="border-t border-gray-700" />
-
-            {/* Settings list */}
-            <div className="px-6 py-4 space-y-4">
-              {/* Music Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ 
-                backgroundColor: 'transparent'
-              }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: musicEnabled ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                  </div>
-                  <div>
-                    <span className="font-medium block" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Music</span>
-                    <span className="text-sm" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>{musicEnabled ? 'Playing' : 'Paused'}</span>
-                  </div>
-                </div>
-                <Switch
-                  checked={musicEnabled}
-                  onChange={() => {
-                    setMusicEnabled(!musicEnabled)
-                    if (!musicEnabled && audioManager.current) {
-                      audioManager.current.play().catch(() => {})
-                    } else if (musicEnabled && audioManager.current) {
-                      audioManager.current.pause()
-                    }
-                  }}
-                  onColor={GAME_CONFIG.COLORS.PLAY_BUTTON}
-                  offColor={GAME_CONFIG.COLORS.TERTIARY_TEXT}
-                  checkedIcon={false}
-                  uncheckedIcon={false}
-                  height={32}
-                  width={64}
-                  handleDiameter={28}
-                />
-              </div>
-
-              {/* Sound Effects Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ backgroundColor: 'transparent' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: soundEnabled ? GAME_CONFIG.COLORS.PLAY_BUTTON : GAME_CONFIG.COLORS.TERTIARY_TEXT }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" style={{ fill: GAME_CONFIG.COLORS.BRIGHT_TEXT }}><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
-                  </div>
-                  <div>
-                    <span className="font-medium block" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Sound Effects</span>
-                    <span className="text-sm" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>{soundEnabled ? 'Enabled' : 'Disabled'}</span>
-                  </div>
-                </div>
-                <Switch
-                  checked={soundEnabled}
-                  onChange={() => setSoundEnabled(!soundEnabled)}
-                  onColor={GAME_CONFIG.COLORS.PLAY_BUTTON}
-                  offColor={GAME_CONFIG.COLORS.TERTIARY_TEXT}
-                  checkedIcon={false}
-                  uncheckedIcon={false}
-                  height={32}
-                  width={64}
-                  handleDiameter={28}
-                />
-              </div>
-
-              <div className="border-t border-gray-700" />
-
-             
-              {/* How to Play */}
-              <button 
-                onClick={() => {
-                  setShowHowToPlay(true)
-                  setShowSettings(false)
-                }}
-                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-3 rounded-lg"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <div className="w-8 h-8 flex items-center justify-center"><span className="text-lg">ℹ️</span></div>
-                <span className="font-medium" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>How to Play</span>
-              </button>
-            </div>
-
-            <div className="px-6 pb-6 pt-2 flex justify-end">
-              <button 
-                onClick={() => setShowSettings(false)} 
-                className="px-4 py-2 rounded-lg hover:opacity-80"
-                style={{ 
-                  backgroundColor: GAME_CONFIG.COLORS.ELEVATED,
-                  color: GAME_CONFIG.COLORS.BRIGHT_TEXT
-                }}
-              >Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Menu Overlay */}
-      {showMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-end sm:items-center justify-center z-50">
-          <div className="rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm sm:mx-4 max-h-[80vh] overflow-y-auto" style={{ backgroundColor: GAME_CONFIG.COLORS.MORE_ELEVATED }}>
-            {/* User Profile Section */}
-            <div className="flex items-center gap-3 mb-6">
-              {userInfo ? (
-                <>
-                  <div className="flex-1">
-                    <div className="font-medium" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>@{userInfo.username}</div>
-                    <div className="text-sm flex items-center gap-1" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>
-                      <FaCoins className="text-xs" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }} />
-                      {userInfo.balance?.toFixed(2) || '0.00'} ETB
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="animate-pulse flex items-center gap-3 w-full">
-                  <div className="w-12 h-12 rounded-full" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
-                  <div className="flex-1">
-                    <div className="h-4 w-24 rounded mb-2" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
-                    <div className="h-3 w-16 rounded" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Audio Settings Section */}
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    <span className="text-lg">🔊</span>
-                  </div>
-                  <span className="text-white">Sound</span>
-                </div>
-                <button
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className={`w-12 h-6 rounded-full transition-colors ${soundEnabled ? 'bg-green-500' : 'bg-gray-600'
-                    }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${soundEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}></div>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    <span className="text-lg">🎵</span>
-                  </div>
-                  <span className="text-white">Music</span>
-                </div>
-                <button
-                  onClick={() => {
-                    setMusicEnabled(!musicEnabled)
-                    // Toggle music immediately
-                    if (!musicEnabled && audioRef.current) {
-                      audioRef.current.play().catch(() => {})
-                    } else if (musicEnabled && audioRef.current) {
-                      audioRef.current.pause()
-                    }
-                  }}
-                  className={`w-12 h-6 rounded-full transition-colors ${musicEnabled ? 'bg-green-500' : 'bg-gray-600'
-                    }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${musicEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}></div>
-                </button>
-              </div>
-            </div>
-
-            {/* Game Information Section */}
-            <div className="space-y-3 mb-6">
-              <button className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded">
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">🛡️</span>
-                </div>
-                <span className="text-white">Provably fair settings</span>
-              </button>
-
-              <button className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded">
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">📄</span>
-                </div>
-                <span className="text-white">Game rules</span>
-              </button>
-
-              <button className="w-full flex items-center gap-3 text-left hover:bg-gray-700 p-2 rounded">
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">🕐</span>
-                </div>
-                <span className="text-white">My bet history</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowHowToPlay(true)
-                  setShowMenu(false)
-                }}
-                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-2 rounded"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">ℹ️</span>
-                </div>
-                <span style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>How to play?</span>
-              </button>
-
-              <Link
-                to="/preview"
-                className="w-full flex items-center gap-3 text-left hover:opacity-80 p-2 rounded"
-                onClick={() => setShowMenu(false)}
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <span className="text-lg">🐔</span>
-                </div>
-                <span style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>Chicken Animation Preview</span>
-              </Link>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center">
-              <div className="text-sm mb-2" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>Powered by</div>
-              <div className="flex items-center justify-center gap-1">
-                <span className="font-bold text-lg" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }}>IN</span>
-                <span className="font-bold text-lg" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>OUT</span>
-                <span className="text-lg" style={{ color: GAME_CONFIG.COLORS.CASHOUT_BUTTON }}>→</span>
-              </div>
-            </div>
-
-            {/* Close button */}
-            <button
-              onClick={() => setShowMenu(false)}
-              className="absolute top-4 right-4 hover:opacity-80"
-              style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      <MobileMenu
+        show={showMenu}
+        onClose={() => setShowMenu(false)}
+        userInfo={userInfo}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        musicEnabled={musicEnabled}
+        setMusicEnabled={setMusicEnabled}
+        audioManager={audioManager}
+      />
 
       {/* How to Play Modal */}
       {showHowToPlay && (

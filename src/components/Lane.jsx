@@ -214,20 +214,20 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                   markCarDone={markCarDone}
                   isJumping={isJumping}
                   traffic={traffic}
-                />
-              ))}
+                                />
+                            ))}
 
               {/* Chicken position indicator */}
-              {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
+                {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
                 <ChickenLayer
                   style={getChickenPosition()}
-                  isDead={isDead}
-                  currentMultiplier={globalCurrentIndex > 0 ? allLanes[globalCurrentIndex - 1] : null}
-                  showMultiplier={globalCurrentIndex > 0}
-                  isJumping={isJumping}
+                            isDead={isDead}
+                            currentMultiplier={globalCurrentIndex > 0 ? allLanes[globalCurrentIndex - 1] : null}
+                            showMultiplier={globalCurrentIndex > 0}
+                            isJumping={isJumping}
                   jumpProgress={jumpProgress}
-                />
-              )}
+                        />
+                )}
             </LaneTrack>
 
             {/* Final Side Road Column outside the last lane: always render so it never disappears */}
