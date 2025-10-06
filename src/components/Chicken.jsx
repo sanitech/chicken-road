@@ -56,13 +56,13 @@ function Chicken({
       {/* Current multiplier value below chicken - Responsive */}
       {showMultiplier && currentMultiplier && (
         <div 
-          className="absolute left-1/2 transform -translate-x-1/2"
+          className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/3"
           style={{
             top: `${chickenHeight + 4}px` // Position below chicken with 4px gap
           }}
         >
           <div
-            className="flex items-center justify-center h-16 w-16"
+            className="flex items-center justify-center h-20 w-20"
             style={{
               backgroundImage: `url(${oddsBottomImage})`,
               backgroundSize: 'contain',
