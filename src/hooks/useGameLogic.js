@@ -59,23 +59,17 @@ export const useGameLogic = (gameState, audioManager) => {
     gameState.setMovedLanes(prev => {
       if (prev[prev.length - 1] === targetLane) return prev;
       const next = [...prev, targetLane];
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Chicken jumped through lanes:', next);
-      }
+      
       return next;
     })
 
     // Log completion
-    if (targetLane >= gameState.allLanes.length) {
-      console.log('Finished: reached final side road')
-    } else if (targetLane === gameState.allLanes.length - 1) {
-      console.log('Finished: jumping into final lane before side road')
-    }
+    
   }, [gameState])
 
   // Handle crash when server detects collision
   const handleCrash = useCallback((moveData) => {
-    console.log('🔥 CRASH DETECTED by server!', moveData);
+    
 
     // Stop all animations and movement
     gameState.setIsJumping(false);
@@ -107,31 +101,24 @@ export const useGameLogic = (gameState, audioManager) => {
 
   // Move to next lane with server validation
   const moveToNextLane = useCallback(async (token) => {
-    console.log('🎮 moveToNextLane called:', {
-      isDead: gameState.isDead,
-      gameEnded: gameState.gameEnded,
-      isGameActive: gameState.isGameActive,
-      currentGameId: gameState.currentGameId,
-      currentLaneIndex: gameState.currentLaneIndex,
-      isValidatingNext: gameState.isValidatingNext
-    });
+    
 
     // Don't allow movement if chicken is dead or game has ended
     if (gameState.isDead || gameState.gameEnded || gameState.isRestarting) {
-      console.log('Cannot move: chicken is dead or game has ended');
+      
       return;
     }
     
     // Prevent overlapping validations/click spamming
     if (gameState.isValidatingNext || gameState.isJumping) {
-      console.log('Already validating or jumping, ignoring GO');
+      
       return;
     }
 
     // For first move in a new game, apply same clean waiting logic
     if (!gameState.isGameActive || !gameState.currentGameId) {
       const nextPosition = gameState.currentLaneIndex + 1;
-      console.log(`[useGameLogic] First move to lane ${nextPosition}, applying clean waiting logic`);
+      
       
       // Set validating state to keep buttons at 90% opacity
       gameState.setIsValidatingNext(true)
@@ -151,7 +138,7 @@ export const useGameLogic = (gameState, audioManager) => {
         const realCars = cars.filter(c => !c.done && !c.isBlockedShowcase && !c.isCrashLane)
         
         if (realCars.length === 0) {
-          console.log(`[useGameLogic] First lane ${nextPosition} is empty, jumping now`)
+          
           gameState.setIsValidatingNext(false)
           startJump(nextPosition)
         } else {
@@ -166,10 +153,10 @@ export const useGameLogic = (gameState, audioManager) => {
           // BOOST LOGIC: Only boost slow cars, skip if already close to exit
           const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
           if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-            console.log(`[useGameLogic] First move: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+            
             engine.boostCarSpeed(nextPosition, car.id)
           } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-            console.log(`[useGameLogic] First move: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
+            
           }
           
           // Keep polling - the car will complete and be removed from lane
@@ -187,13 +174,13 @@ export const useGameLogic = (gameState, audioManager) => {
     
     // Allow final jump into the final sidewalk without server validation
     if (Array.isArray(gameState.allLanes) && nextPosition > gameState.allLanes.length - 1) {
-      console.log('Final jump into final sidewalk');
+      
       startJump(nextPosition);
       return;
     }
     
     const serverLaneIndex = preIndex;
-    console.log(`Checking server: Can move to position ${nextPosition} (Lane ${nextPosition})?`);
+    
 
     // Validate first; only animate if server allows
     gameState.setIsValidatingNext(true);
@@ -207,13 +194,7 @@ export const useGameLogic = (gameState, audioManager) => {
         { retries: 2, initialDelayMs: 300, backoffFactor: 2 }
       );
       
-      console.log('🔍 WebSocket move validation:', {
-        clientPosition: nextPosition,
-        serverLaneIndex: serverLaneIndex,
-        canMove: moveData.canMove,
-        gameId: gameState.currentGameId,
-        moveData
-      });
+      
 
       const willCrash = typeof moveData.willCrash === 'boolean' ? moveData.willCrash : !moveData.canMove;
       const destinationLane = nextPosition
@@ -223,7 +204,7 @@ export const useGameLogic = (gameState, audioManager) => {
       // 2. Wait for ANY visible cars to finish NATURALLY (no clearing!)
       // 3. Jump only when lane is 100% empty
       
-      console.log(`[useGameLogic] GO clicked for lane ${destinationLane}, waiting for lane to be empty`)
+      
       // Lane.jsx effect will block the lane automatically when isValidatingNext becomes true
       
       // Recursive function: check if lane is empty, if not wait
@@ -241,7 +222,7 @@ export const useGameLogic = (gameState, audioManager) => {
         
         if (realCars.length === 0) {
           // Lane is completely empty - safe to jump!
-          console.log(`[useGameLogic] Lane ${destinationLane} is empty, jumping now`)
+          
           performJump(willCrash)
         } else {
           if (willCrash) {
@@ -257,10 +238,10 @@ export const useGameLogic = (gameState, audioManager) => {
             // BOOST LOGIC: Only boost slow cars, skip if already close to exit
             const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
             if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-              console.log(`[useGameLogic] CRASH lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+              
               engine.boostCarSpeed(destinationLane, car.id)
             } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-              console.log(`[useGameLogic] CRASH lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
+              
             }
             
             // Keep polling until lane is empty
@@ -278,10 +259,10 @@ export const useGameLogic = (gameState, audioManager) => {
             // BOOST LOGIC: Only boost slow cars, skip if already close to exit
             const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
             if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-              console.log(`[useGameLogic] SAFE lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}%, boosting to exit quickly`)
+              
               engine.boostCarSpeed(destinationLane, car.id)
             } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-              console.log(`[useGameLogic] SAFE lane ${destinationLane}: Car at ${(progress * 100).toFixed(1)}% (already close), skipping boost`)
+              
             }
             
             // Keep polling - the car will complete and be removed from lane
@@ -296,7 +277,7 @@ export const useGameLogic = (gameState, audioManager) => {
         
         if (willCrash) {
           // Crash lane: jump chicken, then crash car follows
-          console.log(`[useGameLogic] CRASH: Jumping to lane ${destinationLane}`)
+          
           gameState.setBlockedNextLane(false)
           gameState.setCrashVisual({ lane: destinationLane, tick: Date.now() })
           startJump(destinationLane)
@@ -308,7 +289,7 @@ export const useGameLogic = (gameState, audioManager) => {
           }, IMPACT_DELAY_MS)
         } else {
           // Safe lane: just jump
-          console.log(`[useGameLogic] SAFE: Jumping to lane ${destinationLane}`)
+          
           startJump(destinationLane)
         }
       }
@@ -316,7 +297,7 @@ export const useGameLogic = (gameState, audioManager) => {
       // Start waiting for lane to be empty
       waitForLaneEmpty()
     } catch (wsError) {
-      console.error('WebSocket validation failed (after retries):', wsError);
+      
       gameState.setIsValidatingNext(false);
     }
   }, [gameState, startJump, handleCrash]);
@@ -330,7 +311,7 @@ export const useGameLogic = (gameState, audioManager) => {
       }
 
       try {
-        console.log(`Attempting to cash out at lane ${gameState.currentLaneIndex}`);
+        
 
         // Use retry-capable cash out
         const cashOutData = await socketGameAPI.cashOutWithRetry(
@@ -340,7 +321,7 @@ export const useGameLogic = (gameState, audioManager) => {
           { retries: 2, initialDelayMs: 300, backoffFactor: 2 }
         );
         
-        console.log('WebSocket cash out successful:', cashOutData);
+        
 
         // Play cashout audio
         if (audioManager.current) {
@@ -366,11 +347,11 @@ export const useGameLogic = (gameState, audioManager) => {
           resetGame();
         }, 1500);
 
-        console.log(`Cashed out: ${cashOutData.winAmount} ETB at ${cashOutData.multiplier}x multiplier`);
+        
 
         return cashOutData;
       } catch (error) {
-        console.error('Cash out failed:', error);
+        
         throw error;
       }
     }
@@ -378,7 +359,7 @@ export const useGameLogic = (gameState, audioManager) => {
 
   // Reset game function
   const resetGame = useCallback(() => {
-    console.log('Resetting game - chicken back to side road')
+    
     gameState.resetGameState()
   }, [gameState]);
 

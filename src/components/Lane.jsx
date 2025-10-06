@@ -22,7 +22,6 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     // Reset one-shot landing guard to allow showcase spawns again after restart
     // This is critical to prevent ghost cars across game sessions
     Lane._landingOnce = new Set()
-    console.log('[Lane] Resetting one-shot landing guard and clearing all cars')
     try { traffic.clearAllCars() } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -348,12 +347,9 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
                                     const key = `land-block-${globalIndex}-${globalCurrentIndex}`
                                     if (!Lane._landingOnce.has(key)) {
                                         Lane._landingOnce.add(key)
-                                        console.log(`[Lane] Attempting showcase blocker spawn for lane ${globalIndex} (not crash lane)`)
                                         try { 
                                             traffic.maybeSpawnBlockedShowcase(globalIndex)
-                                        } catch (e) {
-                                            console.error('[Lane] Error spawning showcase blocker:', e)
-                                        }
+                                        } catch (e) {}
                                     }
                                     return null
                                 })()

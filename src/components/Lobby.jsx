@@ -46,51 +46,51 @@ class GameAudioManager {
       src: [backgroundMusic],
       loop: true,
       volume: 0.3,
-      autoplay: false, // We'll control this manually
-      onload: () => console.log('Background music loaded'),
-      onplay: () => console.log('Background music started'),
-      onpause: () => console.log('Background music paused'),
-      onerror: (id, error) => console.log('Background music error:', error)
+      autoplay: false,
+      onload: () => {},
+      onplay: () => {},
+      onpause: () => {},
+      onerror: () => {}
     })
 
     this.cashoutSound = new Howl({
       src: [cashoutAudio],
       volume: 0.7,
-      onload: () => console.log('Cashout sound loaded'),
-      onplay: () => console.log('Cashout sound played'),
-      onerror: (id, error) => console.log('Cashout sound error:', error)
+      onload: () => {},
+      onplay: () => {},
+      onerror: () => {}
     })
 
     this.crashSound = new Howl({
       src: [crashAudio],
       volume: 0.6,
-      onload: () => console.log('Crash sound loaded'),
-      onplay: () => console.log('Crash sound played'),
-      onerror: (id, error) => console.log('Crash sound error:', error)
+      onload: () => {},
+      onplay: () => {},
+      onerror: () => {}
     })
 
     this.buttonClickSound = new Howl({
       src: [buttonClickAudio],
       volume: 0.5,
-      onload: () => console.log('Button click sound loaded'),
-      onplay: () => console.log('Button click sound played'),
-      onerror: (id, error) => console.log('Button click sound error:', error)
+      onload: () => {},
+      onplay: () => {},
+      onerror: () => {}
     })
 
     this.jumpSound = new Howl({
       src: [jumpAudio],
       volume: 0.4,
-      onload: () => console.log('Jump sound loaded'),
-      onplay: () => console.log('Jump sound played'),
-      onerror: (id, error) => console.log('Jump sound error:', error)
+      onload: () => {},
+      onplay: () => {},
+      onerror: () => {}
     })
 
     this.chickenOverSound = new Howl({
       src: [chickenOverAudio],
       volume: 0.6,
-      onload: () => console.log('Chicken over sound loaded'),
-      onplay: () => console.log('Chicken over sound played'),
-      onerror: (id, error) => console.log('Chicken over sound error:', error)
+      onload: () => {},
+      onplay: () => {},
+      onerror: () => {}
     })
   }
 
@@ -504,7 +504,7 @@ function Chicken() {
 
   // Initialize Howler.js audio manager
   useEffect(() => {
-    console.log('Initializing Howler.js audio manager...')
+    
     audioManager.current = new GameAudioManager()
     audioManager.current.setSoundEffectsEnabled(soundEnabled)
 
@@ -555,7 +555,6 @@ function Chicken() {
 
   // Play cashout audio using Howler.js
   const playCashoutAudio = () => {
-    console.log('Playing cashout audio with Howler.js...', { soundEnabled })
     if (audioManager.current && soundEnabled) {
       audioManager.current.playCashout()
     }
@@ -563,7 +562,6 @@ function Chicken() {
 
   // Play crash audio using Howler.js  
   const playCrashAudio = () => {
-    console.log('Playing crash audio with Howler.js...', { soundEnabled })
     if (audioManager.current && soundEnabled) {
       audioManager.current.playCrash()
     }
@@ -576,7 +574,6 @@ function Chicken() {
 
   // Play button click audio
   const playButtonClickAudio = () => {
-    console.log('Playing button click audio...', { soundEnabled })
     if (audioManager.current && soundEnabled) {
       audioManager.current.playButtonClick()
     }
@@ -584,7 +581,6 @@ function Chicken() {
 
   // Play jump audio
   const playJumpAudio = () => {
-    console.log('Playing jump audio...', { soundEnabled })
     if (audioManager.current && soundEnabled) {
       audioManager.current.playJump()
     }
@@ -629,7 +625,7 @@ function Chicken() {
     setAllLanes(newLanes)
     // Reset game when difficulty changes
     resetGameWithCleanup()
-    console.log(`Difficulty changed to ${newDifficulty}, ${newLanes.length} lanes generated`)
+                
   }
 
   // Reset game function
@@ -667,7 +663,7 @@ function Chicken() {
       // Close any open dropdowns
       setShowDifficultyDropdown(false);
 
-      console.log(`Creating new game - Bet: ${betAmount.toFixed(2)} ETB, Difficulty: ${currentDifficulty}`);
+      
 
       // Create game via WebSocket for speed
       const gameData = await socketGameAPI.createGame({
@@ -677,7 +673,7 @@ function Chicken() {
         creatorChatId: userInfo.chatId
       }, token);
 
-      console.log('Game created successfully:', gameData);
+      
 
       // Set server game state
       setCurrentGameId(gameData.gameId);
@@ -711,7 +707,7 @@ function Chicken() {
       }
 
     } catch (error) {
-      console.error('Failed to create game:', error);
+      
       setGameError(error.message || 'Failed to create game');
     } finally {
       setIsCreatingGame(false);
@@ -1131,7 +1127,7 @@ function Chicken() {
                   onChange={() => {
                     setMusicEnabled(!musicEnabled)
                     if (!musicEnabled && audioManager.current) {
-                      audioManager.current.play().catch(e => console.log('Music play failed:', e))
+                      audioManager.current.play().catch(() => {})
                     } else if (musicEnabled && audioManager.current) {
                       audioManager.current.pause()
                     }
@@ -1259,7 +1255,7 @@ function Chicken() {
                     setMusicEnabled(!musicEnabled)
                     // Toggle music immediately
                     if (!musicEnabled && audioRef.current) {
-                      audioRef.current.play().catch(e => console.log('Music play failed:', e))
+                      audioRef.current.play().catch(() => {})
                     } else if (musicEnabled && audioRef.current) {
                       audioRef.current.pause()
                     }

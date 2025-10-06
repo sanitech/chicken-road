@@ -17,7 +17,6 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
   const accelerateOut = () => {
     // Prevent double-call race condition
     if (accelerateOutCalledRef.current) {
-      console.log(`[DynamicCar] accelerateOut already called for car ${carData.id}, skipping`)
       return
     }
     accelerateOutCalledRef.current = true
