@@ -1,11 +1,8 @@
 import React, { useMemo, useEffect, useState } from 'react'
-import cap1Image from '../assets/cap1.png'
-import cap2Image from '../assets/cap2.png'
-import blockerImage from '../assets/blocker.png'
-import sideRoadImage from '../assets/sideroad.png'
 import finalSideRoadImage from '../assets/final.png'
-import Chicken from './Chicken'
-import DynamicCar from './DynamicCar'
+import LaneTrack from './LaneTrack'
+import LaneRow from './LaneRow'
+import ChickenLayer from './ChickenLayer'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import { useTraffic } from '../traffic/TrafficProvider'
 
@@ -202,190 +199,37 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
             className=""
         >
             {/* Lane markers/segments - main movement */}
-            <div
-                className="absolute flex"
-                style={{
-                    background: GAME_CONFIG.COLORS.ASPHALT,
-                    filter: isJumping ? `blur(${jumpProgress * 1}px)` : 'none',
-                    opacity: 1,
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: `${SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}px`,
-                    ...laneTransformStyle,
-                    transition: 'none',
-                    // Keep lanes below chicken; crash cars themselves render above via their own z-index
-                    zIndex: GAME_CONFIG.Z_INDEX.LANE
-                }}
+            <LaneTrack
+              totalLaneWidthPx={SIDEWALK_WIDTH_PX + (remainingMultipliers.length * LANE_WIDTH_PX)}
+              laneTransformStyle={laneTransformStyle}
+              isJumping={isJumping}
+              jumpProgress={jumpProgress}
             >
-                {laneStates.map(lane => {
-                    const { globalIndex, widthPx, isSidewalk, isCompleted, isCurrent, isCrashLane, isDestinationLane, computedHasBlocker } = lane
+              {laneStates.map(lane => (
+                <LaneRow
+                  key={lane.globalIndex}
+                  lane={lane}
+                  globalCurrentIndex={globalCurrentIndex}
+                  allLanes={allLanes}
+                  onCarBlockedStop={onCarBlockedStop}
+                  markCarDone={markCarDone}
+                  isJumping={isJumping}
+                  traffic={traffic}
+                />
+              ))}
 
-                    return (
-                        <div
-                            key={globalIndex}
-                            className={`relative ${!isSidewalk ? 'flex items-end pb-52' : ''}`}
-                            style={{ width: `${widthPx}px` }}
-                        >
-                            {/* Side Road Image Element - Full Control */}
-                            {isSidewalk && (
-                                <img
-                                    src={sideRoadImage}
-                                    alt="Side Road"
-                                    className="w-full object-cover"
-                                    style={{
-                                        objectPosition: 'bottom center',
-                                        zIndex: 1
-                                    }}
-                                />
-                            )}
-
-                            {/* Final side road will be rendered outside the last lane */}
-
-                            {!isSidewalk && (
-                                <>
-                                    {/* Absolutely positioned lane cap tied to TOP_PERCENT */}
-                                    <div
-                                        className="absolute left-1/2 -translate-x-1/2 p-4"
-                                        style={{
-                                            top: `${GAME_CONFIG.CAP.TOP_PERCENT}%`,
-                                            transform: 'translate(-50%, -50%)',
-                                            zIndex: GAME_CONFIG.Z_INDEX.CAP,
-                                            width: '100%',
-                                            pointerEvents: 'none'
-                                        }}
-                                    >
-                                        {!isCurrent && (
-                                          <img
-                                            src={globalIndex < globalCurrentIndex ? cap2Image : cap1Image}
-                                            alt={globalIndex < globalCurrentIndex ? 'Completed Lane Cap' : 'Lane Cap'}
-                                            className="mx-auto object-contain"
-                                            style={{ 
-                                                objectPosition: GAME_CONFIG.CAP.OBJECT_POSITION,
-                                                width: `${GAME_CONFIG.CAP.SIZE_PX}px`,
-                                                height: `${GAME_CONFIG.CAP.SIZE_PX}px`,
-                                                opacity: isCompleted ? 0.9 : (globalCurrentIndex > 0 && isDestinationLane ? 1 : 0.7),
-                                                transition: 'opacity 150ms ease-in-out'
-                                            }}
-                                          />
-                                        )}
-                                        {/* Multiplier centered inside cap */}
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width={`${GAME_CONFIG.CAP.SIZE_PX}px`}
-                                                height={`${GAME_CONFIG.CAP.SIZE_PX}px`}
-                                                viewBox={`0 0 ${GAME_CONFIG.CAP.SIZE_PX} ${GAME_CONFIG.CAP.SIZE_PX}`}
-                                                style={{ display: 'block' }}
-                                                aria-hidden
-                                            >
-                                                {!isCurrent && (
-                                                  <text
-                                                    x="50%"
-                                                    y="50%"
-                                                    textAnchor="middle"
-                                                    dominantBaseline="middle"
-                                                    fill={GAME_CONFIG.COLORS.BRIGHT_TEXT}
-                                                    stroke="#000"
-                                                    strokeWidth="3"
-                                                    strokeLinejoin="round"
-                                                    strokeLinecap="round"
-                                                    paintOrder="stroke"
-                                                    opacity={(globalCurrentIndex > 0 && isDestinationLane) ? "1" : "0.7"}
-                                                    strokeOpacity={(globalCurrentIndex > 0 && isDestinationLane) ? "1" : "0.7"}
-                                                    style={{ fontSize: `20px`, fontWeight: 700 }}
-                                                >
-                                                    {allLanes[globalIndex - 1]?.toFixed(2)}x
-                                                  </text>
-                                                )}
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Smart car render for this lane (no client-side collision) */}
-                            {(carsMap.get(globalIndex) || []).map(carData => (
-                                <DynamicCar
-                                    key={carData.id}
-                                    carData={carData}
-                                    hasBlocker={computedHasBlocker && !carData.isBlockedShowcase}
-                                    onBlockedStop={onCarBlockedStop}
-                                    onAnimationComplete={() => {
-                                        // Mark car as done so cleanup can prune it
-                                        markCarDone(globalIndex, carData.id)
-                                    }}
-                                />
-                            ))}
-
-                            {/* Blocker Image: NEVER render on crash lanes - crash car provides the visual */}
-                            {(!isSidewalk && computedHasBlocker && !isCrashLane) && (
-                                <div className="absolute left-0 right-0 h-8 flex items-center justify-center animate-fade-in"
-                                     style={{ 
-                                         top: `${GAME_CONFIG.BLOCKER.TOP_PERCENT}%`, 
-                                         marginTop: '-1rem', /* Center vertically without transform */
-                                         zIndex: GAME_CONFIG.Z_INDEX.BLOCKER 
-                                     }}>
-                                    <img
-                                        src={blockerImage}
-                                        alt="Blocker"
-                                        className="object-contain"
-                                        style={{
-                                            width: `${GAME_CONFIG.BLOCKER.SIZE_PX}px`,
-                                            height: `${GAME_CONFIG.BLOCKER.SIZE_PX}px`
-                                        }}
-                                    />
-                                </div>
-                            )}
-                            {/* Optional: trigger a blocked showcase car with configured probability when the chicken LANDS on this lane and it's blocked */}
-                            {/* NEVER spawn showcase blocker on crash lanes - crash car handles the visual */}
-                            {!isSidewalk && !isJumping && isCurrent && computedHasBlocker && !isCrashLane && typeof traffic.maybeSpawnBlockedShowcase === 'function' && (
-                                (() => {
-                                    // ONE-SHOT: attempt probabilistic injection only once per lane landing
-                                    // This is reset on game restart via useEffect above
-                                    if (!Lane._landingOnce) Lane._landingOnce = new Set()
-                                    const key = `land-block-${globalIndex}-${globalCurrentIndex}`
-                                    if (!Lane._landingOnce.has(key)) {
-                                        Lane._landingOnce.add(key)
-                                        try { 
-                                            traffic.maybeSpawnBlockedShowcase(globalIndex)
-                                        } catch (e) {}
-                                    }
-                                    return null
-                                })()
-                            )}
-
-                            {/* Lane Divider Lines - Realistic Road Markings for each lane (excluding sideroad) */}
-                            {globalIndex > 0 && globalIndex < allLanes.length - 1 && (
-                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent z-10">
-                                    <div className="lane-divider-dashes"></div>
-                                </div>
-                            )}
-                        </div>
-                    )
-                })}
-
-                {/* Chicken position indicator - now inside transformed container to share stacking context with cars */}
-                {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
-                    <div
-                        className="absolute"
-                        style={{
-                            ...getChickenPosition(),
-                            zIndex: GAME_CONFIG.Z_INDEX.CHICKEN
-                        }}
-                    >
-                        <Chicken
-                            isDead={isDead}
-                            currentMultiplier={globalCurrentIndex > 0 ? allLanes[globalCurrentIndex - 1] : null}
-                            showMultiplier={globalCurrentIndex > 0}
-                            isJumping={isJumping}
-                            animationFrame={Math.floor(jumpProgress * 6) % 6}
-                            fps={4}
-                            size="auto" // Responsive auto-sizing
-                        />
-                    </div>
-                )}
-            </div>
+              {/* Chicken position indicator */}
+              {((currentIndex >= 0 && currentIndex <= remainingMultipliers.length) || isJumping) && (
+                <ChickenLayer
+                  style={getChickenPosition()}
+                  isDead={isDead}
+                  currentMultiplier={globalCurrentIndex > 0 ? allLanes[globalCurrentIndex - 1] : null}
+                  showMultiplier={globalCurrentIndex > 0}
+                  isJumping={isJumping}
+                  jumpProgress={jumpProgress}
+                />
+              )}
+            </LaneTrack>
 
             {/* Final Side Road Column outside the last lane: always render so it never disappears */}
             <div

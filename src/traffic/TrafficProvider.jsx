@@ -50,3 +50,29 @@ export function useTraffic() {
   if (!ctx) throw new Error('useTraffic must be used within a TrafficProvider')
   return ctx
 }
+
+// Lane-specific subscription with shallow change detection to avoid unnecessary re-renders
+export function useLaneCars(laneIndex) {
+  const [cars, setCars] = useState([])
+  const sigRef = useRef('')
+
+  useEffect(() => {
+    if (typeof laneIndex !== 'number' || laneIndex <= 0) {
+      setCars([])
+      sigRef.current = ''
+      return
+    }
+    const unsub = engine.subscribe((snap) => {
+      const arr = (snap?.cars?.get(laneIndex) || [])
+      // Build a lightweight signature to detect meaningful changes
+      const sig = arr.map(c => `${c.id}:${c.done?1:0}:${c.isBlockedShowcase?1:0}:${c.isCrashLane?1:0}:${c.animationDuration}:${c.startTime}`).join('|')
+      if (sig !== sigRef.current) {
+        sigRef.current = sig
+        setCars(arr)
+      }
+    })
+    return () => { unsub && unsub() }
+  }, [laneIndex])
+
+  return cars
+}
