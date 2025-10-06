@@ -11,7 +11,6 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
 
     // Traffic via global engine context (independent of Lane re-renders)
     const traffic = useTraffic()
-    const carsMap = traffic.getCarsMap()
     const markCarDone = (laneIndex, carId) => traffic.markCarDone(laneIndex, carId)
 
   // On lane mount (which re-mounts on game reset via key), clear any lingering cars

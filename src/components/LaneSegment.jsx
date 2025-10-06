@@ -78,8 +78,6 @@ function LaneSegment({
   lane,
   globalCurrentIndex,
   allLanes,
-  onCarBlockedStop,
-  carsForLane,
   children
 }) {
   const { globalIndex, widthPx, isSidewalk, isCompleted, isCurrent, isCrashLane, isDestinationLane, computedHasBlocker } = lane

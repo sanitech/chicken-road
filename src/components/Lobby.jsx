@@ -32,7 +32,6 @@ import car6 from '../assets/car6.png'
 import { preloadImages } from '../utils/preloadAssets'
 import { GAME_CONFIG } from '../utils/gameConfig'
 import { TrafficProvider } from '../traffic/TrafficProvider'
-import trafficEngine from '../traffic/TrafficEngine'
 // Generate lanes based on difficulty configuration
 const generateLanesForDifficulty = (difficultyConfigs, difficulty = 'easy') => {
   const config = difficultyConfigs[difficulty]
@@ -553,37 +552,9 @@ function Chicken() {
     }
   }, [musicEnabled])
 
-  // Play cashout audio using Howler.js
-  const playCashoutAudio = () => {
-    if (audioManager.current && soundEnabled) {
-      audioManager.current.playCashout()
-    }
-  }
-
-  // Play crash audio using Howler.js  
-  const playCrashAudio = () => {
-    if (audioManager.current && soundEnabled) {
-      audioManager.current.playCrash()
-    }
-  }
-
   // Handler for DynamicCar blocked stop (unified audio)
   const handleCarBlockedStop = () => {
     audioManager.playCrashAudio()
-  }
-
-  // Play button click audio
-  const playButtonClickAudio = () => {
-    if (audioManager.current && soundEnabled) {
-      audioManager.current.playButtonClick()
-    }
-  }
-
-  // Play jump audio
-  const playJumpAudio = () => {
-    if (audioManager.current && soundEnabled) {
-      audioManager.current.playJump()
-    }
   }
 
   // Cash out functionality with real backend API
