@@ -59,13 +59,6 @@ const SCREEN = SCREEN_PRESETS[ACTIVE_SCREEN];
 export { SCREEN_PRESETS, LARGE_SCREEN_BREAKPOINT_PX };
 
 // Debug log to verify which screen config is active
-console.log(`[GameConfig] Active screen size: ${ACTIVE_SCREEN} (viewport: ${typeof window !== 'undefined' ? window.innerWidth : 'SSR'}px)`, {
-  laneWidth: SCREEN.LANE_WIDTH_PX,
-  chickenSize: SCREEN.CHICKEN_WIDTH_PX,
-  carSize: SCREEN.CAR_SIZE_PX,
-  breakpoint: LARGE_SCREEN_BREAKPOINT_PX,
-});
-
 export const GAME_CONFIG = {
   // Screen configuration
   SCREEN_SIZE: ACTIVE_SCREEN,
@@ -99,6 +92,15 @@ export const GAME_CONFIG = {
     SHADOW_LIGHT: '#2a2a2a',
     SHADOW_MEDIUM: '#1a1a1a',
     SHADOW_DARK: '#0f0f0f'
+  },
+
+  // Layer ordering (higher renders on top)
+  Z_INDEX: {
+    LANE: 1,
+    CAP: 5,
+    BLOCKER: 8,
+    CHICKEN: 10,
+    CAR: 12,
   },
 
   // Chicken (from screen preset)

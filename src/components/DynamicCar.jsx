@@ -168,7 +168,7 @@ function DynamicCar({ carData, hasBlocker, onAnimationComplete, onBlockedStop })
       style={{
         top: `${currentTopRef.current}px`,
         transform: 'translateX(-50%)',
-        zIndex: carData.isCrashLane ? 20 : 5
+        zIndex: GAME_CONFIG.Z_INDEX.CAR
       }}
     >
       <Car
