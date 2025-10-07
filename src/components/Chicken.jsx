@@ -3,6 +3,7 @@ import deadChickenImage from '../assets/chickendead.png'
 import oddsBottomImage from '../assets/oddsbottom.png'
 import chickenGif from '../assets/chichen.gif'
 import chickenJumpGif from '../assets/chickenJump.gif'
+import chickenDeadGif from '../assets/chickenDead.gif'
 import './Chicken.css'
 import { GAME_CONFIG } from '../utils/gameConfig'
 
@@ -18,26 +19,26 @@ function Chicken({
   // Chicken dimensions from config
   const chickenWidth = GAME_CONFIG.CHICKEN_WIDTH_PX
   const chickenHeight = GAME_CONFIG.CHICKEN_HEIGHT_PX
+  const deadWidth = GAME_CONFIG.DEAD_CHICKEN_WIDTH_PX
+  const deadHeight = GAME_CONFIG.DEAD_CHICKEN_HEIGHT_PX
 
   return (
     <div
       className="relative flex items-center justify-center"
-      style={{ width: `${chickenWidth}px`, height: `${chickenHeight}px` }}
+      style={{ width: `${isDead ? deadWidth : chickenWidth}px`, height: `${isDead ? deadHeight : chickenHeight}px` }}
     >
-      {/* Dead state: show static dead chicken image */}
+      {/* Dead state: show dead chicken GIF as an img for proper sizing/semantics */}
       {isDead ? (
-        <div
-          style={{
-            backgroundImage: `url(${deadChickenImage})`,
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center',
-            width: `${chickenWidth}px`,
-            height: `${chickenHeight}px`,
-            imageRendering: 'auto',
-            display: 'block'
-          }}
+        <img
+          src={chickenDeadGif}
+          alt="Chicken dead"
           className={`${className}`}
+          style={{
+            width: `${deadWidth}px`,
+            height: `${deadHeight}px`,
+            objectFit: 'contain',
+            imageRendering: 'auto'
+          }}
         />
       ) : (
         <img
@@ -54,7 +55,7 @@ function Chicken({
       )}
 
       {/* Current multiplier value below chicken - Responsive */}
-      {showMultiplier && currentMultiplier && (
+      {showMultiplier && !isDead && currentMultiplier && (
         <div 
           className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/3"
           style={{

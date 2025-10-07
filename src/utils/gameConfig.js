@@ -14,6 +14,8 @@ const SCREEN_PRESETS = {
     CHICKEN_WIDTH_PX: 100,
     CHICKEN_HEIGHT_PX: 100,
     CHICKEN_FIXED_X_PX: 70,
+    DEAD_CHICKEN_WIDTH_PX: 150,
+    DEAD_CHICKEN_HEIGHT_PX: 150,
     CAP_SIZE_PX: 85,
     BLOCKER_SIZE_PX: 150,
     CAR_SIZE_PX: 140,
@@ -32,6 +34,8 @@ const SCREEN_PRESETS = {
     CHICKEN_WIDTH_PX: 130,        // +30% larger chicken
     CHICKEN_HEIGHT_PX: 130,       // +30% larger chicken
     CHICKEN_FIXED_X_PX: 90,       // +28% adjusted position
+    DEAD_CHICKEN_WIDTH_PX: 160,   // Larger dead sprite on big screens
+    DEAD_CHICKEN_HEIGHT_PX: 160,
     CAP_SIZE_PX: 110,             // +29% larger cap
     BLOCKER_SIZE_PX: 190,         // +27% larger blocker
     CAR_SIZE_PX: 160,             // +29% larger cars
@@ -106,6 +110,8 @@ export const GAME_CONFIG = {
   // Chicken (from screen preset)
   CHICKEN_WIDTH_PX: SCREEN.CHICKEN_WIDTH_PX,
   CHICKEN_HEIGHT_PX: SCREEN.CHICKEN_HEIGHT_PX,
+  DEAD_CHICKEN_WIDTH_PX: SCREEN.DEAD_CHICKEN_WIDTH_PX,
+  DEAD_CHICKEN_HEIGHT_PX: SCREEN.DEAD_CHICKEN_HEIGHT_PX,
   // Jump animation controls
   JUMP: {
     DURATION_MS: 300,          // total time of a jump
