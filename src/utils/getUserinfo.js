@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiUrl, buildHeaders } from "./apiUrl";
+import ENV_CONFIG from './envConfig'
 
 export const useGetUserInfo = (chickenToken, tenantId = null) => {
   const [userInfo, setUserInfo] = useState(null);
@@ -11,6 +12,14 @@ export const useGetUserInfo = (chickenToken, tenantId = null) => {
       console.log("No token provided");
       setError("Authentication token required");
       setIsLoading(false);
+      return;
+    }
+
+    // In multi-bot mode, require tenantId before attempting auth; avoid misleading 401s
+    if (ENV_CONFIG.isMultiBot && !tenantId) {
+      setIsLoading(false);
+      setError(null);
+      setUserInfo(null);
       return;
     }
 
