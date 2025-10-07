@@ -213,7 +213,7 @@
 }
 
 .animate-car-stopped-fast {
-  animation: car-stopped-fast 0.8s ease-in-out forwards; /* Very fast 0.8s for immediate stop */
+  animation: car-stopped-fast 0.4s ease-in-out forwards; /* Very fast 0.8s for immediate stop */
 }
 
 /* Generic fade-in animation for subtle reveals (e.g., blocker) */
