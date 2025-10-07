@@ -91,7 +91,7 @@ function LaneSegment({
         <img
           src={sideRoadImage}
           alt="Side Road"
-          className="w-full object-cover"
+          className="w-full object-cover h-full"
           style={{ objectPosition: 'bottom center', zIndex: 1 }}
         />
       )}
