@@ -195,7 +195,8 @@ export class TrafficEngine {
     const finalDuration = durationMs ?? defaultDuration
     const now = Date.now()
     const arr = this.cars.get(laneIndex) || []
-    const pruned = arr.filter(c => !c.done)
+    // Remove any showcase blocker and finished cars; keep only active regular/crash cars
+    const pruned = arr.filter(c => !c.done && !c.isBlockedShowcase)
     
     // CLEAN APPROACH: By this point, the lane should be empty (we waited)
     // Just spawn a new crash car without clearing anything
@@ -210,7 +211,7 @@ export class TrafficEngine {
       spriteSrc: this._randomSprite()
     }
     
-    // Keep existing cars (should be none, but if any exist let them finish naturally)
+    // Keep existing non-blocker cars (if any) and append the crash car
     this.cars.set(laneIndex, [...pruned, crashCar])
     this._emit()
   }

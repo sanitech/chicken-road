@@ -44,9 +44,11 @@ function Lane({ remainingMultipliers, currentIndex, globalCurrentIndex, globalDi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingMultipliers.length, globalCurrentIndex, isJumping, jumpStartLane, jumpTargetLane, blockedNextLane, crashVisualLane, isValidatingNext])
 
-    // On crash signal from parent, inject a one-shot car into the crash lane for visual impact.
+    // On crash signal from parent, ensure lane is unblocked and inject a one-shot crash car.
     useEffect(() => {
         if (typeof crashVisualLane === 'number' && crashVisualLane > 0 && crashVisualTick > 0) {
+            // Unblock lane to prevent blocker showcase from appearing
+            try { traffic.setLaneBlocked(crashVisualLane, false) } catch {}
             // Inject a crash car; use engine's default duration from config
             traffic.injectCrashCar(crashVisualLane)
         }
