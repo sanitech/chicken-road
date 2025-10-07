@@ -677,6 +677,11 @@ function Chicken() {
         setDisplayBalance(prev => Math.max(0, (userInfo.balance - betAmount)))
       }
 
+      // Silent refetch to sync with wallet backend after debit
+      try {
+        await refetch();
+      } catch (_) {}
+
       // Join WebSocket room for this game
       socketGameAPI.joinGame(gameData.gameId);
 
@@ -781,7 +786,7 @@ function Chicken() {
             {userInfo ? (
               <>
                 <span className="text-sm sm:text-md font-bold" style={{ color: GAME_CONFIG.COLORS.BRIGHT_TEXT }}>
-                  {userInfo.balance?.toFixed(2) || '0.00'}
+                  {(typeof displayBalance === 'number' ? displayBalance : userInfo.balance || 0).toFixed(2)}
                 </span>
                 <span className="text-xs" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>ETB</span>
               </>

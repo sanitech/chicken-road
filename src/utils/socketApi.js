@@ -157,9 +157,10 @@ class SocketGameAPI {
     await this.ensureConnected(token, tenantId);
     return new Promise((resolve, reject) => {
 
-      // Translate client lane (side road = 0, first lane = 1) to server zero-based (first lane = 0)
-      // Side road becomes -1 so that next = 0 on server for the first move
-      const serverLane = (typeof currentLane === 'number') ? (currentLane - 1) : NaN;
+      // Client and server both use 0-based NEXT lane index for validation:
+      // - When on side road (client index 0), send 0 to validate lane 1
+      // - When on lane 1 (client index 1), send 1 to validate lane 2, etc.
+      const serverLane = (typeof currentLane === 'number') ? currentLane : NaN;
 
       // Prevent concurrent validations for the same server lane to avoid callback overwrite
       if (this.moveCallbacks.has(serverLane)) {
@@ -173,7 +174,7 @@ class SocketGameAPI {
         resolve(result);
       });
 
-      // Build payload
+      // Build payload (send 0-based next lane index as-is)
       const payload = {
         gameId,
         currentLane: serverLane,
