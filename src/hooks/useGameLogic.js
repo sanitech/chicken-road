@@ -9,6 +9,7 @@ import socketGameAPI from '../utils/socketApi'
  */
 export const useGameLogic = (gameState, audioManager, tenantId = null) => {
   const restartGuardRef = useRef(false)
+  const timersRef = useRef({ jump: null, poll: null })
 
   // Physics-based jump function
   const startJump = useCallback((targetLane) => {
@@ -74,6 +75,18 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
     // Stop all animations and movement
     gameState.setIsJumping(false);
     gameState.setJumpProgress(0);
+
+    // Clear any pending timers (jump/poll) to avoid actions after death
+    try {
+      if (timersRef.current.poll) {
+        clearTimeout(timersRef.current.poll)
+        timersRef.current.poll = null
+      }
+      if (timersRef.current.jump) {
+        clearTimeout(timersRef.current.jump)
+        timersRef.current.jump = null
+      }
+    } catch {}
 
     // Set death state
     gameState.setIsDead(true);
@@ -152,15 +165,20 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
           
           // BOOST LOGIC: Only boost slow cars, skip if already close to exit
           const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
-          if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-            
+          const boosted = (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function')
+          if (boosted) {
             engine.boostCarSpeed(nextPosition, car.id)
-          } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-            
           }
-          
-          // Keep polling - the car will complete and be removed from lane
-          setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+
+          // Force jump after a short configured wait instead of waiting for lane to fully clear
+          const delay = GAME_CONFIG.JUMP_VALIDATION?.JUMP_WAIT_AFTER_BOOST_MS ?? 350
+          gameState.setIsValidatingNext(false)
+          if (timersRef.current.jump) clearTimeout(timersRef.current.jump)
+          timersRef.current.jump = setTimeout(() => {
+            // Guard against jumping after death/end
+            if (gameState.isDead || gameState.gameEnded || gameState.isRestarting) return
+            startJump(nextPosition)
+          }, Math.max(0, delay))
         }
       }
       
@@ -200,10 +218,10 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
       const willCrash = typeof moveData.willCrash === 'boolean' ? moveData.willCrash : !moveData.canMove;
       const destinationLane = nextPosition
       
-      // SIMPLE CLEAN APPROACH:
+      // Revised approach:
       // 1. Block lane IMMEDIATELY - no new spawns
-      // 2. Wait for ANY visible cars to finish NATURALLY (no clearing!)
-      // 3. Jump only when lane is 100% empty
+      // 2. If car present, optionally boost it and wait a short configured time
+      // 3. Jump after the short wait instead of waiting for full clear
       
       
       // Lane.jsx effect will block the lane automatically when isValidatingNext becomes true
@@ -226,49 +244,23 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
           
           performJump(willCrash)
         } else {
-          if (willCrash) {
-            // CRASH LANE: Boost car to exit quickly, then wait for complete exit before crash car spawns
-            const car = realCars[0]
-            
-            // Calculate car progress to decide if we should boost
-            const now = Date.now()
-            const elapsed = now - car.startTime
-            const duration = car.animationDuration || 2000
-            const progress = Math.min(1, elapsed / duration)
-            
-            // BOOST LOGIC: Only boost slow cars, skip if already close to exit
-            const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
-            if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-              
-              engine.boostCarSpeed(destinationLane, car.id)
-            } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-              
-            }
-            
-            // Keep polling until lane is empty
-            setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
-          } else {
-            // SAFE LANE: Boost car to exit quickly if needed
-            const car = realCars[0]
-            
-            // Calculate car progress to decide if we should boost
-            const now = Date.now()
-            const elapsed = now - car.startTime
-            const duration = car.animationDuration || 2000
-            const progress = Math.min(1, elapsed / duration)
-            
-            // BOOST LOGIC: Only boost slow cars, skip if already close to exit
-            const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
-            if (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function') {
-              
-              engine.boostCarSpeed(destinationLane, car.id)
-            } else if (progress >= MIN_PROGRESS_TO_SKIP_BOOST) {
-              
-            }
-            
-            // Keep polling - the car will complete and be removed from lane
-            setTimeout(() => waitForLaneEmpty(), POLL_INTERVAL)
+          const car = realCars[0]
+          const now = Date.now()
+          const elapsed = now - car.startTime
+          const duration = car.animationDuration || 2000
+          const progress = Math.min(1, elapsed / duration)
+          const MIN_PROGRESS_TO_SKIP_BOOST = GAME_CONFIG.JUMP_VALIDATION?.MIN_PROGRESS_TO_SKIP_BOOST ?? 0.65
+          const boosted = (progress < MIN_PROGRESS_TO_SKIP_BOOST && !car.shouldAccelerateOut && typeof engine?.boostCarSpeed === 'function')
+          if (boosted) {
+            engine.boostCarSpeed(destinationLane, car.id)
           }
+          const delay = GAME_CONFIG.JUMP_VALIDATION?.JUMP_WAIT_AFTER_BOOST_MS ?? 350
+          if (timersRef.current.jump) clearTimeout(timersRef.current.jump)
+          timersRef.current.jump = setTimeout(() => {
+            // Guard against jumping after death/end
+            if (gameState.isDead || gameState.gameEnded || gameState.isRestarting) return
+            performJump(willCrash)
+          }, Math.max(0, delay))
         }
       }
       
@@ -363,6 +355,17 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
   const resetGame = useCallback(() => {
     
     gameState.resetGameState()
+    // Clear any pending timers on reset
+    try {
+      if (timersRef.current.poll) {
+        clearTimeout(timersRef.current.poll)
+        timersRef.current.poll = null
+      }
+      if (timersRef.current.jump) {
+        clearTimeout(timersRef.current.jump)
+        timersRef.current.jump = null
+      }
+    } catch {}
   }, [gameState]);
 
   return {

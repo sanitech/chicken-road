@@ -12,6 +12,9 @@ import Switch from 'react-switch'
 import { Howl, Howler } from 'howler'
 import logoImage from '../assets/logo.png'
 import deadChickenImage from '../assets/chickendead.png'
+import oddsBottomImage from '../assets/oddsbottom.png'
+import chickenGif from '../assets/chichen.gif'
+import chickenJumpGif from '../assets/chickenJump.gif'
 import winNotificationImage from '../assets/winNotification.aba8bdcf.png'
 import finalSideRoadImage from '../assets/final.png'
 import backgroundMusic from '../assets/audio/ChickenRoadClient.webm'
@@ -286,6 +289,7 @@ function Chicken() {
 
   // Game creation state
   const [isCreatingGame, setIsCreatingGame] = useState(false) // Loading state for game creation
+  const [assetsReady, setAssetsReady] = useState(false) // Ensure UI assets preloaded before starting
   const [gameError, setGameError] = useState(null) // Game-related errors
   const restartGuardRef = useRef(false) // prevent double scheduling of restart
 
@@ -539,24 +543,34 @@ function Chicken() {
     }
   }, [])
 
-  // Preload commonly used images to reduce stutter
+  // Preload commonly used images to reduce stutter, then mark assets ready
   useEffect(() => {
-    preloadImages([
-      cap1Image,
-      cap2Image,
-      blockerImage,
-      sideRoadImage,
-      finalSideRoadImage,
-      car1,
-      car2,
-      car3,
-      car4,
-      car5,
-      car6,
-      logoImage,
-      winNotificationImage,
-      deadChickenImage
-    ])
+    const run = async () => {
+      try {
+        await preloadImages([
+          cap1Image,
+          cap2Image,
+          blockerImage,
+          sideRoadImage,
+          finalSideRoadImage,
+          car1,
+          car2,
+          car3,
+          car4,
+          car5,
+          car6,
+          logoImage,
+          winNotificationImage,
+          deadChickenImage,
+          oddsBottomImage,
+          chickenGif,
+          chickenJumpGif
+        ])
+      } finally {
+        setAssetsReady(true)
+      }
+    }
+    run()
   }, [])
 
   // Update audio settings when states change
@@ -653,8 +667,6 @@ function Chicken() {
 
       // Close any open dropdowns
       setShowDifficultyDropdown(false);
-
-      
 
       // Create game via WebSocket for speed
       const gameData = await socketGameAPI.createGame({
@@ -792,7 +804,7 @@ function Chicken() {
               </>
             ) : (
               <>
-                <div className="w-16 h-4 rounded animate-pulse" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
+                  <div className="w-16 h-4 rounded animate-pulse" style={{ backgroundColor: GAME_CONFIG.COLORS.TERTIARY_TEXT }}></div>
                 <span className="text-xs" style={{ color: GAME_CONFIG.COLORS.SECONDARY_TEXT }}>ETB</span>
               </>
             )}
@@ -812,7 +824,8 @@ function Chicken() {
 
       {/* Full-Screen Game Container */}
         <div ref={gameContainerRef} className="grow relative  w-full h-[58%] overflow-hidden" style={{ backgroundColor: GAME_CONFIG.COLORS.ELEVATED }}>
-        <TrafficProvider laneCount={allLanes.length} carSprites={[car1, car2, car3, car4, car5, car6]}>
+        <TrafficProvider laneCount={assetsReady ? allLanes.length : 0} carSprites={[car1, car2, car3, car4, car5, car6]}>
+              {assetsReady && (
               <Lane
             key={resetKey}
             remainingMultipliers={allLanes} // render all multipliers
@@ -833,7 +846,7 @@ function Chicken() {
             onCarBlockedStop={handleCarBlockedStop}
             crashVisualLane={crashVisual.lane}
             crashVisualTick={crashVisual.tick}
-          />
+              />)}
         </TrafficProvider>
 
         {/* Game Error Overlay */}
@@ -1017,21 +1030,21 @@ function Chicken() {
                   <div className="w-full lg:w-48">
                     <button
                       onClick={startNewGame}
-                      disabled={!userInfo || (userInfo.balance < betAmount) || isCreatingGame || isJumping}
+                      disabled={!assetsReady || !userInfo || (userInfo.balance < betAmount) || isCreatingGame || isJumping}
                       className={`w-full h-[100px] font-bold px-8 rounded-xl text-xl transition-all duration-200 ${(!userInfo || (userInfo.balance < betAmount))
                         ? 'opacity-50 cursor-not-allowed'
                         : 'active:scale-95 text-white shadow-lg'
                         }`}
                       style={{
-                        backgroundColor: (!userInfo || (userInfo.balance < betAmount))
+                        backgroundColor: (!assetsReady || !userInfo || (userInfo.balance < betAmount))
                           ? GAME_CONFIG.COLORS.TERTIARY_TEXT
                           : GAME_CONFIG.COLORS.PLAY_BUTTON,
-                        opacity: (isCreatingGame || isJumping) ? 0.7 : 1,
-                        cursor: (isCreatingGame || isJumping) ? 'not-allowed' : 'pointer'
+                        opacity: (!assetsReady || isCreatingGame || isJumping) ? 0.7 : 1,
+                        cursor: (!assetsReady || isCreatingGame || isJumping) ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      {isCreatingGame ? 'Creating...' : isJumping ? 'Play' :
-                        !userInfo ? 'Loading...' :
+                      {!assetsReady ? 'Loading assets…' : isCreatingGame ? 'Creating...' : isJumping ? 'Play' :
+                        !userInfo ? 'Loading user…' :
                           (userInfo.balance < betAmount) ? 'Insufficient Balance' : 'Play'}
                     </button>
                   </div> 

@@ -185,7 +185,7 @@ export const GAME_CONFIG = {
     // 1.0 = unchanged, <1.0 = faster (shorter durations), >1.0 = slower (longer durations)
     // Example: 1.15 => all cars take 15% longer to travel (appear slower)
     //          0.85 => all cars take 15% less time (appear faster)
-    SPEED_MULTIPLIER: 0.8,
+    SPEED_MULTIPLIER: 0.6,
   },
 
   // Traffic spawning model (when new cars appear)
@@ -253,7 +253,7 @@ export const GAME_CONFIG = {
     // Delay after jump before showing dead chicken sprite (ms)
     // Should be: JUMP.DURATION_MS + time for crash car to reach chicken position
     // Example: 350ms jump + 450ms car travel = 800ms total
-    IMPACT_DELAY_MS: 1000,
+    IMPACT_DELAY_MS: 800,
   },
 
   // Jump validation - wait for lane to be empty before jumping
@@ -265,6 +265,9 @@ export const GAME_CONFIG = {
     // When chicken clicks GO, boost any waiting car to exit in this duration (milliseconds)
     // Lower = faster exit, less waiting. 700ms = very fast, 1000ms = moderate
     BOOST_DURATION_MS: 700,
+    // New: After issuing a boost (if applicable), wait this long then jump regardless of residual cars
+    // This avoids waiting for the car to fully finish exiting the lane
+    JUMP_WAIT_AFTER_BOOST_MS: 200,
     // If car is already past this progress (0.0-1.0), skip boost and jump immediately
     // 0.65 = 65% done, close enough to just wait naturally. Lower = boost more aggressively
     MIN_PROGRESS_TO_SKIP_BOOST: 0.65,
