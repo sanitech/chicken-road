@@ -208,7 +208,8 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
     }
     
     // Server expects current position in its numbering (lane1=0). Client uses lane1=1
-    const serverLaneIndex = mapClientToServerLane(preIndex);
+    // const serverLaneIndex = mapClientToServerLane(preIndex);
+    const serverLaneIndex = gameState.currentLaneIndex+1
     
 
     // Validate first; only animate if server allows

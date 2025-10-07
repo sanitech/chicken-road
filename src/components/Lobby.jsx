@@ -292,6 +292,7 @@ function Chicken() {
   const [assetsReady, setAssetsReady] = useState(false) // Ensure UI assets preloaded before starting
   const [gameError, setGameError] = useState(null) // Game-related errors
   const restartGuardRef = useRef(false) // prevent double scheduling of restart
+  const [isCashingOut, setIsCashingOut] = useState(false) // Prevent multiple credit requests
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -599,7 +600,9 @@ function Chicken() {
       setGameError('Please login to cash out (missing token)')
       return
     }
+    if (isCashingOut) return
     try {
+      setIsCashingOut(true)
       const cashOutData = await handleCashOut(tok)
       if (cashOutData) {
         // Optimistically add winnings to displayed balance; refetch will confirm
@@ -617,6 +620,8 @@ function Chicken() {
     } catch (error) {
       console.error('Cash out failed:', error);
       setGameError(error.message || 'Failed to cash out');
+    } finally {
+      setIsCashingOut(false)
     }
   }
 
@@ -1054,11 +1059,11 @@ function Chicken() {
                     {/* Cash Out Button */}
               <button 
                       onClick={handleCashOutWithToken}
-                      disabled={isValidatingNext || isJumping}
+                      disabled={isValidatingNext || isJumping || isCashingOut}
                       className="w-full h-[100px] font-bold rounded-xl text-lg transition-all duration-200 active:scale-95 text-black shadow-lg hover:opacity-90"
                       style={{
                         backgroundColor: GAME_CONFIG.COLORS.CASHOUT_BUTTON,
-                        opacity: isValidatingNext || isJumping ? 0.7 : 1
+                        opacity: (isValidatingNext || isJumping || isCashingOut) ? 0.7 : 1
                       }}
                     >
                       <div className="text-center">
