@@ -1,4 +1,4 @@
-import { apiUrl } from './apiUrl';
+import { apiUrl, buildHeaders } from './apiUrl';
 
 export const gameApi = {
   /**
@@ -9,18 +9,16 @@ export const gameApi = {
    * @param {number} gameData.betAmount - Bet amount in birr
    * @param {string} gameData.creatorChatId - Player's chat ID
    * @param {string} token - JWT authentication token
+   * @param {string} tenantId - Tenant ID (only for multi-bot mode)
    * @returns {Promise<Object>} Game creation response
    */
-  createGame: async (gameData, token) => {
+  createGame: async (gameData, token, tenantId = null) => {
     try {
       console.log("Creating game with data:", gameData);
       
       const response = await fetch(`${apiUrl}/api/games/chicken/create`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: buildHeaders(token, tenantId), // Use header helper with tenantId
         body: JSON.stringify(gameData)
       });
 
@@ -43,9 +41,10 @@ export const gameApi = {
    * @param {string} gameId - Game ID
    * @param {number} currentLane - Current lane index
    * @param {string} token - JWT authentication token
+   * @param {string} tenantId - Tenant ID (only for multi-bot mode)
    * @returns {Promise<Object>} Can move response
    */
-  canMove: async (gameId, currentLane, token) => {
+  canMove: async (gameId, currentLane, token, tenantId = null) => {
     try {
       console.log("Checking can move:", { gameId, currentLane });
 
@@ -57,10 +56,7 @@ export const gameApi = {
 
       const response = await fetch(`${apiUrl}/api/games/chicken/canMove?${queryParams}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers: buildHeaders(token, tenantId) // Use header helper with tenantId
       });
 
       const data = await response.json();
@@ -82,18 +78,16 @@ export const gameApi = {
    * @param {string} gameId - Game ID
    * @param {number} currentLane - Current lane to cash out from
    * @param {string} token - JWT authentication token
+   * @param {string} tenantId - Tenant ID (only for multi-bot mode)
    * @returns {Promise<Object>} Cash out response
    */
-  cashOut: async (gameId, currentLane, token) => {
+  cashOut: async (gameId, currentLane, token, tenantId = null) => {
     try {
       console.log("Cashing out:", { gameId, currentLane });
 
       const response = await fetch(`${apiUrl}/api/games/chicken/cashOut`, {
         method: 'POST', 
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: buildHeaders(token, tenantId), // Use header helper with tenantId
         body: JSON.stringify({ gameId, currentLane })
       });
 

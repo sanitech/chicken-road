@@ -6,6 +6,7 @@ import socketGameAPI from '../utils/socketApi'
 import { useAudioManager } from '../hooks/useAudioManager'
 import { useGameState } from '../hooks/useGameState'
 import { useGameLogic } from '../hooks/useGameLogic'
+import ENV_CONFIG from '../utils/envConfig'
 import { FaCoins, FaCog } from 'react-icons/fa'
 import Switch from 'react-switch'
 import { Howl, Howler } from 'howler'
@@ -162,9 +163,9 @@ const DIFFICULTY_CONFIGS = {
     startingMultiplier: 1.01,
     maxMultiplier: 100,
     multipliers: [
-      1.01, 1.03, 1.06, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40,
-      1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90,
-      1.95, 2.00, 2.10, 2.20, 2.30, 2.40, 2.50, 2.60, 2.70, 2.80
+      1.01, 1.03, 1.06, 1.10, 1.15, 1.19, 1.24, 1.30, 1.35, 1.42,
+      1.48, 1.56, 1.65, 1.75, 1.85, 1.98, 2.12, 2.28, 2.47, 2.70,
+      2.96, 3.28, 3.70, 4.11, 4.64, 5.39, 6.50, 8.36, 12.08, 23.24
     ]
   },
   medium: {
@@ -173,9 +174,8 @@ const DIFFICULTY_CONFIGS = {
     startingMultiplier: 1.08,
     maxMultiplier: 500,
     multipliers: [
-      1.08, 1.12, 1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85,
-      1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85,
-      3.00, 3.20, 3.40, 3.60, 3.80
+      1.08, 1.21, 1.37, 1.56, 1.78, 2.05, 2.37, 2.77, 3.24, 3.85, 4.62,
+      5.61, 6.91, 8.64, 10.99, 14.29, 18.96, 26.07, 37.24, 53.82, 82.36, 137.59, 265.35, 638.82, 2457.00
     ]
   },
   hard: {
@@ -184,9 +184,8 @@ const DIFFICULTY_CONFIGS = {
     startingMultiplier: 1.18,
     maxMultiplier: 1000,
     multipliers: [
-      1.18, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05,
-      2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 3.00, 3.20,
-      3.40, 3.60
+      1.18, 1.46, 1.83, 2.31, 2.95, 3.82, 5.02, 6.66, 9.04, 12.52,
+      17.74, 25.80, 38.71, 60.21, 97.34, 166.87, 305.94, 595.86, 1283.03, 3267.64, 10898.54, 62162.09
     ]
   },
   extreme: {
@@ -195,14 +194,15 @@ const DIFFICULTY_CONFIGS = {
     startingMultiplier: 1.44,
     maxMultiplier: 3608855,
     multipliers: [
-      1.44, 1.55, 1.68, 1.82, 1.98, 2.15, 2.35, 2.58, 2.84, 3.15,
-      3.50, 3.90, 4.35, 4.85, 5.40, 6.00, 6.70, 7.50
+      1.44, 2.21, 3.45, 5.53, 9.09, 15.30, 26.78, 48.70, 92.54, 185.08,
+      391.25, 893.22, 2235.72, 6096.15, 18960.33, 72432.75, 379632.82, 3608855.25
     ]
   }
 }
  
 function Chicken() {
   const [token, setToken] = useState(null)
+  const [tenantId, setTenantId] = useState(null) // Store tenantId for multi-bot mode
   const [gameState, setGameState] = useState({
     balance: 0,
     betAmount: 0.5,
@@ -292,17 +292,17 @@ function Chicken() {
   // Initialize WebSocket connection
   useEffect(() => {
     if (token) {
-      socketGameAPI.connect(token);
+      socketGameAPI.connect(token, tenantId); // Pass tenantId
     }
 
     return () => {
       socketGameAPI.disconnect();
     };
-  }, [token]);
+  }, [token, tenantId]);
 
   // Initialize audio manager and game logic hooks
   const audioManager = useAudioManager(soundEnabled, musicEnabled)
-  const gameLogic = useGameLogic(gameStateHook, audioManager.audioManager)
+  const gameLogic = useGameLogic(gameStateHook, audioManager.audioManager, tenantId) // Pass tenantId
 
   // Initialize lanes based on difficulty
   useEffect(() => {
@@ -312,11 +312,12 @@ function Chicken() {
 
   // Traffic is managed by TrafficProvider; no direct init here to avoid double-control
 
-  // Token handling and user info
+  // Token and tenantId handling
   useEffect(() => {
-    // Extract token from URL parameters
+    // Extract token and tenantId from URL parameters
     const params = new URLSearchParams(window.location.search)
     const newToken = params.get("token")
+    const newTenantId = params.get("tenantId")
 
     // Store token in localStorage
     if (newToken) {
@@ -329,6 +330,20 @@ function Chicken() {
         setToken(storedToken)
       }
     }
+
+    // Store tenantId if multi-bot mode
+    if (ENV_CONFIG.isMultiBot) {
+      if (newTenantId) {
+        localStorage.setItem("tenantId", newTenantId)
+        setTenantId(newTenantId)
+      } else {
+        // Get tenantId from localStorage if not in URL
+        const storedTenantId = localStorage.getItem("tenantId")
+        if (storedTenantId) {
+          setTenantId(storedTenantId)
+        }
+      }
+    }
   }, [])
 
   // Predictive blocker: ask server if the next lane is allowed; if not, show blocker there
@@ -337,7 +352,7 @@ function Chicken() {
     setBlockedNextLane(false)
   }, [currentLaneIndex])
 
-  const { userInfo, isLoading: userLoading, error: userError, refetch } = useGetUserInfo(token)
+  const { userInfo, isLoading: userLoading, error: userError, refetch } = useGetUserInfo(token, tenantId) // Pass tenantId
   // Realtime/optimistic balance display synced with server when refetch completes
   const [displayBalance, setDisplayBalance] = useState(0)
 
@@ -647,7 +662,7 @@ function Chicken() {
         difficulty: currentDifficulty,
         betAmount: betAmount,
         creatorChatId: userInfo.chatId
-      }, token);
+      }, token, tenantId); // Pass tenantId
 
       
 

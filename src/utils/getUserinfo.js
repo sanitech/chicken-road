@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import {apiUrl} from "./apiUrl";
+import { apiUrl, buildHeaders } from "./apiUrl";
 
-export const useGetUserInfo = (chickenToken) => {
+export const useGetUserInfo = (chickenToken, tenantId = null) => {
   const [userInfo, setUserInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,10 +21,7 @@ export const useGetUserInfo = (chickenToken) => {
 
       const response = await fetch(`${apiUrl}/api/userinfo/profile`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${chickenToken}`
-        }
+        headers: buildHeaders(chickenToken, tenantId) // Use buildHeaders with tenantId
       });
 
       console.log("API Response status:", response.status);
@@ -39,7 +36,7 @@ export const useGetUserInfo = (chickenToken) => {
         }
       }
 
-      const userData = await response.json();
+      const {userData} = await response.json();
       console.log("User data received:", userData);
 
       // Only use real data from backend - no dummy data
@@ -63,7 +60,7 @@ export const useGetUserInfo = (chickenToken) => {
       setIsLoading(false);
       setUserInfo(null); // Clear any existing user info on error
     }
-  }, [chickenToken]);
+  }, [chickenToken, tenantId]);
 
   useEffect(() => {
     fetchUserInfo();

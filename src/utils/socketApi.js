@@ -1,28 +1,43 @@
 import { io } from 'socket.io-client';
 import { apiUrl } from './apiUrl';
+import ENV_CONFIG from './envConfig';
 
 class SocketGameAPI {
   constructor() {
     this.socket = null;
     this.gameId = null;
+    this.tenantId = null; // Store tenantId for multi-bot mode
     this.moveCallbacks = new Map();
     this.isConnected = false;
     this.connectPromise = null;
   }
 
   // Connect to WebSocket server
-  connect(token) {
+  connect(token, tenantId = null) {
     if (this.socket) return;
 
     // Get token from localStorage if not provided
     const authToken = token || localStorage.getItem("chicknroad");
     
+    // Store tenantId for multi-bot mode
+    if (ENV_CONFIG.isMultiBot && tenantId) {
+      this.tenantId = tenantId;
+    }
+    
+    // Build auth payload based on mode
+    const authPayload = {
+      token: authToken
+    };
+    
+    // Add tenantId to auth for multi-bot mode (backend can extract from handshake)
+    if (ENV_CONFIG.isMultiBot && tenantId) {
+      authPayload.tenantId = tenantId;
+    }
+    
     this.socket = io(apiUrl, {
       transports: ['websocket', 'polling'],
       timeout: 5000,
-      auth: {
-        token: authToken
-      }
+      auth: authPayload
     });
 
     this.socket.on('connect', () => {
@@ -61,8 +76,8 @@ class SocketGameAPI {
   }
 
   // Create a new game via WebSocket
-  async createGame(gameData, token) {
-    await this.ensureConnected(token);
+  async createGame(gameData, token, tenantId = null) {
+    await this.ensureConnected(token, tenantId);
     return new Promise((resolve, reject) => {
       const onResult = (result) => {
         this.socket.off('createGameResult', onResult);
@@ -74,7 +89,17 @@ class SocketGameAPI {
       };
 
       this.socket.on('createGameResult', onResult);
-      this.socket.emit('createGame', { ...gameData, token });
+      
+      // Build payload - token in payload, tenantId stored in socket connection
+      const payload = { ...gameData, token };
+      
+      // tenantId is already in auth handshake, backend can extract from socket
+      // But we can also send it in payload for clarity
+      if (ENV_CONFIG.isMultiBot && (tenantId || this.tenantId)) {
+        payload.tenantId = tenantId || this.tenantId;
+      }
+      
+      this.socket.emit('createGame', payload);
 
       setTimeout(() => {
         this.socket.off('createGameResult', onResult);
@@ -89,6 +114,7 @@ class SocketGameAPI {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
+      this.tenantId = null;
     }
   }
 
@@ -117,9 +143,9 @@ class SocketGameAPI {
   }
 
   // Ensure connected (calls connect if needed) and waits
-  async ensureConnected(token) {
+  async ensureConnected(token, tenantId = null) {
     if (!this.socket) {
-      this.connect(token);
+      this.connect(token, tenantId);
     }
     if (!this.isSocketConnected()) {
       await this.waitForConnection();
@@ -127,8 +153,8 @@ class SocketGameAPI {
   }
 
   // Validate move with WebSocket (instant response)
-  async validateMove(gameId, currentLane, token) {
-    await this.ensureConnected(token);
+  async validateMove(gameId, currentLane, token, tenantId = null) {
+    await this.ensureConnected(token, tenantId);
     return new Promise((resolve, reject) => {
 
       // Translate client lane (side road = 0, first lane = 1) to server zero-based (first lane = 0)
@@ -147,12 +173,20 @@ class SocketGameAPI {
         resolve(result);
       });
 
-      // Send move validation request with token
-      this.socket.emit('validateMove', {
+      // Build payload
+      const payload = {
         gameId,
         currentLane: serverLane,
         token
-      });
+      };
+      
+      // tenantId already in socket auth, but send for clarity
+      if (ENV_CONFIG.isMultiBot && (tenantId || this.tenantId)) {
+        payload.tenantId = tenantId || this.tenantId;
+      }
+
+      // Send move validation request
+      this.socket.emit('validateMove', payload);
 
       // Timeout after 5 seconds
       setTimeout(() => {
@@ -165,8 +199,8 @@ class SocketGameAPI {
   }
 
   // Cash out with WebSocket (instant response)
-  async cashOut(gameId, currentLane, token) {
-    await this.ensureConnected(token);
+  async cashOut(gameId, currentLane, token, tenantId = null) {
+    await this.ensureConnected(token, tenantId);
     return new Promise((resolve, reject) => {
 
       // Store callback for cash out
@@ -181,13 +215,21 @@ class SocketGameAPI {
       // Listen for cash out result
       this.socket.once('cashOutResult', cashOutCallback);
 
-      // Send cash out request with token
-      this.socket.emit('cashOut', {
+      // Build payload
+      const payload = {
         gameId,
         // Translate to server zero-based lanes
         currentLane: (typeof currentLane === 'number') ? (currentLane - 1) : currentLane,
         token
-      });
+      };
+      
+      // tenantId already in socket auth, but send for clarity
+      if (ENV_CONFIG.isMultiBot && (tenantId || this.tenantId)) {
+        payload.tenantId = tenantId || this.tenantId;
+      }
+
+      // Send cash out request
+      this.socket.emit('cashOut', payload);
 
       // Timeout after 5 seconds
       setTimeout(() => {
@@ -198,7 +240,7 @@ class SocketGameAPI {
   }
 
   // Retry wrapper for validateMove with simple exponential backoff
-  async validateMoveWithRetry(gameId, currentLane, token, options = {}) {
+  async validateMoveWithRetry(gameId, currentLane, token, tenantId = null, options = {}) {
     const {
       retries = 3,
       initialDelayMs = 300,
@@ -210,7 +252,7 @@ class SocketGameAPI {
     
     while (true) {
       try {
-        return await this.validateMove(gameId, currentLane, token);
+        return await this.validateMove(gameId, currentLane, token, tenantId);
       } catch (err) {
         attempt += 1;
         if (attempt > retries) throw err;
@@ -221,7 +263,7 @@ class SocketGameAPI {
   }
 
   // Retry wrapper for cashOut with exponential backoff on transport/timeouts
-  async cashOutWithRetry(gameId, currentLane, token, options = {}) {
+  async cashOutWithRetry(gameId, currentLane, token, tenantId = null, options = {}) {
     const {
       retries = 3,
       initialDelayMs = 300,
@@ -233,7 +275,7 @@ class SocketGameAPI {
     
     while (true) {
       try {
-        return await this.cashOut(gameId, currentLane, token);
+        return await this.cashOut(gameId, currentLane, token, tenantId);
       } catch (err) {
         attempt += 1;
         if (attempt > retries) throw err;

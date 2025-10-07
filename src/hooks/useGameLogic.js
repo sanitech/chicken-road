@@ -7,7 +7,7 @@ import socketGameAPI from '../utils/socketApi'
  * Custom hook for game logic operations
  * Handles core game mechanics like jumping, crashing, and validation
  */
-export const useGameLogic = (gameState, audioManager) => {
+export const useGameLogic = (gameState, audioManager, tenantId = null) => {
   const restartGuardRef = useRef(false)
 
   // Physics-based jump function
@@ -191,6 +191,7 @@ export const useGameLogic = (gameState, audioManager) => {
         gameState.currentGameId,
         serverLaneIndex,
         token,
+        tenantId, // Pass tenantId
         { retries: 2, initialDelayMs: 300, backoffFactor: 2 }
       );
       
@@ -318,6 +319,7 @@ export const useGameLogic = (gameState, audioManager) => {
           gameState.currentGameId,
           gameState.currentLaneIndex,
           token,
+          tenantId, // Pass tenantId
           { retries: 2, initialDelayMs: 300, backoffFactor: 2 }
         );
         
