@@ -11,6 +11,16 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
   const restartGuardRef = useRef(false)
   const timersRef = useRef({ jump: null, poll: null })
 
+  // Centralized lane index mapping between client (sidewalk=0, lane1=1) and server (lane1=0)
+  const mapClientToServerLane = (clientLaneIndex) => {
+    // Sidewalk (0) -> -1 on server context for "before first lane" when needed
+    // For serverLaneIndex in move validation we want the current lane in server numbering
+    return Math.max(-1, (clientLaneIndex ?? 0) - 1)
+  }
+  const mapServerToClientLane = (serverLaneIndex) => {
+    return (serverLaneIndex ?? -1) + 1
+  }
+
   // Physics-based jump function
   const startJump = useCallback((targetLane) => {
     if (gameState.isJumping) return
@@ -197,7 +207,8 @@ export const useGameLogic = (gameState, audioManager, tenantId = null) => {
       return;
     }
     
-    const serverLaneIndex = preIndex;
+    // Server expects current position in its numbering (lane1=0). Client uses lane1=1
+    const serverLaneIndex = mapClientToServerLane(preIndex);
     
 
     // Validate first; only animate if server allows

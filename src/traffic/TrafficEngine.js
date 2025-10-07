@@ -22,6 +22,7 @@ export class TrafficEngine {
     this.noOverlapStrict = false
     this.blockedLanes = new Set() // lanes where regular spawns are suppressed
     this.blockerByLane = new Map() // Map<laneIndex, carId> of the active blocker car
+    this.blockedSpawnTimers = new Map() // Map<laneIndex, number> delayed showcase timers
   }
 
   init({ laneCount, cfg, carSprites }) {
@@ -86,6 +87,7 @@ export class TrafficEngine {
   // STRICT RULE: Cancel pending timers to prevent race conditions
   setLaneBlocked(laneIndex, isBlocked) {
     if (isBlocked) {
+      const wasBlocked = this.blockedLanes.has(laneIndex)
       this.blockedLanes.add(laneIndex)
       
       // Cancel all pending spawn timers for this lane to prevent race conditions
@@ -100,9 +102,29 @@ export class TrafficEngine {
       // DO NOT remove existing cars - let them finish their animation naturally
       // The blocking only prevents NEW spawns
       console.log(`[TrafficEngine] Lane ${laneIndex} blocked - canceled pending timers, existing cars will finish naturally`)
+
+      // On first transition to blocked, schedule a short delayed attempt to spawn a showcase blocker
+      // This delay avoids spawning on crash lanes where we jump/unblock quickly
+      if (!wasBlocked) {
+        const dwellMs = 120
+        const key = `blocked-spawn-${laneIndex}`
+        if (this.blockedSpawnTimers.has(laneIndex)) {
+          clearTimeout(this.blockedSpawnTimers.get(laneIndex))
+        }
+        const t = setTimeout(() => {
+          this.blockedSpawnTimers.delete(laneIndex)
+          try { this.maybeSpawnBlockedShowcase(laneIndex) } catch {}
+        }, dwellMs)
+        this.blockedSpawnTimers.set(laneIndex, t)
+      }
     } else {
       this.blockedLanes.delete(laneIndex)
       this.blockerByLane.delete(laneIndex)
+      // Cancel any pending delayed showcase spawn
+      if (this.blockedSpawnTimers.has(laneIndex)) {
+        clearTimeout(this.blockedSpawnTimers.get(laneIndex))
+        this.blockedSpawnTimers.delete(laneIndex)
+      }
       
       // Restart spawn cycle for this lane after unblocking
       this._reschedule(laneIndex)
@@ -346,6 +368,8 @@ export class TrafficEngine {
     // NEW: Check if lane has ANY active cars before spawning
     const arr = this.cars.get(laneIndex) || []
     const activeCars = arr.filter(c => !c.done)
+    // Never spawn on crash lanes
+    if (arr.some(c => c.isCrashLane)) return
     if (activeCars.length > 0) {
       console.log(`[TrafficEngine] Lane ${laneIndex} has ${activeCars.length} active car(s), skipping showcase blocker spawn`)
       return // Don't spawn if lane is occupied
