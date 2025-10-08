@@ -670,6 +670,18 @@ function Chicken() {
             e
           );
         }
+
+        // Notify parent window (Game Lobby) about wallet change
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'wallet:changed',
+            reason: 'credit',
+            game: 'chicken',
+            amount: cashOutData.winAmount,
+            gameId: currentGameId
+          }, '*');
+          console.log('📤 Notified parent window about wallet credit');
+        }
       }
     } catch (error) {
       console.error("Cash out failed:", error);
@@ -752,6 +764,18 @@ function Chicken() {
       // Optimistically reflect the debit locally; server will confirm on next refetch
       if (typeof userInfo?.balance === "number") {
         setDisplayBalance((prev) => Math.max(0, userInfo.balance - betAmount));
+      }
+
+      // Notify parent window (Game Lobby) about wallet change
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'wallet:changed',
+          reason: 'debit',
+          game: 'chicken',
+          amount: betAmount,
+          gameId: gameData.gameId
+        }, '*');
+        console.log('📤 Notified parent window about wallet debit');
       }
 
       // Silent refetch to sync with wallet backend after debit
